@@ -12,9 +12,9 @@ THUMBNAIL_WIDTH = 400
 FULL_WIDTH = 1920
 QUALITY = 85
 
-def auto_crop_gray_border(img, padding=5, bg_tolerance=8):
+def auto_crop_gray_border(img, padding=0, bg_tolerance=3, aggressive=False):
     """
-    Обрезает серые/белые поля сканирования методом поиска резких перепадов яркости.
+    Агрессивно обрезает серые/белые поля сканирования.
     """
     import numpy as np
     
@@ -23,82 +23,134 @@ def auto_crop_gray_border(img, padding=5, bg_tolerance=8):
     if img.mode != 'RGB':
         img = img.convert('RGB')
     
-    # Конвертируем в grayscale numpy array
-    img_array = np.array(img.convert('L'))  # L = grayscale
+    # Конвертируем в grayscale
+    img_array = np.array(img.convert('L'))
     h, w = img_array.shape
     
-    def find_edge_from_side(arr, axis, reverse=False):
-        """
-        Ищет границу сканируя с края.
-        Сравнивает среднюю яркость полос и находит резкое изменение.
-        """
-        if axis == 0:  # Вертикально (для top/bottom)
-            size = arr.shape[0]
-            scan_slice = lambda i: arr[i, :]
-        else:  # Горизонтально (для left/right)
-            size = arr.shape[1]
-            scan_slice = lambda i: arr[:, i]
+    # Усредняем по полосам для стабильности
+    strip_height = max(20, h // 80)
+    strip_width = max(20, w // 80)
+    
+    tolerance = 2 if aggressive else bg_tolerance
+    
+    def find_edge_vertical(arr, from_top=True):
+        """Ищет вертикальную границу контента"""
+        rows = arr.shape[0]
+        start = 0 if from_top else rows - 1
+        end = rows // 2 if from_top else rows // 2 - 1
+        step = 1 if from_top else -1
         
-        if reverse:
-            indices = range(size - 1, size // 2, -1)
+        # Базовая яркость края (усредняем больше пикселей)
+        edge_size = min(100, rows // 8)
+        if from_top:
+            base_region = arr[:edge_size, :]
         else:
-            indices = range(0, size // 2)
+            base_region = arr[-edge_size:, :]
         
-        # Берём базовую яркость с края (первые 50 строк/столбцов)
-        edge_size = min(50, size // 10)
-        if reverse:
-            base_brightness = np.mean(arr[-edge_size:, :] if axis == 0 else arr[:, -edge_size:])
-        else:
-            base_brightness = np.mean(arr[:edge_size, :] if axis == 0 else arr[:, :edge_size])
+        base_brightness = np.mean(base_region)
+        base_std = np.std(base_region)
         
-        prev_brightness = base_brightness
-        
-        for i in indices:
-            strip = scan_slice(i)
-            brightness = np.mean(strip)
+        for y in range(start, end, step):
+            # Усредняем полосу
+            strip_end = min(y + strip_height, rows) if from_top else max(y - strip_height, 0)
+            if from_top:
+                strip = arr[y:strip_end, :]
+            else:
+                strip = arr[strip_end:y, :]
             
-            # Если резкое изменение яркости или разброс в полосе высокий
-            strip_std = np.std(strip)
-            brightness_diff = abs(brightness - base_brightness)
-            
-            # Условия начала контента:
-            # 1. Яркость сильно отличается от фона (> bg_tolerance)
-            # 2. ИЛИ высокий разброс в полосе (есть детали)
-            if brightness_diff > bg_tolerance or strip_std > bg_tolerance:
-                return i
-            
-            # Также проверяем градиент (разницу с предыдущей полосой)
-            if abs(brightness - prev_brightness) > bg_tolerance * 0.7:
-                return i
+            if strip.size == 0:
+                continue
                 
-            prev_brightness = brightness
+            brightness = np.mean(strip)
+            strip_std = np.std(strip)
+            
+            diff = abs(brightness - base_brightness)
+            
+            # Контент: резкое изменение ИЛИ высокий разброс
+            if diff > tolerance or strip_std > base_std * 1.2 + tolerance:
+                # Доп. проверка: смотрим следующие несколько полос
+                next_y = y + step * strip_height * 2 if from_top else y - step * strip_height * 2
+                if 0 <= next_y < rows - strip_height:
+                    next_strip = arr[next_y:next_y+strip_height, :] if from_top else arr[next_y-strip_height:next_y, :]
+                    next_brightness = np.mean(next_strip)
+                    if abs(next_brightness - base_brightness) > tolerance * 0.5:
+                        return y
         
-        return 0 if not reverse else size
+        return start
     
-    # Ищем границы
-    top = find_edge_from_side(img_array, axis=0, reverse=False)
-    bottom = find_edge_from_side(img_array, axis=0, reverse=True)
-    left = find_edge_from_side(img_array, axis=1, reverse=False)
-    right = find_edge_from_side(img_array, axis=1, reverse=True)
+    def find_edge_horizontal(arr, from_left=True):
+        """Ищет горизонтальную границу контента"""
+        cols = arr.shape[1]
+        start = 0 if from_left else cols - 1
+        end = cols // 2 if from_left else cols // 2 - 1
+        step = 1 if from_left else -1
+        
+        edge_size = min(100, cols // 8)
+        if from_left:
+            base_region = arr[:, :edge_size]
+        else:
+            base_region = arr[:, -edge_size:]
+        
+        base_brightness = np.mean(base_region)
+        base_std = np.std(base_region)
+        
+        for x in range(start, end, step):
+            strip_end = min(x + strip_width, cols) if from_left else max(x - strip_width, 0)
+            if from_left:
+                strip = arr[:, x:strip_end]
+            else:
+                strip = arr[:, strip_end:x]
+            
+            if strip.size == 0:
+                continue
+                
+            brightness = np.mean(strip)
+            strip_std = np.std(strip)
+            
+            diff = abs(brightness - base_brightness)
+            
+            if diff > tolerance or strip_std > base_std * 1.2 + tolerance:
+                next_x = x + step * strip_width * 2 if from_left else x - step * strip_width * 2
+                if 0 <= next_x < cols - strip_width:
+                    next_strip = arr[:, next_x:next_x+strip_width] if from_left else arr[:, next_x-strip_width:next_x]
+                    next_brightness = np.mean(next_strip)
+                    if abs(next_brightness - base_brightness) > tolerance * 0.5:
+                        return x
+        
+        return start
     
-    # Проверяем валидность
+    # Находим все границы
+    top = find_edge_vertical(img_array, from_top=True)
+    bottom = find_edge_vertical(img_array, from_top=False)
+    left = find_edge_horizontal(img_array, from_left=True)
+    right = find_edge_horizontal(img_array, from_left=False)
+    
     if right <= left or bottom <= top:
         return img
     
-    content_ratio = ((right - left) * (bottom - top)) / (w * h)
-    if content_ratio < 0.5 or content_ratio > 0.98:
+    content_w = right - left
+    content_h = bottom - top
+    content_ratio = (content_w * content_h) / (w * h)
+    
+    # Доп. обрезка в агрессивном режиме
+    if aggressive and content_ratio > 0.3:
+        safety = min(20, content_w // 50, content_h // 50)
+        left = min(left + safety, right - 100)
+        right = max(right - safety, left + 100)
+        top = min(top + safety, bottom - 100)
+        bottom = max(bottom - safety, top + 100)
+    
+    if content_ratio < 0.25 or content_ratio > 0.99:
         return img
     
-    # Добавляем отступ
     left = max(0, left - padding)
     top = max(0, top - padding)
     right = min(w, right + padding)
     bottom = min(h, bottom + padding)
     
-    # Обрезаем оригинал
     cropped = img.crop((left, top, right, bottom))
     
-    if (right - left, bottom - top) != original_size:
+    if (cropped.size[0], cropped.size[1]) != original_size:
         print(f"    [cropped {w}x{h} -> {cropped.size[0]}x{cropped.size[1]}]")
     
     return cropped
@@ -119,7 +171,7 @@ def compress_image(image_path, max_width, quality, auto_crop=True):
             
             # Обрезаем серые поля только для исходных файлов
             if auto_crop:
-                img = auto_crop_gray_border(img, padding=0, bg_tolerance=3)
+                img = auto_crop_gray_border(img, padding=0, bg_tolerance=2, aggressive=True)
             
             # Изменяем размер
             if img.width > max_width:
@@ -521,10 +573,11 @@ def generate_html(images_data):
             right: 0;
             bottom: 0;
             background: radial-gradient(ellipse at center, 
-                transparent 30%, 
-                rgba(13,13,18,0.4) 100%);
+                transparent 20%, 
+                rgba(13,13,18,0.6) 70%,
+                rgba(13,13,18,0.9) 100%);
             opacity: 1;
-            transition: opacity 1s ease;
+            transition: opacity 1.2s ease;
             pointer-events: none;
         }}
 
@@ -607,30 +660,46 @@ def generate_html(images_data):
             letter-spacing: 0.2em;
         }}
 
+        /* Moon-styled buttons */
         .close {{
             position: absolute;
             top: 40px;
             right: 50px;
-            width: 50px;
-            height: 50px;
+            width: 56px;
+            height: 56px;
             display: flex;
             align-items: center;
             justify-content: center;
-            color: rgba(232, 228, 220, 0.6);
-            font-size: 32px;
+            color: rgba(245, 243, 232, 0.7);
+            font-size: 28px;
             font-weight: 300;
             cursor: pointer;
             z-index: 1001;
-            transition: all 0.3s ease;
+            transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
             border-radius: 50%;
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: radial-gradient(circle at 35% 35%, 
+                rgba(255, 254, 245, 0.15) 0%, 
+                rgba(245, 243, 232, 0.08) 50%, 
+                rgba(232, 228, 213, 0.05) 100%);
+            border: 1px solid rgba(255, 250, 240, 0.15);
+            box-shadow: 
+                0 0 20px rgba(255, 250, 230, 0.1),
+                inset -5px -5px 15px rgba(200, 195, 180, 0.1);
+            text-shadow: 0 0 10px rgba(255, 250, 240, 0.3);
         }}
 
         .close:hover {{
-            color: rgba(255, 250, 240, 0.9);
-            background: rgba(255, 255, 255, 0.08);
-            transform: rotate(90deg);
+            color: rgba(255, 255, 250, 0.95);
+            background: radial-gradient(circle at 35% 35%, 
+                rgba(255, 254, 245, 0.25) 0%, 
+                rgba(245, 243, 232, 0.15) 50%, 
+                rgba(232, 228, 213, 0.08) 100%);
+            box-shadow: 
+                0 0 30px rgba(255, 250, 230, 0.2),
+                0 0 60px rgba(255, 250, 230, 0.1),
+                inset -5px -5px 15px rgba(200, 195, 180, 0.15);
+            transform: rotate(90deg) scale(1.05);
+            border-color: rgba(255, 250, 240, 0.25);
         }}
 
         .nav-buttons {{
@@ -645,27 +714,47 @@ def generate_html(images_data):
         }}
 
         .nav-btn {{
-            background: rgba(255, 255, 255, 0.03);
-            backdrop-filter: blur(10px);
-            color: rgba(232, 228, 220, 0.7);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            font-size: 24px;
-            cursor: pointer;
-            border-radius: 50%;
-            transition: all 0.4s ease;
-            width: 60px;
-            height: 60px;
+            width: 64px;
+            height: 64px;
             display: flex;
             align-items: center;
             justify-content: center;
+            background: radial-gradient(circle at 35% 35%, 
+                rgba(255, 254, 245, 0.12) 0%, 
+                rgba(245, 243, 232, 0.06) 50%, 
+                rgba(232, 228, 213, 0.04) 100%);
+            border: 1px solid rgba(255, 250, 240, 0.12);
+            border-radius: 50%;
+            color: rgba(245, 243, 232, 0.75);
+            font-size: 22px;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
             pointer-events: auto;
+            box-shadow: 
+                0 0 25px rgba(255, 250, 230, 0.08),
+                inset -4px -4px 12px rgba(200, 195, 180, 0.08);
+            text-shadow: 0 0 8px rgba(255, 250, 240, 0.25);
         }}
 
         .nav-btn:hover {{
-            background: rgba(255, 255, 255, 0.1);
-            border-color: rgba(255, 255, 255, 0.2);
-            color: rgba(255, 250, 240, 0.95);
-            transform: scale(1.1);
+            background: radial-gradient(circle at 35% 35%, 
+                rgba(255, 254, 245, 0.22) 0%, 
+                rgba(245, 243, 232, 0.12) 50%, 
+                rgba(232, 228, 213, 0.06) 100%);
+            border-color: rgba(255, 250, 240, 0.22);
+            color: rgba(255, 255, 250, 0.95);
+            box-shadow: 
+                0 0 40px rgba(255, 250, 230, 0.15),
+                0 0 80px rgba(255, 250, 230, 0.08),
+                inset -4px -4px 12px rgba(200, 195, 180, 0.12);
+            transform: scale(1.08);
+        }}
+
+        .nav-btn:active {{
+            transform: scale(0.98);
+            box-shadow: 
+                0 0 20px rgba(255, 250, 230, 0.1),
+                inset -2px -2px 8px rgba(200, 195, 180, 0.1);
         }}
 
         /* Footer */
@@ -904,8 +993,6 @@ def generate_html(images_data):
         function createGalleryItem(imageData, index) {{
             const item = document.createElement('div');
             item.className = 'gallery-item';
-            item.dataset.index = index;
-            item.dataset.parallaxSpeed = (Math.random() * 0.3 + 0.1).toFixed(2);
             
             const img = document.createElement('img');
             img.src = imageData.thumbnail;
@@ -916,36 +1003,28 @@ def generate_html(images_data):
             item.addEventListener('click', () => openModal(index));
             gallery.appendChild(item);
             
-            parallaxItems.push(item);
-            
             setTimeout(() => {{
                 item.classList.add('loaded');
-            }}, index * 120);
+            }}, index * 100);
         }}
 
         // Shadow reveal effect using Intersection Observer
         function setupRevealObserver() {{
             const options = {{
                 root: null,
-                rootMargin: '-10% 0px -10% 0px',
-                threshold: [0, 0.25, 0.5, 0.75, 1]
+                rootMargin: '-5% 0px -5% 0px',
+                threshold: [0, 0.1, 0.25, 0.5, 0.75, 1]
             }};
 
             revealObserver = new IntersectionObserver((entries) => {{
                 entries.forEach(entry => {{
                     const ratio = entry.intersectionRatio;
                     
-                    if (ratio > 0.5) {{
+                    if (ratio > 0.25) {{
                         entry.target.classList.add('revealed');
                     }} else {{
                         entry.target.classList.remove('revealed');
                     }}
-                    
-                    // Subtle parallax based on position in viewport
-                    const rect = entry.target.getBoundingClientRect();
-                    const viewportHeight = window.innerHeight;
-                    const centerOffset = (rect.top + rect.height / 2 - viewportHeight / 2) / viewportHeight;
-                    entry.target.style.transform = `translateY(${{centerOffset * 20}}px)`;
                 }});
             }}, options);
 
@@ -954,49 +1033,15 @@ def generate_html(images_data):
             }});
         }}
 
-        // Parallax scroll effect
+        // Simple parallax for moon only
         function setupParallax() {{
-            let ticking = false;
-            
             window.addEventListener('scroll', () => {{
-                if (!ticking) {{
-                    window.requestAnimationFrame(() => {{
-                        updateParallax();
-                        ticking = false;
-                    }});
-                    ticking = true;
+                const scrolled = window.pageYOffset;
+                const moon = document.querySelector('.moon');
+                if (moon) {{
+                    moon.style.transform = `translateY(${{scrolled * 0.08}}px)`;
                 }}
             }}, {{ passive: true }});
-        }}
-
-        function updateParallax() {{
-            const scrolled = window.pageYOffset;
-            const viewportHeight = window.innerHeight;
-
-            parallaxItems.forEach((item, index) => {{
-                const rect = item.getBoundingClientRect();
-                const speed = parseFloat(item.dataset.parallaxSpeed);
-                
-                // Only process visible items
-                if (rect.bottom > 0 && rect.top < viewportHeight) {{
-                    const itemCenter = rect.top + rect.height / 2;
-                    const viewportCenter = viewportHeight / 2;
-                    const offset = (itemCenter - viewportCenter) * speed;
-                    
-                    // Combine with existing transform
-                    const currentTransform = item.style.transform || '';
-                    const translateYMatch = currentTransform.match(/translateY\(([^)]+)\)/);
-                    const existingY = translateYMatch ? translateYMatch[1] : '0px';
-                    
-                    item.style.transform = `translateY(${{parseFloat(existingY) + offset * 0.1}}px)`;
-                }}
-            }});
-
-            // Parallax for moon
-            const moon = document.querySelector('.moon');
-            if (moon) {{
-                moon.style.transform = `translateY(${{scrolled * 0.15}}px)`;
-            }}
         }}
 
         function preloadFullImages() {{
