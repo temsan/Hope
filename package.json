@@ -1,0 +1,17 @@
+{
+    "name": "tereshkina-gallery",
+    "version": "1.0.0",
+    "description": "Галерея работ художницы Надежды Терёшкиной",
+    "main": "server.js",
+    "scripts": {
+        "start": "node server.js",
+        "generate": "node generate-gallery.js"
+    },
+    "dependencies": {
+        "express": "^4.22.1",
+        "sharp": "^0.33.5"
+    },
+    "devDependencies": {
+        "@playwright/test": "^1.58.2"
+    }
+}

@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+
+# Generated gallery files
+gallery.html
+gallery_cache.json
+
+# IDE
+.vscode/
+.idea/
+.kiro/
+*.swp
+*.swo
+*~
+
+# Test results
+test-results/
+*.log
+
+# Screenshots (generated)
+gallery-screenshot.png
+gallery-zoomed-screenshot.png
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Large assets (if managed separately)
+# assets/  # Uncomment if assets are managed via CDN or separate storage

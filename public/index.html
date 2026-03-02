@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Галерея - Надежда Терёшкина</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="container">
+        <h1>Галерея - Надежда Терёшкина</h1>
+        <div id="loading">Загрузка изображений...</div>
+        <div id="gallery" class="gallery"></div>
+    </div>
+
+    <div id="modal" class="modal">
+        <span class="close">&times;</span>
+        <img class="modal-content" id="modalImg">
+        <div class="image-info" id="imageInfo"></div>
+        <div class="nav-buttons">
+            <button id="prevBtn" class="nav-btn">&#10094;</button>
+            <button id="nextBtn" class="nav-btn">&#10095;</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
