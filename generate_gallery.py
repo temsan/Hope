@@ -31,7 +31,7 @@ def auto_crop_gray_border(img, padding=0, bg_tolerance=3, aggressive=False):
     strip_height = max(20, h // 80)
     strip_width = max(20, w // 80)
     
-    tolerance = 2 if aggressive else bg_tolerance
+    tolerance = 1 if aggressive else bg_tolerance
     
     def find_edge_vertical(arr, from_top=True):
         """Ищет вертикальную границу контента"""
@@ -132,13 +132,41 @@ def auto_crop_gray_border(img, padding=0, bg_tolerance=3, aggressive=False):
     content_h = bottom - top
     content_ratio = (content_w * content_h) / (w * h)
     
-    # Доп. обрезка в агрессивном режиме
+    # Доп. обрезка в агрессивном режиме - увеличенный отступ
     if aggressive and content_ratio > 0.3:
-        safety = min(20, content_w // 50, content_h // 50)
-        left = min(left + safety, right - 100)
-        right = max(right - safety, left + 100)
-        top = min(top + safety, bottom - 100)
-        bottom = max(bottom - safety, top + 100)
+        safety = min(100, content_w // 20, content_h // 20)
+        left = left + safety
+        right = right - safety
+        top = top + safety
+        bottom = bottom - safety
+        
+        # Дополнительная проверка краёв - обрезаем ещё если края серые
+        edge_check_size = 50
+        if left + edge_check_size < right:
+            left_edge = img_array[top:bottom, left:left+edge_check_size]
+            if np.std(left_edge) < 10:  # Если мало вариации - значит серое поле
+                left += edge_check_size
+        
+        if right - edge_check_size > left:
+            right_edge = img_array[top:bottom, right-edge_check_size:right]
+            if np.std(right_edge) < 10:
+                right -= edge_check_size
+        
+        if top + edge_check_size < bottom:
+            top_edge = img_array[top:top+edge_check_size, left:right]
+            if np.std(top_edge) < 10:
+                top += edge_check_size
+        
+        if bottom - edge_check_size > top:
+            bottom_edge = img_array[bottom-edge_check_size:bottom, left:right]
+            if np.std(bottom_edge) < 10:
+                bottom -= edge_check_size
+        
+        # Проверяем валидность границ после всех обрезок
+        left = max(0, min(left, w - 100))
+        right = max(left + 100, min(right, w))
+        top = max(0, min(top, h - 100))
+        bottom = max(top + 100, min(bottom, h))
     
     if content_ratio < 0.25 or content_ratio > 0.99:
         return img
@@ -271,13 +299,62 @@ def generate_html(images_data):
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
     <style>
+        /* 2026 Design System - Emotionally Aware Variables */
         :root {{
-            --moon-glow: rgba(255, 248, 220, 0.15);
-            --candle-warm: rgba(255, 180, 80, 0.12);
-            --deep-night: #0d0d12;
-            --midnight: #151520;
-            --mist: rgba(255, 255, 255, 0.03);
-            --glass: rgba(255, 255, 255, 0.04);
+            /* Time-based color palettes */
+            --morning-primary: #1a1a2e;
+            --morning-secondary: #16213e;
+            --morning-accent: #f4d03f;
+            --day-primary: #0d0d12;
+            --day-secondary: #151520;
+            --day-accent: #667eea;
+            --evening-primary: #0f0518;
+            --evening-secondary: #1a0b2e;
+            --evening-accent: #e74c3c;
+            --night-primary: #050508;
+            --night-secondary: #0a0a0f;
+            --night-accent: #9b59b6;
+            
+            /* Current theme (default night) */
+            --bg-primary: var(--night-primary);
+            --bg-secondary: var(--night-secondary);
+            --accent: var(--night-accent);
+            --text-primary: #f5f3f0;
+            --text-secondary: rgba(232, 228, 220, 0.7);
+            
+            /* Glassmorphism 2.0 */
+            --glass-bg: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --glass-blur: 20px;
+            --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            
+            /* 3D Depth */
+            --depth-1: translateZ(20px);
+            --depth-2: translateZ(50px);
+            --depth-3: translateZ(100px);
+            --perspective: 1000px;
+        }}
+        
+        /* Time-based theme classes */
+        .theme-morning {{
+            --bg-primary: var(--morning-primary);
+            --bg-secondary: var(--morning-secondary);
+            --accent: var(--morning-accent);
+        }}
+        .theme-day {{
+            --bg-primary: var(--day-primary);
+            --bg-secondary: var(--day-secondary);
+            --accent: var(--day-accent);
+        }}
+        .theme-evening {{
+            --bg-primary: var(--evening-primary);
+            --bg-secondary: var(--evening-secondary);
+            --accent: var(--evening-accent);
+        }}
+        .theme-night {{
+            --bg-primary: var(--night-primary);
+            --bg-secondary: var(--night-secondary);
+            --accent: var(--night-accent);
         }}
 
         * {{
@@ -286,15 +363,22 @@ def generate_html(images_data):
             box-sizing: border-box;
         }}
 
-        body {{
-            font-family: 'Inter', sans-serif;
-            background: var(--deep-night);
-            min-height: 100vh;
-            overflow-x: hidden;
-            color: #e8e6e1;
+        html {{
+            scroll-behavior: smooth;
         }}
 
-        /* Atmospheric Background with Moon */
+        body {{
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+            color: var(--text-primary);
+            perspective: var(--perspective);
+            transform-style: preserve-3d;
+            transition: background 1.5s ease;
+        }}
+
+        /* 3D Atmospheric Layers */
         .atmosphere {{
             position: fixed;
             top: 0;
@@ -306,24 +390,53 @@ def generate_html(images_data):
                 radial-gradient(ellipse 80% 50% at 50% -10%, rgba(30, 30, 50, 0.4) 0%, transparent 50%),
                 radial-gradient(ellipse 60% 40% at 20% 100%, rgba(40, 30, 60, 0.3) 0%, transparent 40%),
                 radial-gradient(ellipse 50% 30% at 80% 100%, rgba(30, 40, 60, 0.3) 0%, transparent 40%),
-                linear-gradient(180deg, #0a0a0f 0%, #12121a 30%, #0d0d14 70%, #0a0a0f 100%);
+                linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-primary) 50%, var(--bg-secondary) 100%);
+            transition: background 2s ease;
+            transform: translateZ(-200px) scale(1.4);
+        }}
+        
+        /* Floating Nebula Particles */
+        .nebula {{
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            z-index: 1;
+            pointer-events: none;
+            transform: translateZ(-100px);
+        }}
+        
+        .nebula-particle {{
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(60px);
+            opacity: 0.3;
+            animation: float-3d 20s infinite ease-in-out;
         }}
 
-        /* Moon */
+        /* 3D Moon with Glassmorphism glow */
         .moon {{
             position: fixed;
             top: 8%;
             right: 12%;
-            width: 120px;
-            height: 120px;
-            background: radial-gradient(circle at 35% 35%, #fffef5 0%, #f5f3e8 40%, #e8e4d5 100%);
+            width: 140px;
+            height: 140px;
+            background: radial-gradient(circle at 35% 35%, 
+                rgba(255, 254, 245, 0.95) 0%, 
+                rgba(245, 243, 232, 0.9) 40%, 
+                rgba(232, 228, 213, 0.8) 100%);
             border-radius: 50%;
             box-shadow: 
-                0 0 60px rgba(255, 250, 230, 0.3),
-                0 0 120px rgba(255, 250, 230, 0.15),
-                inset -10px -10px 30px rgba(200, 195, 180, 0.3);
-            z-index: 1;
-            opacity: 0.9;
+                0 0 80px rgba(255, 250, 230, 0.4),
+                0 0 160px rgba(255, 250, 230, 0.2),
+                inset -15px -15px 40px rgba(180, 175, 160, 0.4),
+                0 20px 60px rgba(0, 0, 0, 0.3);
+            z-index: 2;
+            opacity: 0.95;
+            transform: translateZ(50px);
+            transition: all 1.5s ease;
+            backdrop-filter: blur(2px);
         }}
 
         .moon::before {{
@@ -331,36 +444,43 @@ def generate_html(images_data):
             position: absolute;
             top: 25%;
             left: 20%;
-            width: 15px;
-            height: 15px;
-            background: rgba(200, 195, 180, 0.4);
+            width: 20px;
+            height: 20px;
+            background: rgba(200, 195, 180, 0.5);
             border-radius: 50%;
             box-shadow: 
-                25px 10px 0 -2px rgba(200, 195, 180, 0.3),
-                10px 30px 0 -4px rgba(200, 195, 180, 0.25);
+                30px 12px 0 -3px rgba(200, 195, 180, 0.4),
+                12px 35px 0 -5px rgba(200, 195, 180, 0.35);
         }}
 
-        /* Stars */
+        /* 3D Starfield */
         .stars {{
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            z-index: 0;
+            z-index: 1;
             pointer-events: none;
+            transform: translateZ(-50px);
         }}
 
         .star {{
             position: absolute;
             background: white;
             border-radius: 50%;
-            animation: twinkle 3s infinite ease-in-out;
+            animation: twinkle-3d 4s infinite ease-in-out;
         }}
 
-        @keyframes twinkle {{
-            0%, 100% {{ opacity: 0.2; transform: scale(1); }}
-            50% {{ opacity: 0.8; transform: scale(1.2); }}
+        @keyframes twinkle-3d {{
+            0%, 100% {{ opacity: 0.1; transform: scale(1) translateZ(0); }}
+            50% {{ opacity: 1; transform: scale(1.5) translateZ(20px); }}
+        }}
+        
+        @keyframes float-3d {{
+            0%, 100% {{ transform: translateY(0) translateZ(0) rotate(0deg); }}
+            33% {{ transform: translateY(-30px) translateZ(30px) rotate(120deg); }}
+            66% {{ transform: translateY(20px) translateZ(-20px) rotate(240deg); }}
         }}
 
         /* Candles */
@@ -450,41 +570,77 @@ def generate_html(images_data):
             pointer-events: none;
         }}
 
-        /* Header */
+        /* Kinetic Typography Header */
         .header {{
             position: relative;
             z-index: 10;
-            padding: 100px 40px 60px;
+            padding: 80px 40px 40px;
             text-align: center;
+            transform-style: preserve-3d;
+        }}
+
+        .header-content {{
+            transform: translateZ(80px);
         }}
 
         .header-content h1 {{
             font-family: 'Cormorant Garamond', serif;
-            font-size: clamp(2.5rem, 6vw, 4.5rem);
+            font-size: clamp(2.5rem, 6vw, 4rem);
             font-weight: 300;
             letter-spacing: 0.15em;
-            color: #f5f3f0;
-            text-shadow: 
-                0 0 40px rgba(255, 250, 240, 0.1),
-                0 2px 4px rgba(0, 0, 0, 0.3);
+            color: var(--text-primary);
             margin-bottom: 20px;
-            line-height: 1.2;
+            line-height: 1.1;
+            transform-style: preserve-3d;
+        }}
+        
+        /* Kinetic Letter Animation */
+        .kinetic-text {{
+            display: inline-block;
+            opacity: 0;
+            transform: translateY(100px) rotateX(-90deg);
+            animation: kinetic-reveal 1.2s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+        }}
+        
+        @keyframes kinetic-reveal {{
+            to {{
+                opacity: 1;
+                transform: translateY(0) rotateX(0);
+            }}
         }}
 
         .subtitle {{
             font-family: 'Cormorant Garamond', serif;
-            font-size: clamp(1.2rem, 2.5vw, 1.6rem);
+            font-size: clamp(1.1rem, 2.2vw, 1.5rem);
             font-weight: 300;
             font-style: italic;
-            color: rgba(232, 228, 220, 0.7);
+            color: var(--text-secondary);
             letter-spacing: 0.3em;
+            opacity: 0;
+            animation: fade-in 1s ease 0.8s forwards;
+        }}
+        
+        @keyframes fade-in {{
+            to {{ opacity: 1; }}
         }}
 
         .divider {{
             width: 60px;
-            height: 1px;
-            background: linear-gradient(90deg, transparent, rgba(232, 228, 220, 0.4), transparent);
-            margin: 30px auto;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
+            margin: 25px auto;
+            opacity: 0;
+            animation: expand-width 1s ease 0.5s forwards, glow 3s ease-in-out infinite;
+        }}
+        
+        @keyframes expand-width {{
+            from {{ width: 0; opacity: 0; }}
+            to {{ width: 60px; opacity: 1; }}
+        }}
+        
+        @keyframes glow {{
+            0%, 100% {{ box-shadow: 0 0 10px var(--accent); }}
+            50% {{ box-shadow: 0 0 30px var(--accent), 0 0 60px var(--accent); }}
         }}
 
         /* Container */
@@ -493,130 +649,182 @@ def generate_html(images_data):
             z-index: 10;
             max-width: 1600px;
             margin: 0 auto;
-            padding: 40px 60px 100px;
+            padding: 20px 60px 80px;
+            transform-style: preserve-3d;
         }}
-
-        .intro {{
-            text-align: center;
-            margin-bottom: 60px;
-            font-size: 1.1rem;
-            font-weight: 300;
-            color: rgba(232, 228, 220, 0.6);
-            letter-spacing: 0.1em;
+        
+        /* Intent-Based Mood Filter */
+        .mood-filter {{
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 50px;
+            flex-wrap: wrap;
+            transform: translateZ(60px);
         }}
-
-        .image-count {{
-            text-align: center;
-            margin-bottom: 40px;
+        
+        .mood-btn {{
+            padding: 12px 28px;
+            border: 1px solid var(--glass-border);
+            background: var(--glass-bg);
+            backdrop-filter: blur(var(--glass-blur));
+            border-radius: 30px;
+            color: var(--text-secondary);
+            font-family: 'Inter', sans-serif;
             font-size: 0.9rem;
-            color: rgba(232, 228, 220, 0.4);
-            letter-spacing: 0.2em;
-            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+            box-shadow: var(--glass-shadow);
+        }}
+        
+        .mood-btn:hover {{
+            transform: translateY(-3px) scale(1.05);
+            border-color: var(--accent);
+            color: var(--text-primary);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.4), 0 0 30px rgba(255, 255, 255, 0.1);
+        }}
+        
+        .mood-btn.active {{
+            background: rgba(255, 255, 255, 0.1);
+            border-color: var(--accent);
+            color: var(--text-primary);
+            box-shadow: 0 0 30px var(--accent);
         }}
 
-        /* Gallery Grid - Creative Shadow Reveal */
+
+
+        /* Glassmorphism 2.0 Gallery Grid */
         .gallery {{
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
-            gap: 60px 40px;
+            grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+            gap: 50px 40px;
             padding: 40px 0;
-            perspective: 1000px;
+            perspective: 1200px;
+            transform-style: preserve-3d;
         }}
 
         .gallery-item {{
             position: relative;
-            overflow: visible;
             cursor: pointer;
             opacity: 0;
-            transform: translateY(80px) rotateX(10deg);
+            transform: translateY(100px) rotateX(15deg) rotateY(-5deg);
             transform-style: preserve-3d;
-            transition: all 0.8s cubic-bezier(0.23, 1, 0.32, 1);
-            background: transparent;
+            transition: all 0.9s cubic-bezier(0.23, 1, 0.32, 1);
+            border-radius: 24px;
+            padding: 20px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+            border: 1px solid var(--glass-border);
+            box-shadow: 
+                var(--glass-shadow),
+                inset 0 1px 0 rgba(255, 255, 255, 0.05);
         }}
 
         .gallery-item.loaded {{
             opacity: 1;
-            transform: translateY(0) rotateX(0deg);
+            transform: translateY(0) rotateX(0) rotateY(0);
         }}
 
-        /* Shadow reveal effect */
+        /* Liquid Glass Inner Glow */
         .gallery-item::before {{
             content: '';
             position: absolute;
-            top: 5%;
-            left: 5%;
-            right: 5%;
-            bottom: 0;
-            background: radial-gradient(ellipse at center, 
-                rgba(0,0,0,0.6) 0%, 
-                rgba(0,0,0,0.3) 40%, 
-                transparent 70%);
-            filter: blur(20px);
-            opacity: 0.8;
-            transform: translateZ(-50px);
-            transition: all 0.6s ease;
-            z-index: -1;
+            inset: 0;
+            border-radius: 24px;
+            padding: 1px;
+            background: linear-gradient(135deg, 
+                rgba(255,255,255,0.1) 0%, 
+                transparent 50%,
+                rgba(255,255,255,0.05) 100%);
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            opacity: 0;
+            transition: opacity 0.6s ease;
         }}
 
-        .gallery-item.revealed::before {{
-            opacity: 0.3;
-            filter: blur(10px);
-            transform: translateZ(-20px);
+        .gallery-item:hover::before {{
+            opacity: 1;
         }}
 
-        /* Vignette overlay that fades on reveal */
+        /* 3D Depth Shadow */
         .gallery-item::after {{
             content: '';
             position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
+            top: 20px;
+            left: 20px;
+            right: 20px;
             bottom: 0;
             background: radial-gradient(ellipse at center, 
-                transparent 20%, 
-                rgba(13,13,18,0.6) 70%,
-                rgba(13,13,18,0.9) 100%);
-            opacity: 1;
-            transition: opacity 1.2s ease;
-            pointer-events: none;
-        }}
-
-        .gallery-item.revealed::after {{
-            opacity: 0;
+                rgba(0,0,0,0.4) 0%, 
+                transparent 70%);
+            filter: blur(30px);
+            transform: translateZ(-40px);
+            z-index: -1;
+            transition: all 0.5s ease;
         }}
 
         .gallery-item:hover {{
-            transform: scale(1.05) translateZ(30px);
-            z-index: 100;
+            transform: translateY(-10px) translateZ(60px) rotateX(5deg);
+            border-color: rgba(255, 255, 255, 0.15);
+            box-shadow: 
+                0 30px 60px rgba(0, 0, 0, 0.4),
+                0 0 40px rgba(255, 255, 255, 0.05),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }}
+
+        .gallery-item:hover::after {{
+            transform: translateZ(-60px) scale(1.1);
+            opacity: 0.6;
+        }}
+
+        /* Image Container */
+        .gallery-item .img-container {{
+            position: relative;
+            overflow: hidden;
+            border-radius: 16px;
+            height: 420px;
+            background: rgba(0, 0, 0, 0.2);
         }}
 
         .gallery-item img {{
             width: 100%;
-            height: 480px;
+            height: 100%;
             object-fit: contain;
             display: block;
-            transition: all 0.8s cubic-bezier(0.23, 1, 0.32, 1);
-            filter: brightness(0.6) contrast(0.95);
-            transform: scale(0.95);
-        }}
-
-        .gallery-item.loaded img {{
-            filter: brightness(0.92) contrast(1.02);
-            transform: scale(1);
-        }}
-
-        .gallery-item.revealed img {{
-            filter: brightness(1) contrast(1.05);
+            transition: all 0.7s cubic-bezier(0.23, 1, 0.32, 1);
+            filter: brightness(0.85) saturate(0.95);
         }}
 
         .gallery-item:hover img {{
-            transform: scale(1.08);
-            filter: brightness(1.1) contrast(1.08);
+            transform: scale(1.1);
+            filter: brightness(1.05) saturate(1.1);
+        }}
+        
+        /* Energy indicator (Intent-based) */
+        .energy-ring {{
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) translateZ(20px);
+            width: 80%;
+            height: 80%;
+            border: 2px solid var(--accent);
+            border-radius: 50%;
+            opacity: 0;
+            transition: all 0.5s ease;
+            pointer-events: none;
+        }}
+        
+        .gallery-item:hover .energy-ring {{
+            opacity: 0.3;
+            transform: translate(-50%, -50%) translateZ(40px) scale(1.1);
         }}
 
 
 
-        /* Modal */
+        /* Immersive Modal View */
         .modal {{
             display: none;
             position: fixed;
@@ -625,39 +833,62 @@ def generate_html(images_data):
             top: 0;
             width: 100%;
             height: 100%;
-            background: rgba(5, 5, 8, 0.97);
-            backdrop-filter: blur(30px);
+            background: rgba(2, 2, 4, 0.98);
+            backdrop-filter: blur(40px) saturate(180%);
+            transform-style: preserve-3d;
+            perspective: 1500px;
+        }}
+        
+        /* Ambient Background in Modal */
+        .modal-ambient {{
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(circle at 30% 50%, var(--accent) 0%, transparent 50%),
+                radial-gradient(circle at 70% 50%, rgba(255,255,255,0.05) 0%, transparent 40%);
+            opacity: 0.1;
+            filter: blur(80px);
+            animation: ambient-pulse 8s ease-in-out infinite;
+        }}
+        
+        @keyframes ambient-pulse {{
+            0%, 100% {{ opacity: 0.08; transform: scale(1); }}
+            50% {{ opacity: 0.15; transform: scale(1.1); }}
         }}
 
         .modal-content {{
             position: absolute;
             top: 50%;
             left: 50%;
-            transform: translate(-50%, -50%);
-            max-width: 90vw;
-            max-height: 85vh;
+            transform: translate(-50%, -50%) translateZ(100px);
+            max-width: 85vw;
+            max-height: 80vh;
             object-fit: contain;
-            border-radius: 4px;
+            border-radius: 16px;
             box-shadow: 
-                0 30px 100px rgba(0, 0, 0, 0.5),
-                0 0 60px rgba(255, 250, 240, 0.03);
+                0 50px 150px rgba(0, 0, 0, 0.6),
+                0 0 100px rgba(255, 250, 240, 0.05);
             opacity: 0;
-            transition: opacity 0.5s ease;
+            transition: all 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }}
 
         .modal-content.loaded {{
             opacity: 1;
+            transform: translate(-50%, -50%) translateZ(100px) scale(1);
         }}
 
         .image-info {{
             position: absolute;
             bottom: 40px;
             left: 50%;
-            transform: translateX(-50%);
+            transform: translateX(-50%) translateZ(50px);
             font-family: 'Cormorant Garamond', serif;
-            font-size: 1.1rem;
-            color: rgba(232, 228, 220, 0.6);
-            letter-spacing: 0.2em;
+            font-size: 1.2rem;
+            color: var(--text-secondary);
+            letter-spacing: 0.25em;
+            text-shadow: 0 2px 20px rgba(0,0,0,0.5);
         }}
 
         /* Moon-styled buttons */
@@ -838,7 +1069,7 @@ def generate_html(images_data):
                 gap: 20px; 
             }}
             .gallery-item img {{ height: 320px; }}
-            .image-count {{ font-size: 0.8rem; }}
+
             .footer {{ padding: 40px 20px; }}
             .footer p {{ font-size: 0.9rem; }}
             .nav-buttons {{ padding: 0 10px; }}
@@ -909,24 +1140,30 @@ def generate_html(images_data):
     
     <div class="mist"></div>
 
+    <!-- Nebula 3D Background -->
+    <div class="nebula" id="nebula"></div>
+    
     <header class="header">
         <div class="header-content">
-            <h1>Надежда Александровна Терёшкина</h1>
+            <h1 id="kineticTitle"></h1>
             <div class="divider"></div>
             <p class="subtitle">Художница</p>
         </div>
     </header>
 
     <div class="container">
-        <div class="intro">
-            <p>Галерея работ</p>
+        <!-- Intent-Based Mood Filter -->
+        <div class="mood-filter">
+            <button class="mood-btn active" data-mood="all">Все работы</button>
+            <button class="mood-btn" data-mood="calm">Спокойствие</button>
+            <button class="mood-btn" data-mood="energy">Энергия</button>
+            <button class="mood-btn" data-mood="dream">Мечты</button>
         </div>
-        
-        <div id="imageCount" class="image-count"></div>
         <div id="gallery" class="gallery"></div>
     </div>
 
     <div id="modal" class="modal">
+        <div class="modal-ambient"></div>
         <span class="close">&times;</span>
         <img class="modal-content" id="modalImg">
         <div class="image-info" id="imageInfo"></div>
@@ -949,15 +1186,54 @@ def generate_html(images_data):
         const modal = document.getElementById('modal');
         const modalImg = document.getElementById('modalImg');
         const imageInfo = document.getElementById('imageInfo');
-        const imageCount = document.getElementById('imageCount');
         const closeBtn = document.querySelector('.close');
         const prevBtn = document.getElementById('prevBtn');
         const nextBtn = document.getElementById('nextBtn');
 
+        // Time-Based Emotionally Aware Theme
+        function setTimeBasedTheme() {{
+            const hour = new Date().getHours();
+            const body = document.body;
+            
+            // Remove all theme classes
+            body.classList.remove('theme-morning', 'theme-day', 'theme-evening', 'theme-night');
+            
+            // Apply theme based on time
+            if (hour >= 5 && hour < 12) {{
+                body.classList.add('theme-morning');
+            }} else if (hour >= 12 && hour < 17) {{
+                body.classList.add('theme-day');
+            }} else if (hour >= 17 && hour < 21) {{
+                body.classList.add('theme-evening');
+            }} else {{
+                body.classList.add('theme-night');
+            }}
+        }}
+        
+        // Create 3D Nebula Particles
+        function createNebula() {{
+            const nebula = document.getElementById('nebula');
+            const colors = ['#667eea', '#f4d03f', '#e74c3c', '#9b59b6', '#00f2fe'];
+            
+            for (let i = 0; i < 8; i++) {{
+                const particle = document.createElement('div');
+                particle.className = 'nebula-particle';
+                const size = Math.random() * 200 + 100;
+                particle.style.width = size + 'px';
+                particle.style.height = size + 'px';
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.top = Math.random() * 100 + '%';
+                particle.style.background = `radial-gradient(circle, ${{colors[i % colors.length]}}40 0%, transparent 70%)`;
+                particle.style.animationDelay = `${{Math.random() * 10}}s`;
+                particle.style.animationDuration = `${{15 + Math.random() * 10}}s`;
+                nebula.appendChild(particle);
+            }}
+        }}
+
         // Generate stars
         function createStars() {{
             const starsContainer = document.getElementById('stars');
-            const starCount = 80;
+            const starCount = 100;
             
             for (let i = 0; i < starCount; i++) {{
                 const star = document.createElement('div');
@@ -966,20 +1242,71 @@ def generate_html(images_data):
                 star.style.width = size + 'px';
                 star.style.height = size + 'px';
                 star.style.left = Math.random() * 100 + '%';
-                star.style.top = Math.random() * 60 + '%';
-                star.style.animationDelay = Math.random() * 3 + 's';
-                star.style.opacity = Math.random() * 0.5 + 0.2;
+                star.style.top = Math.random() * 70 + '%';
+                star.style.animationDelay = Math.random() * 4 + 's';
+                star.style.opacity = Math.random() * 0.6 + 0.1;
                 starsContainer.appendChild(star);
             }}
+        }}
+        
+        // Kinetic Typography Animation
+        function createKineticText() {{
+            const title = document.getElementById('kineticTitle');
+            const text = 'Надежда Александровна Терёшкина';
+            
+            text.split('').forEach((char, i) => {{
+                const span = document.createElement('span');
+                span.className = 'kinetic-text';
+                span.textContent = char === ' ' ? '\u00A0' : char;
+                span.style.animationDelay = `${{i * 0.05}}s`;
+                title.appendChild(span);
+            }});
+        }}
+        
+        // Intent-Based Mood Filter
+        function setupMoodFilter() {{
+            const moodBtns = document.querySelectorAll('.mood-btn');
+            
+            moodBtns.forEach(btn => {{
+                btn.addEventListener('click', () => {{
+                    moodBtns.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    
+                    const mood = btn.dataset.mood;
+                    filterGalleryByMood(mood);
+                }});
+            }});
+        }}
+        
+        function filterGalleryByMood(mood) {{
+            const items = document.querySelectorAll('.gallery-item');
+            
+            items.forEach((item, index) => {{
+                if (mood === 'all') {{
+                    item.style.display = 'block';
+                    setTimeout(() => item.classList.add('loaded'), index * 50);
+                }} else {{
+                    // Simulate mood-based filtering based on image index
+                    const itemMood = ['calm', 'energy', 'dream'][index % 3];
+                    if (itemMood === mood) {{
+                        item.style.display = 'block';
+                        setTimeout(() => item.classList.add('loaded'), 100);
+                    }} else {{
+                        item.style.display = 'none';
+                    }}
+                }}
+            }});
         }}
 
         // Initialize gallery with Intersection Observer for reveal effect
         let revealObserver;
-        let parallaxItems = [];
 
         function initGallery() {{
+            setTimeBasedTheme();
+            createNebula();
             createStars();
-            imageCount.textContent = `Загружено работ: ${{imagesData.length}}`;
+            createKineticText();
+            setupMoodFilter();
             
             imagesData.forEach((imageData, index) => {{
                 createGalleryItem(imageData, index);
@@ -993,13 +1320,22 @@ def generate_html(images_data):
         function createGalleryItem(imageData, index) {{
             const item = document.createElement('div');
             item.className = 'gallery-item';
+            item.dataset.mood = ['calm', 'energy', 'dream'][index % 3];
+            
+            const imgContainer = document.createElement('div');
+            imgContainer.className = 'img-container';
             
             const img = document.createElement('img');
             img.src = imageData.thumbnail;
             img.alt = '';
             img.loading = 'lazy';
             
-            item.appendChild(img);
+            const energyRing = document.createElement('div');
+            energyRing.className = 'energy-ring';
+            
+            imgContainer.appendChild(img);
+            imgContainer.appendChild(energyRing);
+            item.appendChild(imgContainer);
             item.addEventListener('click', () => openModal(index));
             gallery.appendChild(item);
             
@@ -1033,13 +1369,37 @@ def generate_html(images_data):
             }});
         }}
 
-        // Simple parallax for moon only
+        // 3D Parallax on mouse move
         function setupParallax() {{
+            document.addEventListener('mousemove', (e) => {{
+                const mouseX = (e.clientX / window.innerWidth - 0.5) * 2;
+                const mouseY = (e.clientY / window.innerHeight - 0.5) * 2;
+                
+                // Moon parallax
+                const moon = document.querySelector('.moon');
+                if (moon) {{
+                    moon.style.transform = `translate(${{mouseX * 30}}px, ${{mouseY * 20}}px) translateZ(50px)`;
+                }}
+                
+                // Nebula parallax
+                const nebula = document.getElementById('nebula');
+                if (nebula) {{
+                    nebula.style.transform = `translate(${{mouseX * -50}}px, ${{mouseY * -30}}px) translateZ(-100px)`;
+                }}
+                
+                // Header parallax
+                const header = document.querySelector('.header-content');
+                if (header) {{
+                    header.style.transform = `translate(${{mouseX * 10}}px, ${{mouseY * 10}}px) translateZ(80px)`;
+                }}
+            }});
+            
+            // Scroll parallax
             window.addEventListener('scroll', () => {{
                 const scrolled = window.pageYOffset;
                 const moon = document.querySelector('.moon');
                 if (moon) {{
-                    moon.style.transform = `translateY(${{scrolled * 0.08}}px)`;
+                    moon.style.transform = `translateY(${{scrolled * 0.1}}px) translateZ(50px)`;
                 }}
             }}, {{ passive: true }});
         }}
