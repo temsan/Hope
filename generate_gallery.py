@@ -8,9 +8,56 @@ import io
 IMAGES_PATH = r'C:\Users\temsan\OneDrive\Desktop\Сканы\JPEG'
 CROPPED_PATH = r'C:\Users\temsan\OneDrive\Pictures\Надежда'
 OUTPUT_FILE = 'gallery.html'
+CACHE_FILE = 'temperature_cache.json'
+IMAGES_CACHE_FILE = 'images_cache.json'
 THUMBNAIL_WIDTH = 400
 FULL_WIDTH = 1920
 QUALITY = 85
+
+def load_temperature_cache():
+    """Загружает кеш температур из файла."""
+    import json
+    if os.path.exists(CACHE_FILE):
+        try:
+            with open(CACHE_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except:
+            return {}
+    return {}
+
+def save_temperature_cache(cache):
+    """Сохраняет кеш температур в файл."""
+    import json
+    with open(CACHE_FILE, 'w', encoding='utf-8') as f:
+        json.dump(cache, f, indent=2, ensure_ascii=False)
+
+def load_images_cache():
+    """Загружает кеш обработанных изображений."""
+    import json
+    if os.path.exists(IMAGES_CACHE_FILE):
+        try:
+            with open(IMAGES_CACHE_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except:
+            return {}
+    return {}
+
+def save_images_cache(cache):
+    """Сохраняет кеш обработанных изображений."""
+    import json
+    with open(IMAGES_CACHE_FILE, 'w', encoding='utf-8') as f:
+        json.dump(cache, f, ensure_ascii=False)
+
+def get_image_hash(image_path):
+    """Возвращает хеш файла для проверки изменений."""
+    import hashlib
+    try:
+        stat = os.stat(image_path)
+        # Используем путь + размер + время модификации как уникальный идентификатор
+        key = f"{image_path}:{stat.st_size}:{stat.st_mtime}"
+        return hashlib.md5(key.encode()).hexdigest()
+    except:
+        return image_path
 
 def auto_crop_gray_border(img, padding=0, bg_tolerance=3, aggressive=False):
     """
@@ -230,10 +277,64 @@ def get_image_path(filename):
     original_path = os.path.join(IMAGES_PATH, filename)
     return original_path, False
 
+def get_color_temperature(image_path, cache=None):
+    """
+    Определяет "теплоту" картины.
+    Возвращает значение: отрицательное = холодная, положительное = тёплая.
+    Использует соотношение красного к синему (R/B) в среднем цвете.
+    Использует кеш для ускорения повторных запусков.
+    """
+    if cache is None:
+        cache = {}
+    
+    # Проверяем кеш
+    image_hash = get_image_hash(image_path)
+    if image_hash in cache:
+        return cache[image_hash]['temperature']
+    
+    try:
+        with Image.open(image_path) as img:
+            # Уменьшаем для быстрого анализа
+            img_small = img.copy().convert('RGB')
+            img_small.thumbnail((100, 100))
+            
+            # Получаем массив пикселей
+            import numpy as np
+            pixels = np.array(img_small)
+            
+            # Считаем среднее по каналам
+            r_mean = np.mean(pixels[:, :, 0])
+            g_mean = np.mean(pixels[:, :, 1])
+            b_mean = np.mean(pixels[:, :, 2])
+            
+            # Яркость для нормализации
+            brightness = r_mean + g_mean + b_mean + 1
+            
+            # Теплота = (красный - синий) / яркость
+            # Отрицательное = больше синего (холодная)
+            # Положительное = больше красного (тёплая)
+            warmth = (r_mean - b_mean) / brightness
+            
+            # Сохраняем в кеш
+            cache[image_hash] = {
+                'temperature': warmth,
+                'path': image_path
+            }
+            
+            return warmth
+    except Exception as e:
+        print(f'Ошибка анализа {image_path}: {e}')
+        return 0
+
 def generate_gallery():
     print('Начинаем генерацию галереи...')
     print(f'Исходные изображения: {IMAGES_PATH}')
     print(f'Кропнутые изображения: {CROPPED_PATH}')
+    
+    # Загружаем кеш температур
+    temp_cache = load_temperature_cache()
+    cached_count = len(temp_cache)
+    print(f'Загружено {cached_count} записей из кеша температур')
     
     # Получаем список изображений
     image_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.bmp'}
@@ -245,32 +346,92 @@ def generate_gallery():
     
     print(f'Найдено изображений: {len(image_files)}')
     
+    # Анализируем температуру цвета каждой картины
+    print('Анализ цветовой температуры...')
+    images_with_temp = []
+    new_analyzed = 0
+    for filename in image_files:
+        image_path, is_cropped = get_image_path(filename)
+        temp = get_color_temperature(image_path, temp_cache)
+        images_with_temp.append((filename, temp))
+        temp_label = "теплая" if temp > 0 else "холодная"
+        cached_marker = "[cached]" if len(temp_cache) > cached_count else ""
+        print(f'  {filename}: {temp:.3f} ({temp_label}) {cached_marker}')
+        if len(temp_cache) > cached_count:
+            cached_count = len(temp_cache)
+            new_analyzed += 1
+    
+    # Сохраняем обновлённый кеш
+    save_temperature_cache(temp_cache)
+    print(f'Сохранено {new_analyzed} новых анализов в кеш')
+    
+    # Сортируем от холодного к теплому
+    images_with_temp.sort(key=lambda x: x[1])
+    image_files = [(item[0], item[1]) for item in images_with_temp]  # (filename, temperature)
+    print('Сортировка: холодные к теплым')
+    
+    # Загружаем кеш изображений
+    images_cache = load_images_cache()
+    images_cache_updated = False
+    print(f'Загружено {len(images_cache)} записей из кеша изображений')
+    
     images_data = []
     cropped_count = 0
+    cached_images_count = 0
     
-    for i, filename in enumerate(image_files, 1):
+    for i, (filename, temperature) in enumerate(image_files, 1):
         image_path, is_cropped = get_image_path(filename)
         source_label = "[CROPPED]" if is_cropped else "[original]"
-        print(f'Обработка {i}/{len(image_files)}: {filename} {source_label}')
+        
+        # Проверяем кеш изображений
+        image_hash = get_image_hash(image_path)
+        cache_key = f"{filename}_{THUMBNAIL_WIDTH}_{FULL_WIDTH}_{QUALITY}"
+        
+        if cache_key in images_cache and images_cache[cache_key].get('hash') == image_hash:
+            # Используем кешированные данные
+            thumbnail = images_cache[cache_key]['thumbnail']
+            full = images_cache[cache_key]['full']
+            cached_images_count += 1
+            cache_status = "[cache]"
+        else:
+            # Обрабатываем изображение
+            cache_status = "[process]"
+            
+            # Создаем thumbnail (обрезаем только исходные)
+            thumbnail = compress_image(image_path, THUMBNAIL_WIDTH, QUALITY, auto_crop=not is_cropped)
+            if not thumbnail:
+                continue
+            
+            # Создаем полноразмерное изображение (обрезаем только исходные)
+            full = compress_image(image_path, FULL_WIDTH, QUALITY, auto_crop=not is_cropped)
+            if not full:
+                continue
+            
+            # Сохраняем в кеш
+            images_cache[cache_key] = {
+                'hash': image_hash,
+                'thumbnail': thumbnail,
+                'full': full
+            }
+            images_cache_updated = True
         
         if is_cropped:
             cropped_count += 1
         
-        # Создаем thumbnail (обрезаем только исходные)
-        thumbnail = compress_image(image_path, THUMBNAIL_WIDTH, QUALITY, auto_crop=not is_cropped)
-        if not thumbnail:
-            continue
-        
-        # Создаем полноразмерное изображение (обрезаем только исходные)
-        full = compress_image(image_path, FULL_WIDTH, QUALITY, auto_crop=not is_cropped)
-        if not full:
-            continue
+        temp_label = "теплая" if temperature > 0 else "холодная"
+        print(f'Обработка {i}/{len(image_files)}: {filename} {source_label} {cache_status} ({temp_label})')
         
         images_data.append({
             'name': filename,
             'thumbnail': thumbnail,
-            'full': full
+            'full': full,
+            'temperature': round(temperature, 4)
         })
+    
+    # Сохраняем кеш изображений
+    if images_cache_updated:
+        save_images_cache(images_cache)
+        print(f'Сохранено {len(images_cache)} записей в кеш изображений')
     
     # Генерируем HTML
     html_content = generate_html(images_data)
@@ -615,6 +776,16 @@ def generate_html(images_data):
             font-weight: 300;
             font-style: italic;
             color: var(--text-secondary);
+        }}
+
+        .sort-hint {{
+            font-family: 'Inter', sans-serif;
+            font-size: clamp(0.75rem, 1.5vw, 0.9rem);
+            font-weight: 300;
+            color: var(--text-muted);
+            margin-top: 15px;
+            letter-spacing: 0.1em;
+            opacity: 0.8;
             letter-spacing: 0.3em;
             opacity: 0;
             animation: fade-in 1s ease 0.8s forwards;
@@ -707,76 +878,42 @@ def generate_html(images_data):
             position: relative;
             cursor: pointer;
             opacity: 0;
-            transform: translateY(100px) rotateX(15deg) rotateY(-5deg);
-            transform-style: preserve-3d;
-            transition: all 0.9s cubic-bezier(0.23, 1, 0.32, 1);
-            border-radius: 24px;
-            padding: 20px;
-            background: var(--glass-bg);
-            backdrop-filter: blur(var(--glass-blur)) saturate(180%);
-            border: 1px solid var(--glass-border);
-            box-shadow: 
-                var(--glass-shadow),
-                inset 0 1px 0 rgba(255, 255, 255, 0.05);
+            transform: translateY(30px);
+            transition: all 0.6s ease;
+            border-radius: 8px;
+            overflow: hidden;
+            background: transparent;
         }}
 
         .gallery-item.loaded {{
             opacity: 1;
-            transform: translateY(0) rotateX(0) rotateY(0);
-        }}
-
-        /* Liquid Glass Inner Glow */
-        .gallery-item::before {{
-            content: '';
-            position: absolute;
-            inset: 0;
-            border-radius: 24px;
-            padding: 1px;
-            background: linear-gradient(135deg, 
-                rgba(255,255,255,0.1) 0%, 
-                transparent 50%,
-                rgba(255,255,255,0.05) 100%);
-            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-            -webkit-mask-composite: xor;
-            mask-composite: exclude;
-            opacity: 0;
-            transition: opacity 0.6s ease;
-        }}
-
-        .gallery-item:hover::before {{
-            opacity: 1;
-        }}
-
-        /* 3D Depth Shadow */
-        .gallery-item::after {{
-            content: '';
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            right: 20px;
-            bottom: 0;
-            background: radial-gradient(ellipse at center, 
-                rgba(0,0,0,0.4) 0%, 
-                transparent 70%);
-            filter: blur(30px);
-            transform: translateZ(-40px);
-            z-index: -1;
-            transition: all 0.5s ease;
+            transform: translateY(0);
         }}
 
         .gallery-item:hover {{
-            transform: translateY(-10px) translateZ(60px) rotateX(5deg);
-            border-color: rgba(255, 255, 255, 0.15);
-            box-shadow: 
-                0 30px 60px rgba(0, 0, 0, 0.4),
-                0 0 40px rgba(255, 255, 255, 0.05),
-                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            transform: translateY(-8px) scale(1.02);
         }}
 
-        .gallery-item:hover::after {{
-            transform: translateZ(-60px) scale(1.1);
-            opacity: 0.6;
+        /* Temperature Indicator */
+        .temp-indicator {{
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            width: 8px;
+            height: 40px;
+            border-radius: 4px;
+            background: linear-gradient(to top, 
+                #3b82f6 0%,   /* Cold - blue */
+                #8b5cf6 50%,  /* Neutral - purple */
+                #ef4444 100%  /* Warm - red */
+            );
+            opacity: 0.7;
+            transition: opacity 0.3s ease;
+            z-index: 10;
+        }}
+
+        .gallery-item:hover .temp-indicator {{
+            opacity: 1;
         }}
 
         /* Image Container */
@@ -793,37 +930,12 @@ def generate_html(images_data):
             height: 100%;
             object-fit: contain;
             display: block;
-            transition: all 0.7s cubic-bezier(0.23, 1, 0.32, 1);
-            filter: brightness(0.85) saturate(0.95);
+            transition: transform 0.4s ease;
         }}
 
         .gallery-item:hover img {{
-            transform: scale(1.1);
-            filter: brightness(1.05) saturate(1.1);
+            transform: scale(1.05);
         }}
-        
-        /* Energy indicator (Intent-based) */
-        .energy-ring {{
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%) translateZ(20px);
-            width: 80%;
-            height: 80%;
-            border: 2px solid var(--accent);
-            border-radius: 50%;
-            opacity: 0;
-            transition: all 0.5s ease;
-            pointer-events: none;
-        }}
-        
-        .gallery-item:hover .energy-ring {{
-            opacity: 0.3;
-            transform: translate(-50%, -50%) translateZ(40px) scale(1.1);
-        }}
-
-
-
         /* Immersive Modal View */
         .modal {{
             display: none;
@@ -1061,6 +1173,7 @@ def generate_html(images_data):
         @media (max-width: 480px) {{
             .header {{ padding: 50px 15px 30px; }}
             .subtitle {{ letter-spacing: 0.2em; }}
+            .sort-hint {{ font-size: 0.7rem; margin-top: 10px; }}
             .divider {{ margin: 20px auto; }}
             .container {{ padding: 15px; }}
             .intro {{ margin-bottom: 40px; font-size: 1rem; }}
@@ -1148,6 +1261,7 @@ def generate_html(images_data):
             <h1 id="kineticTitle"></h1>
             <div class="divider"></div>
             <p class="subtitle">Художница</p>
+            <p class="sort-hint">❄️ Сортировка: от холодного к тёплому 🔥</p>
         </div>
     </header>
 
@@ -1252,7 +1366,7 @@ def generate_html(images_data):
         // Kinetic Typography Animation
         function createKineticText() {{
             const title = document.getElementById('kineticTitle');
-            const text = 'Надежда Александровна Терёшкина';
+            const text = 'Надежда';
             
             text.split('').forEach((char, i) => {{
                 const span = document.createElement('span');
@@ -1330,11 +1444,33 @@ def generate_html(images_data):
             img.alt = '';
             img.loading = 'lazy';
             
-            const energyRing = document.createElement('div');
-            energyRing.className = 'energy-ring';
+            // Temperature indicator
+            if (imageData.temperature !== undefined) {{
+                const tempIndicator = document.createElement('div');
+                tempIndicator.className = 'temp-indicator';
+                // Map temperature (-0.15 to 0.15) to position (0% to 100%)
+                const temp = Math.max(-0.15, Math.min(0.15, imageData.temperature));
+                const position = ((temp + 0.15) / 0.30) * 100;
+                tempIndicator.style.setProperty('--temp-position', position + '%');
+                tempIndicator.style.cssText += `::after {{ top: calc(100% - ${{position}}%); }}`;
+                // Use inline style for the marker position
+                const marker = document.createElement('div');
+                marker.style.cssText = `
+                    position: absolute;
+                    left: 50%;
+                    top: ${{100 - position}}%;
+                    transform: translate(-50%, -50%);
+                    width: 12px;
+                    height: 3px;
+                    border-radius: 2px;
+                    background: white;
+                    box-shadow: 0 0 4px rgba(0,0,0,0.5);
+                `;
+                tempIndicator.appendChild(marker);
+                imgContainer.appendChild(tempIndicator);
+            }}
             
             imgContainer.appendChild(img);
-            imgContainer.appendChild(energyRing);
             item.appendChild(imgContainer);
             item.addEventListener('click', () => openModal(index));
             gallery.appendChild(item);
@@ -1416,7 +1552,10 @@ def generate_html(images_data):
             }});
         }}
 
+        let scrollPos = 0;
+        
         function openModal(index) {{
+            scrollPos = window.scrollY; // Сохраняем позицию скролла
             currentIndex = index;
             modal.style.display = 'block';
             modalImg.classList.remove('loaded');
@@ -1441,12 +1580,21 @@ def generate_html(images_data):
         }}
 
         function updateImageInfo() {{
-            imageInfo.textContent = `${{currentIndex + 1}} / ${{imagesData.length}}`;
+            const currentImage = imagesData[currentIndex];
+            let tempText = '';
+            if (currentImage.temperature !== undefined) {{
+                const temp = currentImage.temperature;
+                const tempLabel = temp > 0.05 ? 'теплая' : temp < -0.05 ? 'холодная' : 'нейтральная';
+                const tempIcon = temp > 0.05 ? '🔥' : temp < -0.05 ? '❄️' : '⚪';
+                tempText = ` | ${{tempIcon}} ${{tempLabel}}`;
+            }}
+            imageInfo.textContent = `${{currentIndex + 1}} / ${{imagesData.length}}${{tempText}}`;
         }}
 
         function closeModal() {{
             modal.style.display = 'none';
             document.body.style.overflow = '';
+            window.scrollTo(0, scrollPos); // Восстанавливаем позицию скролла
         }}
 
         closeBtn.addEventListener('click', closeModal);

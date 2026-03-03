@@ -13,7 +13,6 @@ venv/
 .venv/
 
 # Generated gallery files
-gallery.html
 gallery_cache.json
 
 # IDE
