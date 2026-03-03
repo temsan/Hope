@@ -88,7 +88,7 @@ function generateHTML(images) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Надежда Терёшкина - Галерея работ</title>
+    <title>Надежда Ков - Галерея работ</title>
     <style>
         * {
             margin: 0;
@@ -442,7 +442,7 @@ function generateHTML(images) {
 
     <header class="header">
         <div class="header-content">
-            <h1 class="parallax-title" data-speed="0.5">Надежда Александровна Терёшкина</h1>
+            <h1 class="parallax-title" data-speed="0.5">Надежда Ков</h1>
             <p class="subtitle parallax-subtitle" data-speed="0.3">Художница</p>
         </div>
     </header>
@@ -467,7 +467,7 @@ function generateHTML(images) {
     </div>
 
     <footer class="footer">
-        <p>&copy; Надежда Александровна Терёшкина</p>
+        <p>&copy; Надежда Ков</p>
     </footer>
 
     <script>

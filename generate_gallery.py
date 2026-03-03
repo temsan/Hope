@@ -455,7 +455,7 @@ def generate_html(images_data):
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Надежда Терёшкина — Галерея работ</title>
+    <title>Надежда Ков — Галерея работ</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
@@ -1288,7 +1288,7 @@ def generate_html(images_data):
     </div>
 
     <footer class="footer">
-        <p>Надежда Александровна Терёшкина</p>
+        <p>Надежда Ков</p>
     </footer>
 
     <script>
@@ -1366,7 +1366,7 @@ def generate_html(images_data):
         // Kinetic Typography Animation
         function createKineticText() {{
             const title = document.getElementById('kineticTitle');
-            const text = 'Надежда';
+            const text = 'Надежда Ков';
             
             text.split('').forEach((char, i) => {{
                 const span = document.createElement('span');

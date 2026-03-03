@@ -10,12 +10,12 @@ test.describe('Gallery Tests', () => {
     });
 
     test('should load gallery page with correct title', async ({ page }) => {
-        await expect(page).toHaveTitle(/Надежда Терёшкина/);
+        await expect(page).toHaveTitle(/Надежда Ков/);
     });
 
     test('should display header with artist name', async ({ page }) => {
         const header = page.locator('.header-content h1');
-        await expect(header).toContainText('Надежда Александровна Терёшкина');
+        await expect(header).toContainText('Надежда Ков');
     });
 
     test('should display moon element', async ({ page }) => {
