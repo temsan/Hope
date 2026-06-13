@@ -119,7 +119,17 @@ function createGalleryItem(src, index, name) {
         item.style.display = 'none';
     };
 
+    // Кнопка купить
+    const buyBtn = document.createElement('button');
+    buyBtn.className = 'buy-btn';
+    buyBtn.textContent = 'Купить';
+    buyBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openOrderModal(index, name);
+    });
+
     item.appendChild(img);
+    item.appendChild(buyBtn);
     item.addEventListener('click', () => openModal(index));
     gallery.appendChild(item);
 
@@ -187,4 +197,140 @@ document.addEventListener('keydown', (e) => {
         if (e.key === 'ArrowRight') nextBtn.click();
         if (e.key === 'Escape') modal.style.display = 'none';
     }
+    if (orderModal && orderModal.style.display === 'block') {
+        if (e.key === 'Escape') orderModal.style.display = 'none';
+    }
 });
+
+// Модальное окно заказа
+let orderModal = null;
+let currentOrderImage = null;
+
+function openOrderModal(index, imageName) {
+    currentOrderImage = {
+        index: index,
+        name: imageName || `Работа ${index + 1}`,
+        url: images[index]
+    };
+
+    if (!orderModal) {
+        createOrderModal();
+    }
+
+    document.getElementById('orderImageName').textContent = currentOrderImage.name;
+    orderModal.style.display = 'block';
+}
+
+function createOrderModal() {
+    orderModal = document.createElement('div');
+    orderModal.id = 'orderModal';
+    orderModal.className = 'modal order-modal';
+
+    orderModal.innerHTML = `
+        <div class="order-modal-content">
+            <span class="close order-close">&times;</span>
+            <h2>Заказать работу</h2>
+            <p class="order-image-name" id="orderImageName"></p>
+            
+            <form id="orderForm" class="order-form">
+                <div class="form-group">
+                    <label for="orderName">Ваше имя *</label>
+                    <input type="text" id="orderName" name="name" required placeholder="Иван Иванов">
+                </div>
+                
+                <div class="form-group">
+                    <label for="orderPhone">Телефон *</label>
+                    <input type="tel" id="orderPhone" name="phone" required placeholder="+7 (999) 123-45-67">
+                </div>
+                
+                <div class="form-group">
+                    <label for="orderEmail">Email</label>
+                    <input type="email" id="orderEmail" name="email" placeholder="ivan@example.com">
+                </div>
+                
+                <div class="form-group">
+                    <label for="orderSize">Размер печати</label>
+                    <select id="orderSize" name="size">
+                        <option value="A4">A4 (21×29.7 см) - 2 000 ₽</option>
+                        <option value="A3">A3 (29.7×42 см) - 3 500 ₽</option>
+                        <option value="A2">A2 (42×59.4 см) - 5 000 ₽</option>
+                        <option value="A1">A1 (59.4×84.1 см) - 8 000 ₽</option>
+                        <option value="original">Оригинал - договорная</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="orderComment">Комментарий</label>
+                    <textarea id="orderComment" name="comment" rows="3" placeholder="Дополнительные пожелания..."></textarea>
+                </div>
+                
+                <button type="submit" class="order-submit-btn">Отправить заказ</button>
+            </form>
+            
+            <div id="orderSuccess" class="order-success" style="display: none;">
+                <h3>✓ Заказ отправлен!</h3>
+                <p>Мы свяжемся с вами в ближайшее время.</p>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(orderModal);
+
+    // Обработчики событий
+    const closeBtn = orderModal.querySelector('.order-close');
+    closeBtn.addEventListener('click', () => {
+        orderModal.style.display = 'none';
+    });
+
+    orderModal.addEventListener('click', (e) => {
+        if (e.target === orderModal) {
+            orderModal.style.display = 'none';
+        }
+    });
+
+    const form = document.getElementById('orderForm');
+    form.addEventListener('submit', handleOrderSubmit);
+}
+
+async function handleOrderSubmit(e) {
+    e.preventDefault();
+
+    const form = e.target;
+    const submitBtn = form.querySelector('.order-submit-btn');
+    const originalText = submitBtn.textContent;
+
+    submitBtn.textContent = 'Отправка...';
+    submitBtn.disabled = true;
+
+    const formData = {
+        image: currentOrderImage.name,
+        imageUrl: currentOrderImage.url,
+        name: document.getElementById('orderName').value,
+        phone: document.getElementById('orderPhone').value,
+        email: document.getElementById('orderEmail').value,
+        size: document.getElementById('orderSize').value,
+        comment: document.getElementById('orderComment').value
+    };
+
+    try {
+        const response = await fetch('/api/order', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(formData)
+        });
+
+        if (response.ok) {
+            form.style.display = 'none';
+            document.getElementById('orderSuccess').style.display = 'block';
+        } else {
+            throw new Error('Ошибка отправки заказа');
+        }
+    } catch (error) {
+        console.error('Ошибка:', error);
+        alert('Ошибка отправки заказа. Попробуйте еще раз или свяжитесь напрямую.');
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
+    }
+}

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Надежда Ков — варианты редизайна</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#14121a;color:#ece8f0;font-family:'Cormorant Garamond',serif;min-height:100vh}
+header{text-align:center;padding:8vh 20px 5vh}
+h1{font-size:clamp(2rem,5vw,3.2rem);font-weight:300;letter-spacing:.1em}
+.subtitle{font-style:italic;opacity:.6;font-size:1.2rem;margin-top:6px}
+.grid{max-width:1100px;margin:0 auto;padding:0 5vw 12vh;display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:28px}
+a.card{
+  display:block;text-decoration:none;color:inherit;border-radius:16px;padding:34px 30px;
+  background:var(--bg);position:relative;overflow:hidden;
+  transition:transform .35s cubic-bezier(.34,1.4,.64,1),box-shadow .35s;
+  box-shadow:0 10px 30px rgba(0,0,0,.4);
+}
+a.card:hover{transform:translateY(-6px) scale(1.02);box-shadow:0 22px 50px rgba(0,0,0,.6)}
+.card .n{font-size:3rem;font-weight:300;opacity:.25;line-height:1}
+.card h2{font-size:1.9rem;font-weight:500;font-style:italic;margin:6px 0 10px}
+.card p{font-size:1.1rem;opacity:.75;line-height:1.45}
+.card .tag{display:inline-block;margin-top:16px;font-size:.95rem;opacity:.55;letter-spacing:.1em}
+</style>
+</head>
+<body>
+<header>
+  <h1>Надежда Ков · редизайн</h1>
+  <p class="subtitle">пять характеров одной галереи — выбирайте</p>
+</header>
+<div class="grid">
+  <a class="card" href="variant-palette.html" style="--bg:linear-gradient(135deg,#4a3322,#2a1d12)">
+    <div class="n">01</div><h2>«Палитра»</h2>
+    <p>Картины — мазки свежей краски на деревянной палитре художника. Холодные слева, тёплые справа. Наведение оживляет мазок.</p>
+    <span class="tag">игриво · ваша идея, доведённая до конца</span>
+  </a>
+  <a class="card" href="variant-flow.html" style="--bg:linear-gradient(135deg,#1c1f3a,#2e1a2e)">
+    <div class="n">02</div><h2>«Течение»</h2>
+    <p>Горизонтальная река морфирующих клякс: формы дышат и переливаются, как краска, которая ещё не застыла.</p>
+    <span class="tag">кинетика · иммерсивно</span>
+  </a>
+  <a class="card" href="variant-ink.html" style="--bg:linear-gradient(135deg,#9a8e78,#6e6250)">
+    <div class="n">03</div><h2>«Чернила»</h2>
+    <p>Светлый музейный лонгрид: работы проявляются из серого пятна, как чернила в воде, с именами и температурной шкалой.</p>
+    <span class="tag">элегантно · издательский стиль</span>
+  </a>
+  <a class="card" href="variant-cells.html" style="--bg:linear-gradient(135deg,#1f2a3a,#1a3230)">
+    <div class="n">04</div><h2>«Ячейки»</h2>
+    <p>Соты-ячейки, как в самом fluid art, плюс «липкие» пузыри краски, плавающие на фоне.</p>
+    <span class="tag">плотно · фактурно</span>
+  </a>
+  <a class="card" href="variant-spectrum.html" style="--bg:linear-gradient(135deg,#16304a,#4a2a1c)">
+    <div class="n">05</div><h2>«Спектр»</h2>
+    <p>Вертикальное путешествие от льда к пламени: фон, нить и капли-узлы окрашены температурой каждой работы.</p>
+    <span class="tag">нарратив · температура как сюжет</span>
+  </a>
+</div>
+</body>
+</html>

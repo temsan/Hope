@@ -42,3 +42,5 @@ Thumbs.db
 
 # Large assets (if managed separately)
 # assets/  # Uncomment if assets are managed via CDN or separate storage
+.playwright-cli
+tests/screenshots

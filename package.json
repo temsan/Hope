@@ -1,17 +1,18 @@
 {
-    "name": "tereshkina-gallery",
+    "name": "liquid-glass-palette-test",
     "version": "1.0.0",
-    "description": "Галерея работ художницы Надежды Терёшкиной",
-    "main": "server.js",
+    "description": "Playwright tests for liquid glass palette",
     "scripts": {
-        "start": "node server.js",
-        "generate": "node generate-gallery.js"
+        "test": "playwright test",
+        "test:headed": "playwright test --headed",
+        "test:ui": "playwright test --ui",
+        "test:debug": "playwright test --debug",
+        "start": "node server.js"
     },
     "dependencies": {
-        "express": "^4.22.1",
-        "sharp": "^0.33.5"
+        "express": "^4.18.2"
     },
     "devDependencies": {
-        "@playwright/test": "^1.58.2"
+        "@playwright/test": "^1.40.0"
     }
 }

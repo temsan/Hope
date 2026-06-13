@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Надежда Ков — Палитра</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --wood-dark:#5a3d28; --wood-mid:#7a5538; --wood-light:#9a7048;
+  --bg:#1c1410; --text:#f0e4d4;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  background:radial-gradient(ellipse at 50% 30%, #2a1f16 0%, var(--bg) 70%);
+  font-family:'Cormorant Garamond',serif; color:var(--text);
+  min-height:100vh; overflow-x:hidden;
+}
+/* чернила на воде */
+#ink{position:fixed; inset:0; width:100%; height:100%; z-index:0; pointer-events:none}
+header, .palette-stage, .legend{position:relative; z-index:2}
+
+header{text-align:center; padding:48px 20px 8px}
+h1{font-size:clamp(2rem,5vw,3.4rem); font-weight:300; letter-spacing:.12em}
+.subtitle{font-style:italic; opacity:.65; font-size:1.2rem; margin-top:4px}
+.hint{opacity:.4; font-size:.95rem; margin-top:14px}
+
+/* Палитра */
+.palette-stage{
+  position:relative; width:min(94vw,1100px); margin:20px auto 80px;
+  aspect-ratio:10/7;
+}
+.palette-board{
+  position:absolute; inset:0; width:100%; height:100%;
+  filter:drop-shadow(0 30px 60px rgba(0,0,0,.6));
+}
+/* мазки */
+.daub{
+  position:absolute; cursor:pointer;
+  transform:translate(-50%,-50%) rotate(var(--rot)) scale(1);
+  transition:transform .45s cubic-bezier(.34,1.56,.64,1), filter .45s, z-index 0s;
+  filter:drop-shadow(0 6px 14px rgba(0,0,0,.45));
+  z-index:2;
+}
+.daub img{
+  display:block; width:var(--size); height:calc(var(--size)*0.82);
+  object-fit:cover;
+  border-radius:58% 42% 55% 45% / 48% 60% 40% 52%;
+}
+.daub::after{ /* блик свежей краски */
+  content:''; position:absolute; top:12%; left:16%; width:34%; height:20%;
+  background:radial-gradient(ellipse, rgba(255,255,255,.35), transparent 70%);
+  border-radius:50%; pointer-events:none;
+  transform:rotate(-15deg);
+}
+.daub:hover{
+  transform:translate(-50%,-50%) rotate(0deg) scale(1.6);
+  z-index:50;
+  filter:drop-shadow(0 18px 40px rgba(0,0,0,.7));
+}
+.daub .label{
+  position:absolute; left:50%; top:104%; transform:translateX(-50%);
+  font-size:.85rem; white-space:nowrap; opacity:0; transition:opacity .3s;
+  font-style:italic; letter-spacing:.06em;
+}
+.daub:hover .label{opacity:.85}
+
+/* подсказка тёпло/холодно */
+.legend{
+  display:flex; justify-content:center; gap:40px; opacity:.55; font-size:1rem; font-style:italic;
+}
+
+/* модалка */
+.modal{position:fixed; inset:0; display:none; background:rgba(15,10,7,.94); z-index:100;
+  align-items:center; justify-content:center; flex-direction:column}
+.modal.open{display:flex}
+.modal img{max-width:90vw; max-height:82vh; border-radius:6px; box-shadow:0 20px 80px rgba(0,0,0,.8)}
+.modal .bar{margin-top:18px; display:flex; gap:28px; align-items:center; font-size:1.3rem}
+.modal button{background:none;border:1px solid rgba(240,228,212,.3);color:var(--text);
+  width:44px;height:44px;border-radius:50%;font-size:1.2rem;cursor:pointer;transition:.25s}
+.modal button:hover{background:rgba(240,228,212,.15)}
+.modal .x{position:absolute;top:24px;right:32px;font-size:2rem;border:none;width:auto;height:auto}
+@media (max-width:640px){ .daub:hover{transform:translate(-50%,-50%) scale(1.3)} }
+</style>
+</head>
+<body>
+<canvas id="ink"></canvas>
+<header>
+  <h1>Надежда Ков</h1>
+  <p class="subtitle">fluid art · палитра работ</p>
+  <p class="hint">наведите на мазок — он оживёт; нажмите — раскроется</p>
+</header>
+
+<div class="palette-stage" id="stage">
+  <svg class="palette-board" viewBox="0 0 1000 700" preserveAspectRatio="none">
+    <defs>
+      <linearGradient id="wood" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#8a6240"/>
+        <stop offset=".5" stop-color="#6e4c30"/>
+        <stop offset="1" stop-color="#553a24"/>
+      </linearGradient>
+      <filter id="grain"><feTurbulence baseFrequency="0.9" numOctaves="2" result="n"/>
+        <feColorMatrix in="n" type="saturate" values="0"/>
+        <feComponentTransfer><feFuncA type="linear" slope="0.06"/></feComponentTransfer>
+        <feComposite in2="SourceGraphic" operator="over"/></filter>
+    </defs>
+    <path d="M500,28 C760,20 968,160 972,360 C975,540 800,672 540,676 C300,680 150,600 80,470 C30,375 40,260 120,180 C200,100 320,33 500,28 Z
+             M308,205 a72,60 0 1,0 0.1,0 Z"
+          fill="url(#wood)" fill-rule="evenodd" filter="url(#grain)"/>
+    <path d="M500,28 C760,20 968,160 972,360 C975,540 800,672 540,676 C300,680 150,600 80,470 C30,375 40,260 120,180 C200,100 320,33 500,28 Z"
+          fill="none" stroke="rgba(0,0,0,.35)" stroke-width="3"/>
+  </svg>
+</div>
+
+<p class="legend"><span>← холодные мазки</span><span>тёплые мазки →</span></p>
+
+<div class="modal" id="modal">
+  <button class="x" id="closeBtn">×</button>
+  <img id="modalImg" alt="">
+  <div class="bar">
+    <button id="prevBtn">‹</button>
+    <span id="counter"></span>
+    <button id="nextBtn">›</button>
+  </div>
+</div>
+
+<script src="images-data.js"></script>
+<script>
+const data=[...window.imagesData].sort((a,b)=>a.temperature-b.temperature);
+const stage=document.getElementById('stage');
+// раскладка мазков по дуге палитры: холодные слева, тёплые справа
+const slots=[
+ [16,52],[20,32],[30,68],[33,20],[43,45],[47,76],
+ [55,16],[60,55],[68,80],[72,30],[83,60],[85,38]
+];
+data.forEach((im,i)=>{
+  const d=document.createElement('div');
+  d.className='daub';
+  const [x,y]=slots[i%slots.length];
+  d.style.left=x+'%'; d.style.top=y+'%';
+  d.style.setProperty('--rot',(Math.sin(i*7)*14)+'deg');
+  d.style.setProperty('--size',(110+Math.abs(Math.sin(i*3))*70)+'px');
+  d.innerHTML=`<img src="${im.thumbnail}" alt="${im.name}"><span class="label">№ ${i+1}</span>`;
+  d.addEventListener('click',()=>open(i));
+  stage.appendChild(d);
+});
+// модалка
+const modal=document.getElementById('modal'),mImg=document.getElementById('modalImg'),
+counter=document.getElementById('counter');let cur=0;
+function open(i){cur=i;mImg.src=data[i].full;counter.textContent=(i+1)+' / '+data.length;
+  modal.classList.add('open');document.body.style.overflow='hidden'}
+function close(){modal.classList.remove('open');document.body.style.overflow=''}
+function nav(s){open((cur+s+data.length)%data.length)}
+closeBtn.onclick=close; prevBtn.onclick=()=>nav(-1); nextBtn.onclick=()=>nav(1);
+modal.onclick=e=>{if(e.target===modal)close()};
+document.addEventListener('keydown',e=>{if(!modal.classList.contains('open'))return;
+  if(e.key==='Escape')close(); if(e.key==='ArrowLeft')nav(-1); if(e.key==='ArrowRight')nav(1)});
+
+/* ===== чернила краски на воде ===== */
+const cv=document.getElementById('ink'), ctx=cv.getContext('2d');
+let W,H; function resize(){W=cv.width=innerWidth; H=cv.height=innerHeight} resize();
+addEventListener('resize',resize);
+// палитра чернил — от холодных к тёплым, как сами работы
+const inkHues=[210,225,195,260,290,330,15,30,40,180,350,25];
+const wisps=[];
+function bloom(x,y,hue,power=1){
+  const n=14+Math.round(10*power);
+  for(let k=0;k<n;k++){
+    const a=Math.random()*Math.PI*2, sp=(0.15+Math.random()*0.55)*power;
+    wisps.push({
+      x,y, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp-0.05,
+      r:2+Math.random()*5, growth:0.06+Math.random()*0.18,
+      hue:hue+(Math.random()*24-12), life:1, decay:0.0015+Math.random()*0.0025,
+      ph:Math.random()*Math.PI*2, wob:0.4+Math.random()*0.8
+    });
+  }
+}
+// автоматические капли в случайных местах
+let nextDrop=0;
+function autoDrop(t){
+  if(t>nextDrop){
+    bloom(Math.random()*W, Math.random()*H, inkHues[Math.floor(Math.random()*inkHues.length)], 0.9+Math.random()*0.8);
+    nextDrop=t+1800+Math.random()*2600;
+  }
+}
+// капля под курсором (редко, чтобы не мельтешило)
+let lastMouse=0;
+addEventListener('pointermove',e=>{
+  const t=performance.now();
+  if(t-lastMouse>380){ lastMouse=t;
+    bloom(e.clientX,e.clientY,inkHues[Math.floor(Math.random()*inkHues.length)],0.5);
+  }
+});
+// при наведении на мазок — выпускаем его «чернила»
+document.querySelectorAll('.daub').forEach((d,i)=>{
+  d.addEventListener('mouseenter',()=>{
+    const r=d.getBoundingClientRect();
+    bloom(r.left+r.width/2, r.top+r.height/2, inkHues[i%inkHues.length], 1.4);
+  });
+});
+function frame(t){
+  // полупрозрачная вуаль цвета фона — даёт «растворение» чернил в воде
+  ctx.globalCompositeOperation='source-over';
+  ctx.fillStyle='rgba(28,20,16,0.045)';
+  ctx.fillRect(0,0,W,H);
+  ctx.globalCompositeOperation='lighter';
+  for(let i=wisps.length-1;i>=0;i--){
+    const w=wisps[i];
+    w.ph+=0.02;
+    w.x+=w.vx+Math.sin(w.ph)*w.wob*0.3;      // лёгкое завихрение,
+    w.y+=w.vy+Math.cos(w.ph*0.7)*w.wob*0.2;  // как ток воды
+    w.vx*=0.985; w.vy*=0.985;
+    w.r+=w.growth; w.life-=w.decay;
+    if(w.life<=0){wisps.splice(i,1);continue}
+    const g=ctx.createRadialGradient(w.x,w.y,0,w.x,w.y,w.r);
+    const a=w.life*0.10;
+    g.addColorStop(0,`hsla(${w.hue},70%,60%,${a})`);
+    g.addColorStop(0.6,`hsla(${w.hue},80%,45%,${a*0.5})`);
+    g.addColorStop(1,'transparent');
+    ctx.fillStyle=g;
+    ctx.beginPath(); ctx.arc(w.x,w.y,w.r,0,Math.PI*2); ctx.fill();
+  }
+  autoDrop(t);
+  requestAnimationFrame(frame);
+}
+// стартовые капли, чтобы фон ожил сразу
+for(let i=0;i<5;i++) bloom(Math.random()*W,Math.random()*H,inkHues[i*2%inkHues.length],1.2);
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

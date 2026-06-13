@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Надежда Ков — Спектр</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  font-family:'Cormorant Garamond',serif;color:#f0ecf5;
+  background:linear-gradient(180deg,#0e1a2e 0%,#16213a 25%,#2a2238 50%,#3a2530 75%,#42221c 100%);
+  background-attachment:fixed;
+}
+header{text-align:center;padding:12vh 20px 6vh}
+h1{font-size:clamp(2.2rem,6vw,4rem);font-weight:300;letter-spacing:.16em}
+.subtitle{font-style:italic;opacity:.6;font-size:1.25rem;margin-top:6px}
+.hint{opacity:.35;margin-top:12px}
+
+/* нить-спектр по центру */
+.thread{
+  position:fixed;left:50%;top:0;bottom:0;width:2px;transform:translateX(-50%);
+  background:linear-gradient(180deg,#5aa7e0 0%,#8a9fd0 30%,#c08fa0 60%,#e0875a 100%);
+  opacity:.45;z-index:0;
+}
+.stream{position:relative;z-index:1;max-width:1000px;margin:0 auto;padding:0 5vw 14vh}
+.drop{
+  display:flex;align-items:center;gap:5vw;margin-bottom:14vh;
+  opacity:0;transform:translateY(60px);transition:opacity 1s,transform 1s cubic-bezier(.22,.8,.3,1);
+}
+.drop.shown{opacity:1;transform:none}
+.drop:nth-child(even){flex-direction:row-reverse}
+.drop .art{flex:0 0 56%;cursor:pointer;position:relative}
+.drop .art img{
+  width:100%;display:block;border-radius:14px;
+  box-shadow:0 24px 60px rgba(0,0,0,.55);
+  transition:transform .5s;
+}
+.drop .art:hover img{transform:scale(1.03) rotate(.5deg)}
+/* капля-узел на нити */
+.drop .node{
+  flex:0 0 auto;width:16px;height:16px;border-radius:50% 50% 50% 0;
+  transform:rotate(-45deg);background:var(--c);
+  box-shadow:0 0 18px var(--c);
+}
+.drop .info{flex:1}
+.drop .info .idx{font-size:3.2rem;font-weight:300;opacity:.2;line-height:1}
+.drop .info .deg{font-size:1.2rem;font-style:italic;opacity:.7}
+footer{text-align:center;padding:0 0 8vh;font-style:italic;opacity:.5;font-size:1.15rem;position:relative;z-index:1}
+
+/* модалка */
+.modal{position:fixed;inset:0;display:none;background:rgba(10,10,16,.95);z-index:100;
+  align-items:center;justify-content:center;flex-direction:column}
+.modal.open{display:flex}
+.modal img{max-width:90vw;max-height:82vh;border-radius:8px}
+.modal .bar{margin-top:16px;display:flex;gap:26px;align-items:center;font-size:1.3rem}
+.modal button{background:none;border:1px solid rgba(240,236,245,.3);color:#f0ecf5;
+  width:44px;height:44px;border-radius:50%;font-size:1.2rem;cursor:pointer}
+.modal button:hover{background:rgba(240,236,245,.12)}
+.modal .x{position:absolute;top:24px;right:32px;font-size:2rem;border:none;width:auto;height:auto}
+@media (max-width:700px){
+  .drop{flex-direction:column!important;gap:16px}
+  .drop .art{flex-basis:auto;width:100%}
+  .thread{left:24px}
+}
+</style>
+</head>
+<body>
+<div class="thread"></div>
+<header>
+  <h1>НАДЕЖДА КОВ</h1>
+  <p class="subtitle">fluid art · от холода к теплу</p>
+  <p class="hint">спуститесь по спектру — сверху лёд, внизу пламя</p>
+</header>
+
+<main class="stream" id="stream"></main>
+<footer>краска остывает медленно</footer>
+
+<div class="modal" id="modal">
+  <button class="x" id="closeBtn">×</button>
+  <img id="modalImg" alt="">
+  <div class="bar"><button id="prevBtn">‹</button><span id="counter"></span><button id="nextBtn">›</button></div>
+</div>
+
+<script src="images-data.js"></script>
+<script>
+const data=[...window.imagesData].sort((a,b)=>a.temperature-b.temperature);
+const stream=document.getElementById('stream');
+function tempColor(t){ // -0.3..0.3 → синий..оранжевый
+  const p=Math.max(0,Math.min(1,(t+0.3)/0.6));
+  const c1=[90,167,224],c2=[224,135,90];
+  return `rgb(${c1.map((v,i)=>Math.round(v+(c2[i]-v)*p)).join(',')})`;
+}
+data.forEach((im,i)=>{
+  const c=tempColor(im.temperature??0);
+  const el=document.createElement('div');
+  el.className='drop';
+  el.innerHTML=`
+    <div class="art"><img src="${im.thumbnail}" alt="${im.name}" loading="lazy"></div>
+    <div class="node" style="--c:${c}"></div>
+    <div class="info">
+      <div class="idx">${String(i+1).padStart(2,'0')}</div>
+      <div class="deg" style="color:${c}">${(im.temperature??0)<0?'холодная':'тёплая'} · ${Math.abs(Math.round((im.temperature??0)*100))}°</div>
+    </div>`;
+  el.querySelector('.art').addEventListener('click',()=>open(i));
+  stream.appendChild(el);
+});
+const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting)e.target.classList.add('shown')}),{threshold:.25});
+document.querySelectorAll('.drop').forEach(d=>io.observe(d));
+// модалка
+const modal=document.getElementById('modal'),mImg=document.getElementById('modalImg'),counter=document.getElementById('counter');let cur=0;
+function open(i){cur=i;mImg.src=data[i].full;counter.textContent=(i+1)+' / '+data.length;modal.classList.add('open');document.body.style.overflow='hidden'}
+function close(){modal.classList.remove('open');document.body.style.overflow=''}
+function nav(s){open((cur+s+data.length)%data.length)}
+closeBtn.onclick=close;prevBtn.onclick=()=>nav(-1);nextBtn.onclick=()=>nav(1);
+modal.onclick=e=>{if(e.target===modal)close()};
+document.addEventListener('keydown',e=>{if(!modal.classList.contains('open'))return;
+  if(e.key==='Escape')close();if(e.key==='ArrowLeft')nav(-1);if(e.key==='ArrowRight')nav(1)});
+</script>
+</body>
+</html>

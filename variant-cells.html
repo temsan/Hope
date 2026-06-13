@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Надежда Ков — Ячейки</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#10131a;color:#e9e7f2;font-family:'Cormorant Garamond',serif;min-height:100vh}
+
+header{text-align:center;padding:56px 20px 10px;position:relative;z-index:2}
+h1{font-size:clamp(2rem,5vw,3.4rem);font-weight:300;letter-spacing:.14em}
+.subtitle{font-style:italic;opacity:.6;font-size:1.2rem}
+
+/* плавающие пузыри краски на фоне */
+.bubbles{position:fixed;inset:0;z-index:0;filter:url(#goo);opacity:.35;pointer-events:none}
+.bubbles i{position:absolute;border-radius:50%;
+  animation:float var(--d) ease-in-out infinite alternate}
+@keyframes float{from{transform:translate(0,0) scale(1)}to{transform:translate(var(--dx),var(--dy)) scale(1.25)}}
+
+/* соты-ячейки */
+.cells{
+  position:relative;z-index:2;
+  max-width:1200px;margin:30px auto 100px;padding:0 4vw;
+  display:flex;flex-wrap:wrap;justify-content:center;
+}
+.cell{
+  width:clamp(150px,22vw,260px);aspect-ratio:1/1.12;
+  clip-path:polygon(50% 0%,98% 24%,98% 76%,50% 100%,2% 76%,2% 24%);
+  margin:-2.2% 6px 0;cursor:pointer;position:relative;overflow:hidden;
+  transition:transform .4s cubic-bezier(.34,1.4,.64,1), filter .4s;
+}
+.cell:nth-child(even){margin-top:calc(clamp(150px,22vw,260px)*0.28)}
+.cell img{width:100%;height:100%;object-fit:cover;transform:scale(1.12);transition:transform .8s}
+.cell::after{content:attr(data-n);position:absolute;inset:auto 0 10% 0;text-align:center;
+  font-size:1rem;font-style:italic;letter-spacing:.25em;opacity:0;transition:opacity .35s;
+  text-shadow:0 1px 8px rgba(0,0,0,.9)}
+.cell:hover{transform:scale(1.12);z-index:5;filter:drop-shadow(0 14px 30px rgba(0,0,0,.7))}
+.cell:hover img{transform:scale(1)}
+.cell:hover::after{opacity:.95}
+
+/* модалка */
+.modal{position:fixed;inset:0;display:none;background:rgba(10,12,18,.95);z-index:100;
+  align-items:center;justify-content:center;flex-direction:column}
+.modal.open{display:flex}
+.modal img{max-width:90vw;max-height:82vh;border-radius:6px}
+.modal .bar{margin-top:16px;display:flex;gap:26px;align-items:center;font-size:1.3rem}
+.modal button{background:none;border:1px solid rgba(233,231,242,.3);color:#e9e7f2;
+  width:44px;height:44px;border-radius:50%;font-size:1.2rem;cursor:pointer}
+.modal button:hover{background:rgba(233,231,242,.12)}
+.modal .x{position:absolute;top:24px;right:32px;font-size:2rem;border:none;width:auto;height:auto}
+</style>
+</head>
+<body>
+<svg width="0" height="0"><filter id="goo">
+  <feGaussianBlur in="SourceGraphic" stdDeviation="12" result="b"/>
+  <feColorMatrix in="b" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 24 -12"/>
+</filter></svg>
+
+<div class="bubbles" id="bubbles"></div>
+
+<header>
+  <h1>Надежда Ков</h1>
+  <p class="subtitle">fluid art · ячейки краски</p>
+</header>
+
+<div class="cells" id="cells"></div>
+
+<div class="modal" id="modal">
+  <button class="x" id="closeBtn">×</button>
+  <img id="modalImg" alt="">
+  <div class="bar"><button id="prevBtn">‹</button><span id="counter"></span><button id="nextBtn">›</button></div>
+</div>
+
+<script src="images-data.js"></script>
+<script>
+const data=window.imagesData;
+const cells=document.getElementById('cells');
+data.forEach((im,i)=>{
+  const c=document.createElement('div');
+  c.className='cell';c.dataset.n='№ '+(i+1);
+  c.innerHTML=`<img src="${im.thumbnail}" alt="${im.name}" loading="lazy">`;
+  c.addEventListener('click',()=>open(i));
+  cells.appendChild(c);
+});
+// фоновые пузыри (детерминированные)
+const bb=document.getElementById('bubbles');
+const cols=['#3a5f8a','#7a4060','#2f6e6a','#8a6a3a','#5a3a7a','#3a7a55'];
+for(let i=0;i<14;i++){
+  const b=document.createElement('i');
+  const s=40+((i*53)%120);
+  b.style.cssText=`width:${s}px;height:${s}px;left:${(i*37)%95}%;top:${(i*61)%90}%;
+    background:${cols[i%cols.length]};--d:${7+(i%6)}s;--dx:${((i%5)-2)*40}px;--dy:${((i%4)-1.5)*50}px`;
+  bb.appendChild(b);
+}
+// модалка
+const modal=document.getElementById('modal'),mImg=document.getElementById('modalImg'),counter=document.getElementById('counter');let cur=0;
+function open(i){cur=i;mImg.src=data[i].full;counter.textContent=(i+1)+' / '+data.length;modal.classList.add('open');document.body.style.overflow='hidden'}
+function close(){modal.classList.remove('open');document.body.style.overflow=''}
+function nav(s){open((cur+s+data.length)%data.length)}
+closeBtn.onclick=close;prevBtn.onclick=()=>nav(-1);nextBtn.onclick=()=>nav(1);
+modal.onclick=e=>{if(e.target===modal)close()};
+document.addEventListener('keydown',e=>{if(!modal.classList.contains('open'))return;
+  if(e.key==='Escape')close();if(e.key==='ArrowLeft')nav(-1);if(e.key==='ArrowRight')nav(1)});
+</script>
+</body>
+</html>

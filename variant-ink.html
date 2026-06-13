@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Надежда Ков — Чернила</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,500;1,300;1,500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  background:#f6f2ea; color:#1f1c18;
+  font-family:'Cormorant Garamond',serif;
+}
+/* бумажная текстура */
+body::before{content:'';position:fixed;inset:0;pointer-events:none;opacity:.5;
+  background-image:radial-gradient(rgba(120,100,70,.06) 1px, transparent 1px);
+  background-size:5px 5px}
+
+header{padding:14vh 8vw 8vh;max-width:1100px;margin:0 auto}
+h1{font-size:clamp(3rem,9vw,6.5rem);font-weight:300;line-height:1;letter-spacing:-.01em}
+h1 em{font-style:italic;font-weight:500}
+.lede{font-size:1.35rem;margin-top:24px;max-width:34em;opacity:.7;font-style:italic}
+
+.works{max-width:1100px;margin:0 auto;padding:0 8vw 16vh}
+.work{
+  display:grid;grid-template-columns:1fr 1fr;gap:6vw;align-items:center;
+  margin-bottom:18vh;
+}
+.work:nth-child(even){direction:rtl}
+.work:nth-child(even)>*{direction:ltr}
+.frame{position:relative;cursor:pointer}
+.frame img{
+  width:100%;display:block;
+  clip-path:circle(0% at 50% 50%);
+  filter:saturate(.2) contrast(.9);
+  transition:clip-path 1.6s cubic-bezier(.22,.8,.3,1), filter 1.8s ease .3s;
+  box-shadow:0 30px 60px rgba(60,45,25,.18);
+}
+.work.shown .frame img{clip-path:circle(75% at 50% 50%);filter:saturate(1) contrast(1)}
+.frame:hover img{filter:saturate(1.15) contrast(1.03)}
+.meta{opacity:0;transform:translateY(30px);transition:opacity 1s ease .5s,transform 1s ease .5s}
+.work.shown .meta{opacity:1;transform:none}
+.meta .idx{font-size:5rem;font-weight:300;opacity:.18;line-height:1}
+.meta h2{font-size:2rem;font-weight:500;font-style:italic;margin:8px 0 14px}
+.meta p{font-size:1.15rem;opacity:.65;max-width:26em}
+.meta .scale{margin-top:22px;width:140px;height:2px;background:linear-gradient(90deg,#6e9fc4,#c47a5e);position:relative}
+.meta .scale i{position:absolute;top:-4px;width:10px;height:10px;border-radius:50%;background:#1f1c18;transform:translateX(-50%)}
+.meta .scale span{position:absolute;top:10px;font-size:.8rem;opacity:.5;font-family:sans-serif}
+
+footer{text-align:center;padding:0 0 10vh;font-style:italic;opacity:.5;font-size:1.2rem}
+
+/* модалка */
+.modal{position:fixed;inset:0;display:none;background:rgba(246,242,234,.97);z-index:100;
+  align-items:center;justify-content:center;flex-direction:column}
+.modal.open{display:flex}
+.modal img{max-width:90vw;max-height:82vh;box-shadow:0 30px 90px rgba(60,45,25,.35)}
+.modal .bar{margin-top:18px;display:flex;gap:26px;align-items:center;font-size:1.3rem}
+.modal button{background:none;border:1px solid rgba(31,28,24,.35);color:#1f1c18;
+  width:44px;height:44px;border-radius:50%;font-size:1.2rem;cursor:pointer}
+.modal button:hover{background:rgba(31,28,24,.08)}
+.modal .x{position:absolute;top:24px;right:32px;font-size:2rem;border:none;width:auto;height:auto}
+@media (max-width:760px){.work{grid-template-columns:1fr;gap:24px;margin-bottom:12vh}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Надежда <em>Ков</em></h1>
+  <p class="lede">Краска, вода и время. Каждая работа — это поток, остановленный в ту единственную секунду, когда он стал собой.</p>
+</header>
+
+<main class="works" id="works"></main>
+<footer>fluid art · 2022 — 2026</footer>
+
+<div class="modal" id="modal">
+  <button class="x" id="closeBtn">×</button>
+  <img id="modalImg" alt="">
+  <div class="bar"><button id="prevBtn">‹</button><span id="counter"></span><button id="nextBtn">›</button></div>
+</div>
+
+<script src="images-data.js"></script>
+<script>
+const data=window.imagesData;
+const works=document.getElementById('works');
+const moods=['тихая вода','северный ветер','глубина','оттепель','перламутр','лунный прилив','тёплое золото','янтарь','закатная волна','медь и шёлк','солнечное стекло','пламя'];
+const sorted=[...data].sort((a,b)=>a.temperature-b.temperature);
+sorted.forEach((im,i)=>{
+  const t=Math.max(-0.3,Math.min(0.3,im.temperature??0));
+  const pct=((t+0.3)/0.6)*100;
+  const el=document.createElement('section');
+  el.className='work';
+  el.innerHTML=`
+    <div class="frame"><img src="${im.thumbnail}" alt="${im.name}" loading="lazy"></div>
+    <div class="meta">
+      <div class="idx">${String(i+1).padStart(2,'0')}</div>
+      <h2>«${moods[i%moods.length]}»</h2>
+      <p>Акрил, холст. Техника свободного течения.</p>
+      <div class="scale"><i style="left:${pct}%"></i><span style="left:0">холод</span><span style="right:0">тепло</span></div>
+    </div>`;
+  el.querySelector('.frame').addEventListener('click',()=>open(i));
+  works.appendChild(el);
+});
+// проявление при скролле
+const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting)e.target.classList.add('shown')}),{threshold:.3});
+document.querySelectorAll('.work').forEach(w=>io.observe(w));
+// модалка
+const modal=document.getElementById('modal'),mImg=document.getElementById('modalImg'),counter=document.getElementById('counter');let cur=0;
+function open(i){cur=i;mImg.src=sorted[i].full;counter.textContent=(i+1)+' / '+sorted.length;modal.classList.add('open');document.body.style.overflow='hidden'}
+function close(){modal.classList.remove('open');document.body.style.overflow=''}
+function nav(s){open((cur+s+sorted.length)%sorted.length)}
+closeBtn.onclick=close;prevBtn.onclick=()=>nav(-1);nextBtn.onclick=()=>nav(1);
+modal.onclick=e=>{if(e.target===modal)close()};
+document.addEventListener('keydown',e=>{if(!modal.classList.contains('open'))return;
+  if(e.key==='Escape')close();if(e.key==='ArrowLeft')nav(-1);if(e.key==='ArrowRight')nav(1)});
+</script>
+</body>
+</html>

@@ -337,3 +337,201 @@ body {
         filter: blur(60px);
     }
 }
+
+/* Кнопка купить */
+.buy-btn {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 12px 30px;
+    border-radius: 50px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    z-index: 10;
+    opacity: 0;
+    transition: all 0.3s ease;
+    letter-spacing: 1px;
+    box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+}
+
+.gallery-item:hover .buy-btn {
+    opacity: 1;
+    transform: translateX(-50%) translateY(-10px);
+}
+
+.buy-btn:hover {
+    background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+    box-shadow: 0 8px 30px rgba(102, 126, 234, 0.6);
+    transform: translateX(-50%) translateY(-12px) scale(1.05);
+}
+
+/* Модальное окно заказа */
+.order-modal {
+    z-index: 2000;
+}
+
+.order-modal-content {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(20, 20, 40, 0.98);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    padding: 40px;
+    width: 90%;
+    max-width: 500px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 30px 100px rgba(102, 126, 234, 0.5);
+}
+
+.order-modal-content h2 {
+    color: white;
+    font-size: 2em;
+    margin-bottom: 10px;
+    font-weight: 300;
+    letter-spacing: 2px;
+}
+
+.order-image-name {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 1.1em;
+    margin-bottom: 30px;
+    font-style: italic;
+}
+
+.order-form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.form-group label {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 0.95em;
+    letter-spacing: 0.5px;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+    padding: 14px 18px;
+    color: white;
+    font-size: 1em;
+    transition: all 0.3s ease;
+    font-family: inherit;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: #667eea;
+    background: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 0 20px rgba(102, 126, 234, 0.3);
+}
+
+.form-group input::placeholder,
+.form-group textarea::placeholder {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.form-group select {
+    cursor: pointer;
+}
+
+.form-group select option {
+    background: #1a1a2e;
+    color: white;
+}
+
+.order-submit-btn {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 16px 30px;
+    border-radius: 50px;
+    font-size: 1.1em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    letter-spacing: 1px;
+    margin-top: 10px;
+    box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+}
+
+.order-submit-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 30px rgba(102, 126, 234, 0.6);
+}
+
+.order-submit-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.order-success {
+    text-align: center;
+    padding: 40px 20px;
+}
+
+.order-success h3 {
+    color: #4ade80;
+    font-size: 1.8em;
+    margin-bottom: 15px;
+}
+
+.order-success p {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 1.1em;
+}
+
+.order-close {
+    position: absolute;
+    top: 20px;
+    right: 25px;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 35px;
+    font-weight: 300;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    z-index: 10;
+}
+
+.order-close:hover {
+    color: #667eea;
+    transform: rotate(90deg);
+}
+
+@media (max-width: 768px) {
+    .order-modal-content {
+        padding: 30px 20px;
+        width: 95%;
+    }
+
+    .order-modal-content h2 {
+        font-size: 1.5em;
+    }
+
+    .buy-btn {
+        padding: 10px 20px;
+        font-size: 14px;
+    }
+}
