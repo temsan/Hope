@@ -129,16 +129,34 @@ h1{font-size:clamp(2rem,5vw,3.4rem); font-weight:300; letter-spacing:.12em}
 <script>
 const data=[...window.imagesData].sort((a,b)=>a.temperature-b.temperature);
 const stage=document.getElementById('stage');
-// 9 точек, max-min distance по реальным SVG-координатам палитры
-const slots=[
- [70,46],[16,70],[32,15],
- [48,86],[76,86],[38,54],
- [60,15],[92,62],[16,39],
-];
+
+// Алгоритмическое размещение: Poisson-like max-min distance по эллипсу палитры
+// Эллипс SVG 1000x700: cx=527,cy=352,rx=420,ry=300; дырка cx=308,cy=205,rx=85,ry=70
+function placeDaubs(n) {
+  const cx=52.7,cy=50.3,rx=42,ry=43; // в %
+  const hx=30.8,hy=29.3,hrx=9,hry=10;
+  const inPalette=(x,y)=>((x-cx)/rx)**2+((y-cy)/ry)**2<0.88&&((x-hx)/hrx)**2+((y-hy)/hry)**2>1.1;
+  // Генерируем сетку кандидатов
+  const pts=[];
+  for(let x=10;x<95;x+=3) for(let y=10;y<92;y+=3) if(inPalette(x,y)) pts.push([x,y]);
+  // Max-min distance: жадно выбираем точки максимально удалённые друг от друга
+  const chosen=[pts[Math.floor(pts.length/2)]];
+  while(chosen.length<n){
+    let best=null,bestD=0;
+    for(const p of pts){
+      const d=Math.min(...chosen.map(c=>(p[0]-c[0])**2+(p[1]-c[1])**2));
+      if(d>bestD){bestD=d;best=p;}
+    }
+    chosen.push(best);
+  }
+  return chosen;
+}
+
+const slots=placeDaubs(data.length);
 data.forEach((im,i)=>{
   const d=document.createElement('div');
   d.className='daub';
-  const [x,y]=slots[i%slots.length];
+  const [x,y]=slots[i];
   d.style.left=x+'%'; d.style.top=y+'%';
   d.style.setProperty('--rot',(Math.sin(i*7)*14)+'deg');
   d.style.setProperty('--size',(110+Math.abs(Math.sin(i*3))*70)+'px');

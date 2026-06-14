@@ -1449,15 +1449,13 @@
     </footer>
 
     <script async src="images-thumbs.js" onload="__onThumbsReady()"></script>
-    <script defer src="images-full.js"></script>
     <script>
         // images-data-v2.js грузится async — не блокирует парсинг HTML
         // onload вызовет initApp когда данные готовы
-        // images-thumbs.js готов — запускаем галерею с thumbnail-данными
+        // images-thumbs.js готов (~750KB) — запускаем галерею сразу
+        // full-картины подгружаются лениво при открытии модалки
         window.__onThumbsReady = function() {
             const data = window.imagesThumbsData;
-            // Добавляем заглушку full = thumbnail пока images-full.js не загрузился
-            data.forEach(d => { d.full = d.thumbnail; });
             if (document.readyState === 'loading') {
                 document.addEventListener('DOMContentLoaded', () => initApp(data));
             } else {
@@ -1465,22 +1463,8 @@
             }
         };
 
-        // images-full.js загрузился в фоне — обновляем full-ссылки и кэш
-        document.addEventListener('DOMContentLoaded', function() {
-            const check = setInterval(function() {
-                if (!window.imagesFullData) return;
-                clearInterval(check);
-                if (!window.imagesThumbsData) return;
-                window.imagesThumbsData.forEach((d, i) => {
-                    d.full = window.imagesFullData[i] || d.thumbnail;
-                });
-                // imagesData внутри initApp — это тот же объект, ссылки обновились
-            }, 200);
-        });
-
                 function initApp(imagesData) {
         let currentIndex = 0;
-        const fullImagesLoaded = new Set();
 
         const gallery = document.getElementById('gallery');
         const modal = document.getElementById('modal');
@@ -1807,26 +1791,25 @@
                 modal.style.setProperty('--modal-bg-color', `rgba(${r}, ${g}, ${b}, 0.9)`);
             }
 
-            // Load image
-            modalImg.src = imagesData[currentIndex].thumbnail;
+            // Сначала показываем thumbnail мгновенно, потом подменяем на full
+            const snapIndex = currentIndex;
+            modalImg.src = imagesData[snapIndex].thumbnail;
+            modalImg.classList.add('loaded');
+            getFullSrc(snapIndex).then(src => {
+                if (currentIndex !== snapIndex) return; // пользователь уже переключил
+                if (src !== modalImg.src) {
+                    const tmp = new Image();
+                    tmp.onload = () => {
+                        if (currentIndex === snapIndex) { modalImg.src = src; }
+                    };
+                    tmp.src = src;
+                }
+            });
 
-            if (fullImagesLoaded.has(currentIndex)) {
-                modalImg.src = imagesData[currentIndex].full;
-                modalImg.classList.add('loaded');
-            } else {
-                const fullImg = new Image();
-                fullImg.onload = () => {
-                    modalImg.src = imagesData[currentIndex].full;
-                    modalImg.classList.add('loaded');
-                    fullImagesLoaded.add(currentIndex);
-                };
-                fullImg.src = imagesData[currentIndex].full;
-            }
-
-            // Поднимаем приоритет соседей в очереди предзагрузки
+            // Прогрев соседей
             const n = imagesData.length;
-            enqueuePreload((currentIndex + 1) % n, true);
-            enqueuePreload((currentIndex - 1 + n) % n, true);
+            enqueuePreload((currentIndex + 1) % n);
+            enqueuePreload((currentIndex - 1 + n) % n);
 
             // Update info and thumbnails
             updateImageInfo();
@@ -2019,49 +2002,46 @@
             });
         }
 
-        // Очередь приоритетной предзагрузки
-        const preloadQueue = [];
-        let preloadRunning = false;
-
-        function enqueuePreload(index, priority = false) {
-            if (fullImagesLoaded.has(index)) return;
-            // Убираем если уже есть, чтобы переставить с новым приоритетом
-            const existing = preloadQueue.indexOf(index);
-            if (existing !== -1) preloadQueue.splice(existing, 1);
-            if (priority) {
-                preloadQueue.unshift(index); // высокий приоритет — в начало
-            } else {
-                preloadQueue.push(index);
+        // Кэш полных картин: index -> base64 data URL
+        const fullCache = new Map();
+        // Единственный источник full-данных — images-full.js (грузим один раз лениво)
+        let fullDataPromise = null;
+        function getFullData() {
+            if (!fullDataPromise) {
+                fullDataPromise = new Promise(resolve => {
+                    if (window.imagesFullData) { resolve(window.imagesFullData); return; }
+                    const s = document.createElement('script');
+                    s.src = 'images-full.js';
+                    s.onload = () => resolve(window.imagesFullData);
+                    s.onerror = () => resolve(null);
+                    document.head.appendChild(s);
+                });
             }
-            if (!preloadRunning) drainPreloadQueue();
+            return fullDataPromise;
         }
 
-        function drainPreloadQueue() {
-            if (preloadQueue.length === 0) { preloadRunning = false; return; }
-            preloadRunning = true;
-            const index = preloadQueue.shift();
-            if (fullImagesLoaded.has(index)) { drainPreloadQueue(); return; }
-            const img = new Image();
-            img.onload = img.onerror = () => {
-                if (img.complete && img.naturalWidth) fullImagesLoaded.add(index);
-                // Следующий — через requestIdleCallback чтобы не мешать UI
-                (window.requestIdleCallback || setTimeout)(drainPreloadQueue, { timeout: 2000 });
-            };
-            img.src = imagesData[index].full;
+        function getFullSrc(index) {
+            if (fullCache.has(index)) return Promise.resolve(fullCache.get(index));
+            return getFullData().then(data => {
+                const src = (data && data[index]) || imagesData[index].thumbnail;
+                fullCache.set(index, src);
+                return src;
+            });
         }
 
         function preloadFullImages() {
-            // Сначала грузим соседей текущего индекса, потом всё остальное
-            const n = imagesData.length;
-            const order = [];
-            // Спираль вокруг currentIndex: 0, ±1, ±2, ...
-            for (let d = 0; d < n; d++) {
-                const next = (currentIndex + d) % n;
-                const prev = (currentIndex - d + n) % n;
-                if (!order.includes(next)) order.push(next);
-                if (!order.includes(prev)) order.push(prev);
-            }
-            order.forEach((idx, i) => enqueuePreload(idx, i < 3));
+            // После загрузки thumbnails — начинаем тянуть full в фоне через idle
+            (window.requestIdleCallback || setTimeout)(() => {
+                getFullData().then(data => {
+                    if (!data) return;
+                    data.forEach((src, i) => { if (src) fullCache.set(i, src); });
+                });
+            }, { timeout: 3000 });
+        }
+
+        function enqueuePreload(index) {
+            // Прогрев кэша для конкретного индекса
+            getFullSrc(index);
         }
 
         let scrollPosition = 0;
