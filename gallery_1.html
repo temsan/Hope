@@ -1156,34 +1156,59 @@
     <div class="moon" id="moonEl">
         <img src="https://images.unsplash.com/photo-1532693322450-2cb5c511067d?w=400&q=85&auto=format&fit=crop"
             alt="Moon" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;" />
-        <svg class="moon-phase-svg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <svg class="moon-phase-svg" viewBox="-1 -1 102 102" xmlns="http://www.w3.org/2000/svg">
           <defs>
-            <clipPath id="moonClip"><circle cx="50" cy="50" r="50"/></clipPath>
+            <clipPath id="moonClip"><circle cx="50" cy="50" r="50.5"/></clipPath>
           </defs>
-          <g clip-path="url(#moonClip)">
-            <!-- Тёмная половина (всегда правая или левая в зависимости от фазы) -->
-            <rect x="0" y="0" width="50" height="100" fill="#08040f">
-              <animate attributeName="width" dur="120s" repeatCount="indefinite"
-                keyTimes="0;0.25;0.5;0.75;1"
-                values="100;50;0;50;100"/>
-              <animate attributeName="x" dur="120s" repeatCount="indefinite"
-                keyTimes="0;0.25;0.5;0.75;1"
-                values="0;0;0;50;0"/>
-            </rect>
-            <!-- Дополнительный эллипс для плавного перехода серп→четверть→серп -->
-            <ellipse cy="50" ry="50" fill="#08040f">
-              <animate attributeName="cx" dur="120s" repeatCount="indefinite"
-                keyTimes="0;0.25;0.5;0.75;1"
-                values="50;50;50;50;50"/>
-              <animate attributeName="rx" dur="120s" repeatCount="indefinite"
-                keyTimes="0;0.25;0.5;0.75;1"
-                values="50;0;50;0;50"/>
-              <animate attributeName="fill" dur="120s" repeatCount="indefinite"
-                keyTimes="0;0.249;0.25;0.749;0.75;1"
-                values="#08040f;#08040f;transparent;transparent;#08040f;#08040f"/>
-            </ellipse>
-          </g>
+          <!-- Тёмная тень: физически точный терминатор по меридиану шара -->
+          <path id="moonShadow" fill="#08040f" clip-path="url(#moonClip)" d="M50,0 A50,50 0 0,1 50,100 A50,50 0 0,1 50,0 Z"/>
         </svg>
+        <script>
+        (function(){
+          const path = document.getElementById('moonShadow');
+          if (!path) return;
+          const PERIOD = 120000; // 120 секунд полный цикл
+          const R = 50, cx = 50, cy = 50;
+          function buildShadowPath(phase) {
+            // phase: 0=новолуние, 0.5=полнолуние, 1=новолуние
+            const angle = phase * Math.PI * 2; // 0..2π
+            // rx терминатора: проекция меридиана = R*cos(angle)
+            const termRx = R * Math.cos(angle);
+            // Первая половина цикла (0..π): тень справа, терминатор движется вправо→влево
+            // Вторая половина (π..2π): тень слева, терминатор движется влево→вправо
+            const shadowOnRight = phase < 0.5;
+            // Большая дуга: правая или левая полуокружность
+            // Путь тёмной области:
+            // 1. Полукруг по краю диска (тёмная сторона)
+            // 2. Эллипс-терминатор обратно
+            const top = [cx, cy - R];
+            const bot = [cx, cy + R];
+            if (shadowOnRight) {
+              // Тёмная: правая полуокружность + терминатор
+              // Правая дуга: top→bot по правой стороне (sweep=1)
+              // Терминатор: bot→top эллипс rx=|termRx| 
+              // termRx>0: терминатор выпуклый вправо (растущая луна, серп тёмный справа)
+              // termRx<0: терминатор выпуклый влево  (убывающая — но мы в первой половине, н/д)
+              const trx = Math.abs(termRx);
+              const tsweep = termRx >= 0 ? 0 : 1; // выпуклость терминатора
+              return \`M\${cx},\${cy-R} A\${R},\${R} 0 0,1 \${cx},\${cy+R} A\${trx},\${R} 0 0,\${tsweep} \${cx},\${cy-R} Z\`;
+            } else {
+              // Тёмная: левая полуокружность + терминатор
+              const trx = Math.abs(termRx);
+              const tsweep = termRx <= 0 ? 0 : 1;
+              return \`M\${cx},\${cy-R} A\${R},\${R} 0 0,0 \${cx},\${cy+R} A\${trx},\${R} 0 0,\${tsweep} \${cx},\${cy-R} Z\`;
+            }
+          }
+          let start = null;
+          function tick(ts) {
+            if (!start) start = ts;
+            const phase = ((ts - start) % PERIOD) / PERIOD;
+            path.setAttribute('d', buildShadowPath(phase));
+            requestAnimationFrame(tick);
+          }
+          requestAnimationFrame(tick);
+        })();
+        </script>
     </div>
 
     <!-- Свечи -->
