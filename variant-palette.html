@@ -129,11 +129,11 @@ h1{font-size:clamp(2rem,5vw,3.4rem); font-weight:300; letter-spacing:.12em}
 <script>
 const data=[...window.imagesData].sort((a,b)=>a.temperature-b.temperature);
 const stage=document.getElementById('stage');
-// 9 точек, равномерно по площади эллипса (max-min distance, с учётом дырки)
+// 9 точек, max-min distance по реальным SVG-координатам палитры
 const slots=[
- [42,12],[66,16],[86,32],
- [18,48],[46,40],[70,48],
- [26,76],[54,68],[86,64],
+ [70,46],[16,70],[32,15],
+ [48,86],[76,86],[38,54],
+ [60,15],[92,62],[16,39],
 ];
 data.forEach((im,i)=>{
   const d=document.createElement('div');

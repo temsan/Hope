@@ -17,3 +17,13 @@
   for = "/*.js"
   [headers.values]
     Cache-Control = "public, max-age=86400"
+
+[[headers]]
+  for = "/images-thumbs.js"
+  [headers.values]
+    Cache-Control = "public, max-age=2592000, immutable"
+
+[[headers]]
+  for = "/images-full.js"
+  [headers.values]
+    Cache-Control = "public, max-age=2592000, immutable"
