@@ -114,6 +114,27 @@
             background: transparent;
             animation: moonPulse 9s ease-in-out infinite alternate;
         }
+        /* Фазы луны — тень перекрывает диск */
+        .moon::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            background: #08040f;
+            animation: moonPhase 29.5s linear infinite;
+            transform-origin: right center;
+        }
+        @keyframes moonPhase {
+            0%   { transform: scaleX(1);   background:#08040f; left:0;right:0 }
+            12%  { transform: scaleX(0.5); background:#08040f; left:0 }
+            25%  { transform: scaleX(0);   }
+            37%  { transform: scaleX(0.5); background:#08040f; right:0 }
+            50%  { transform: scaleX(1);   background:#08040f }
+            62%  { transform: scaleX(0.5); background:#08040f; left:0 }
+            75%  { transform: scaleX(0); }
+            87%  { transform: scaleX(0.5); background:#08040f; right:0 }
+            100% { transform: scaleX(1);   background:#08040f }
+        }
 
         .moon img {
             width: 100%;
@@ -1791,20 +1812,28 @@
                 modal.style.setProperty('--modal-bg-color', `rgba(${r}, ${g}, ${b}, 0.9)`);
             }
 
-            // Сначала показываем thumbnail мгновенно, потом подменяем на full
+            // Плавное открытие: сразу full если в кэше, иначе fade-in после загрузки
             const snapIndex = currentIndex;
-            modalImg.src = imagesData[snapIndex].thumbnail;
-            modalImg.classList.add('loaded');
-            getFullSrc(snapIndex).then(src => {
-                if (currentIndex !== snapIndex) return; // пользователь уже переключил
-                if (src !== modalImg.src) {
+            if (fullCache.has(snapIndex)) {
+                modalImg.src = fullCache.get(snapIndex);
+                modalImg.classList.add('loaded');
+            } else {
+                modalImg.src = imagesData[snapIndex].thumbnail;
+                modalImg.classList.add('loaded');
+                getFullSrc(snapIndex).then(src => {
+                    if (currentIndex !== snapIndex) return;
                     const tmp = new Image();
                     tmp.onload = () => {
-                        if (currentIndex === snapIndex) { modalImg.src = src; }
+                        if (currentIndex !== snapIndex) return;
+                        modalImg.classList.remove('loaded');
+                        requestAnimationFrame(() => {
+                            modalImg.src = src;
+                            requestAnimationFrame(() => modalImg.classList.add('loaded'));
+                        });
                     };
                     tmp.src = src;
-                }
-            });
+                });
+            }
 
             // Прогрев соседей
             const n = imagesData.length;
