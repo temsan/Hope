@@ -641,6 +641,8 @@
             overflow: hidden;
             cursor: pointer;
             opacity: 0.97;
+            -webkit-tap-highlight-color: transparent;
+            outline: none;
             transition:
                 opacity 0.35s ease,
                 box-shadow 0.35s ease,
@@ -792,7 +794,7 @@
 
         .close:hover {
             color: rgba(255, 255, 255, 0.95);
-            transform: rotate(90deg) scale(1.15);
+            transform: rotate(45deg) scale(1.2);
             opacity: 1;
         }
 
@@ -1149,13 +1151,15 @@
             const R = S / 2, cx = R, cy = R;
             ctx.clearRect(0, 0, S, S);
 
-            // c = cos(t·2π): непрерывное вращение
-            // t=0:    c= 1 → новолуние (вся тень)
-            // t=0.25: c= 0 → первая четверть (серп справа, тень слева)
-            // t=0.5:  c=-1 → полнолуние (нет тени)
-            // t=0.75: c= 0 → последняя четверть (серп слева, тень справа)
+            // Вращение: c = cos(t·2π) — x-смещение терминатора от центра
+            // t=0:    c= 1 → терминатор на правом краю  → вся тень (новолуние, переключение скрыто!)
+            // t=0.25: c= 0 → терминатор в центре        → тень слева, серп справа
+            // t=0.5:  c=-1 → терминатор на левом краю   → нет тени (полнолуние)
+            // t=0.75: c= 0 → терминатор в центре        → тень справа, серп слева
+            // Переключение стороны происходит при t=0 — когда вся луна тёмная (новолуние).
+            // Визуально незаметно: тень слева растёт → вся тень → тень справа убывает.
             const c = Math.cos(t * Math.PI * 2);
-            const trx = Math.abs(c) * R; // rx терминаторного эллипса
+            const trx = Math.abs(c) * R;
 
             ctx.save();
             ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.clip();
@@ -1163,16 +1167,17 @@
             ctx.beginPath();
             ctx.moveTo(cx, cy - R);
             if (c >= 0) {
-              ctx.arc(cx, cy, R, -Math.PI/2, Math.PI/2, true);   // CCW: левый полукруг
-              ctx.ellipse(cx, cy, trx, R, 0, Math.PI/2, -Math.PI/2, false); // CW: терм. вправо
+              // t=0..0.5: тень слева, терминатор движется влево
+              ctx.arc(cx, cy, R, -Math.PI/2, Math.PI/2, true);
+              ctx.ellipse(cx, cy, trx, R, 0, Math.PI/2, -Math.PI/2, false);
             } else {
-              ctx.arc(cx, cy, R, -Math.PI/2, Math.PI/2, false);  // CW: правый полукруг
-              ctx.ellipse(cx, cy, trx, R, 0, Math.PI/2, -Math.PI/2, true);  // CCW: терм. влево
+              // t=0.5..1: тень справа, терминатор движется вправо
+              ctx.arc(cx, cy, R, -Math.PI/2, Math.PI/2, false);
+              ctx.ellipse(cx, cy, trx, R, 0, Math.PI/2, -Math.PI/2, true);
             }
             ctx.closePath();
-            // Мягкий край терминатора через blur
-            ctx.shadowBlur = R * 0.13;
-            ctx.shadowColor = 'rgba(8,16,35,0.6)';
+            ctx.shadowBlur = R * 0.10;
+            ctx.shadowColor = 'rgba(8,16,35,0.5)';
             ctx.fillStyle = 'rgba(8,16,35,0.90)';
             ctx.fill();
             ctx.restore();
@@ -1248,7 +1253,7 @@
     </div>
 
     <div id="modal" class="modal">
-        <span class="close">&times;</span>
+        <span class="close">✦</span>
         <img class="modal-content" id="modalImg">
         <div class="image-info" id="imageInfo"></div>
         <div class="nav-buttons">
