@@ -1156,48 +1156,55 @@
     <div class="moon" id="moonEl">
         <img src="https://images.unsplash.com/photo-1532693322450-2cb5c511067d?w=400&q=85&auto=format&fit=crop"
             alt="Moon" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;" />
-        <svg class="moon-phase-svg" viewBox="-1 -1 102 102" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <clipPath id="moonClip"><circle cx="50" cy="50" r="50.5"/></clipPath>
-          </defs>
-          <!-- Тёмная тень: физически точный терминатор по меридиану шара -->
-          <path id="moonShadow" fill="#08040f" clip-path="url(#moonClip)" d="M50,0 A50,50 0 0,1 50,100 A50,50 0 0,1 50,0 Z"/>
-        </svg>
+        <canvas id="moonCanvas" style="position:absolute;inset:0;width:100%;height:100%;border-radius:50%;pointer-events:none;"></canvas>
         <script>
         (function(){
-          const path = document.getElementById('moonShadow');
-          if (!path) return;
-          const PERIOD = 120000;
-          const R = 50, cx = 50, cy = 50;
+          const cv = document.getElementById('moonCanvas');
+          const PERIOD = 120000; // 120 секунд — полный цикл
 
-          // Фазы луны (как на фото, Северное полушарие):
-          // t=0:    новолуние  — весь диск тёмный
-          // t=0.25: первая четверть — освещена ПРАВАЯ половина (серп и рост справа)
-          // t=0.5:  полнолуние — весь диск светлый
-          // t=0.75: последняя четверть — освещена ЛЕВАЯ половина (убывание слева)
-          //
-          // Тень всегда = ЛЕВЫЙ полукруг + терминаторный эллипс.
-          // Терминатор движется: при росте он справа (выпуклый вправо, даёт серп справа),
-          // при убывании — слева (выпуклый влево, даёт серп слева).
-          //
-          // c = cos(t*2π): t=0→1, t=0.25→0, t=0.5→-1, t=0.75→0
-          // rx терминатора = R*|c|
-          // Выпуклость: c>0 (рост, терм. правее центра) → выпуклый вправо → sweep=1
-          //             c<0 (убыв., терм. левее центра)  → выпуклый влево  → sweep=0
-          function buildShadowPath(t) {
+          function draw(t) {
+            const S = cv.offsetWidth * (window.devicePixelRatio || 1);
+            if (cv.width !== S) { cv.width = S; cv.height = S; }
+            const ctx = cv.getContext('2d');
+            const R = S / 2, cx = R, cy = R;
+            ctx.clearRect(0, 0, S, S);
+
+            // c = cos(t·2π): непрерывное вращение
+            // t=0:    c= 1 → новолуние (вся тень)
+            // t=0.25: c= 0 → первая четверть (серп справа, тень слева)
+            // t=0.5:  c=-1 → полнолуние (нет тени)
+            // t=0.75: c= 0 → последняя четверть (серп слева, тень справа)
             const c = Math.cos(t * Math.PI * 2);
-            const trx = Math.abs(c) * R;
-            // Левый полукруг тени: top→bot sweep=0
-            // Терминатор bot→top: c>0 sweep=1 (вправо), c<0 sweep=0 (влево)
-            const tsweep = c >= 0 ? 1 : 0;
-            return `M${cx},${cy-R} A${R},${R} 0 0,0 ${cx},${cy+R} A${trx},${R} 0 0,${tsweep} ${cx},${cy-R} Z`;
+            const trx = Math.abs(c) * R; // rx терминаторного эллипса
+
+            ctx.save();
+            ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.clip();
+
+            ctx.beginPath();
+            ctx.moveTo(cx, cy - R); // top (верхний полюс)
+            if (c >= 0) {
+              // Растущая луна: тёмный серп слева
+              // Левый полукруг CCW: top → bot через левый край
+              ctx.arc(cx, cy, R, -Math.PI/2, Math.PI/2, true);
+              // Терминатор CW: bot → top, выпуклый вправо (rx=trx)
+              ctx.ellipse(cx, cy, trx, R, 0, Math.PI/2, -Math.PI/2, false);
+            } else {
+              // Убывающая луна: тёмный серп справа
+              // Правый полукруг CW: top → bot через правый край
+              ctx.arc(cx, cy, R, -Math.PI/2, Math.PI/2, false);
+              // Терминатор CCW: bot → top, выпуклый влево (rx=trx)
+              ctx.ellipse(cx, cy, trx, R, 0, Math.PI/2, -Math.PI/2, true);
+            }
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(8,4,15,0.93)';
+            ctx.fill();
+            ctx.restore();
           }
 
           let start = null;
           function tick(ts) {
             if (!start) start = ts;
-            const angle = ((ts - start) % PERIOD) / PERIOD * Math.PI * 2;
-            path.setAttribute('d', buildShadowPath(angle));
+            draw(((ts - start) % PERIOD) / PERIOD);
             requestAnimationFrame(tick);
           }
           requestAnimationFrame(tick);
