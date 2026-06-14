@@ -1167,45 +1167,41 @@
         (function(){
           const path = document.getElementById('moonShadow');
           if (!path) return;
-          const PERIOD = 120000; // 120 секунд полный цикл
+          const PERIOD = 120000;
           const R = 50, cx = 50, cy = 50;
-          function buildShadowPath(phase) {
-            // phase: 0=новолуние (вся тень), 0.5=полнолуние (нет тени), 1=новолуние
-            // Угол освещения: 0→π освещение справа налево, π→2π слева направо
-            // termRx = R*cos(phase*2π): rx эллипса-терминатора
-            //   phase=0:   termRx= R  → терминатор совпадает с правым краем → вся тень
-            //   phase=0.25: termRx=0  → терминатор вертикальный, первая четверть
-            //   phase=0.5: termRx=-R  → терминатор совпадает с левым краем → нет тени
-            //   phase=0.75: termRx=0  → последняя четверть
-            const termRx = R * Math.cos(phase * Math.PI * 2);
-            // Первая половина (0..0.5): тёмная сторона — ЛЕВАЯ полуокружность
-            // (луна растёт: слева темно, справа светло)
-            // Вторая половина (0.5..1): тёмная сторона — ПРАВАЯ полуокружность
-            // Путь тени: полукруг тёмной стороны + терминаторный эллипс обратно
-            if (phase < 0.5) {
-              // Левая полуокружность (top→bot против часовой = sweep=0) + терминатор обратно
-              // termRx: 0..0.25 → R..0 (терминатор сжимается, серп растёт справа)
-              //         0.25..0.5 → 0..-R (терминатор расширяется влево, убывает тень)
-              const trx = Math.abs(termRx);
-              // termRx>0: терминатор выпуклый вправо → sweep=1 (дуга вправо bot→top)
-              // termRx<0: терминатор выпуклый влево  → sweep=0 (дуга влево bot→top)
-              const tsweep = termRx >= 0 ? 1 : 0;
-              return `M${cx},${cy-R} A${R},${R} 0 0,0 ${cx},${cy+R} A${trx},${R} 0 0,${tsweep} ${cx},${cy-R} Z`;
+
+          // Физически точные фазы луны:
+          // angle = 0..2π — угол положения солнца вокруг луны (непрерывное вращение)
+          // Терминатор — проекция меридиана шара: эллипс с rx = R*|sin(angle)|
+          // Тёмная область: полукруг тёмной стороны + эллипс терминатора
+          //
+          // angle=0:   sin=0, тень=правый полукруг, серп справа (новолуние→рост)
+          // angle=π/2: sin=1, rx=R, терминатор=левый край → полнолуние
+          // angle=π:   sin=0, тень=левый полукруг, серп слева (убывание)
+          // angle=3π/2: sin=-1, rx=R, терминатор=правый край → новолуние
+          function buildShadowPath(angle) {
+            const s = Math.sin(angle);
+            const trx = Math.abs(s) * R; // ширина эллипса терминатора
+
+            // 0..π: освещена правая сторона → тень на левом полукруге
+            // π..2π: освещена левая сторона → тень на правом полукруге
+            if (angle < Math.PI) {
+              // Левый полукруг: top→bot sweep=0 (против часовой)
+              // Терминатор bot→top: s>0 выпуклый вправо sweep=1, s<0 влево sweep=0
+              // При angle∈(0,π): s>0 всегда → sweep=1
+              return `M${cx},${cy-R} A${R},${R} 0 0,0 ${cx},${cy+R} A${trx},${R} 0 0,1 ${cx},${cy-R} Z`;
             } else {
-              // Правая полуокружность (top→bot по часовой = sweep=1) + терминатор обратно
-              // termRx: 0.5..0.75 → -R..0, 0.75..1 → 0..R
-              const trx = Math.abs(termRx);
-              // termRx<0: терминатор выпуклый вправо → sweep=0 (дуга влево bot→top)
-              // termRx>0: терминатор выпуклый влево  → sweep=1 (дуга вправо bot→top)
-              const tsweep = termRx <= 0 ? 0 : 1;
-              return `M${cx},${cy-R} A${R},${R} 0 0,1 ${cx},${cy+R} A${trx},${R} 0 0,${tsweep} ${cx},${cy-R} Z`;
+              // Правый полукруг: top→bot sweep=1 (по часовой)
+              // Терминатор bot→top: angle∈(π,2π): s<0 всегда → sweep=0
+              return `M${cx},${cy-R} A${R},${R} 0 0,1 ${cx},${cy+R} A${trx},${R} 0 0,0 ${cx},${cy-R} Z`;
             }
           }
+
           let start = null;
           function tick(ts) {
             if (!start) start = ts;
-            const phase = ((ts - start) % PERIOD) / PERIOD;
-            path.setAttribute('d', buildShadowPath(phase));
+            const angle = ((ts - start) % PERIOD) / PERIOD * Math.PI * 2;
+            path.setAttribute('d', buildShadowPath(angle));
             requestAnimationFrame(tick);
           }
           requestAnimationFrame(tick);
