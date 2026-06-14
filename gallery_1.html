@@ -479,6 +479,7 @@
         .gallery-item:hover {
             transform: translateY(-8px) scale(1.02);
             filter: saturate(1.15) brightness(1.05);
+            z-index: 2;
         }
 
         .gallery-item:hover::after {
@@ -857,7 +858,7 @@
         /* Large Desktop */
         @media (min-width: 1600px) {
             .gallery {
-                grid-template-columns: repeat(auto-fill, minmax(450px, 1fr));
+                grid-template-columns: repeat(3, 1fr);
                 gap: 40px;
             }
 
@@ -869,7 +870,7 @@
         /* Desktop */
         @media (max-width: 1400px) {
             .gallery {
-                grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+                grid-template-columns: repeat(3, 1fr);
                 gap: 35px;
             }
 
