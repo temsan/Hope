@@ -1159,6 +1159,8 @@
         <canvas id="moonCanvas" style="position:absolute;inset:0;width:100%;height:100%;border-radius:50%;pointer-events:none;"></canvas>
         <script>
         (function(){
+          if (window.__moonRunning) return;
+          window.__moonRunning = true;
           const cv = document.getElementById('moonCanvas');
           const PERIOD = 120000; // 120 секунд — полный цикл
 
