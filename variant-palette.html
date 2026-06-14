@@ -130,26 +130,26 @@ h1{font-size:clamp(2rem,5vw,3.4rem); font-weight:300; letter-spacing:.12em}
 const data=[...window.imagesData].sort((a,b)=>a.temperature-b.temperature);
 const stage=document.getElementById('stage');
 
-// Алгоритмическое размещение: Poisson-like max-min distance по эллипсу палитры
-// Эллипс SVG 1000x700: cx=527,cy=352,rx=420,ry=300; дырка cx=308,cy=205,rx=85,ry=70
+// Равномерная сетка с jitter по эллипсу палитры
 function placeDaubs(n) {
-  const cx=52.7,cy=50.3,rx=42,ry=43; // в %
-  const hx=30.8,hy=29.3,hrx=9,hry=10;
-  const inPalette=(x,y)=>((x-cx)/rx)**2+((y-cy)/ry)**2<0.88&&((x-hx)/hrx)**2+((y-hy)/hry)**2>1.1;
-  // Генерируем сетку кандидатов
-  const pts=[];
-  for(let x=10;x<95;x+=3) for(let y=10;y<92;y+=3) if(inPalette(x,y)) pts.push([x,y]);
-  // Max-min distance: жадно выбираем точки максимально удалённые друг от друга
-  const chosen=[pts[Math.floor(pts.length/2)]];
-  while(chosen.length<n){
-    let best=null,bestD=0;
-    for(const p of pts){
-      const d=Math.min(...chosen.map(c=>(p[0]-c[0])**2+(p[1]-c[1])**2));
-      if(d>bestD){bestD=d;best=p;}
-    }
-    chosen.push(best);
+  const cx=52.7,cy=50.3,rx=40,ry=41;
+  const hx=30.8,hy=29.3,hrx=9.5,hry=10.5;
+  const ok=(x,y)=>((x-cx)/rx)**2+((y-cy)/ry)**2<0.82&&((x-hx)/hrx)**2+((y-hy)/hry)**2>1.2;
+  // Делим площадь эллипса на n зон по сетке, берём центр каждой зоны
+  const cols=Math.ceil(Math.sqrt(n*1.6));
+  const rows=Math.ceil(n/cols)+2;
+  const candidates=[];
+  for(let r=0;r<rows;r++) for(let c=0;c<cols;c++){
+    const x=15+c*(70/cols)+35/cols;
+    const y=12+r*(76/rows)+38/rows;
+    if(ok(x,y)) candidates.push([x,y]);
   }
-  return chosen;
+  // Берём n точек максимально покрывающих площадь (k-means init)
+  if(candidates.length<=n) return candidates;
+  // Выбираем равномерно из отсортированных по диагонали
+  candidates.sort((a,b)=>a[0]+a[1]-b[0]-b[1]);
+  const step=candidates.length/n;
+  return Array.from({length:n},(_,i)=>candidates[Math.round(i*step)]);
 }
 
 const slots=placeDaubs(data.length);
