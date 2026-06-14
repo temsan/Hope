@@ -1441,18 +1441,22 @@
         <p>Надежда Жди</p>
     </footer>
 
+    <script async src="images-data-v2.js" onload="__onImagesDataReady()"></script>
     <script>
-        async function loadImagesData() {
-            const resp = await fetch('images-data-v2.js');
-            const text = await resp.text();
-            // eslint-disable-next-line no-new-func
-            Function(text)();
-            return window.imagesData;
-        }
+        // images-data-v2.js грузится async — не блокирует парсинг HTML
+        // onload вызовет initApp когда данные готовы
+        // Bootstrap: ждём загрузки данных и DOM одновременно
+        window.__onImagesDataReady = function() {
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', function() {
+                    initApp(window.imagesData);
+                });
+            } else {
+                initApp(window.imagesData);
+            }
+        };
 
-        loadImagesData().then(imagesData => { initApp(imagesData); });
-
-        function initApp(imagesData) {
+                function initApp(imagesData) {
         let currentIndex = 0;
         const fullImagesLoaded = new Set();
 
@@ -1797,6 +1801,11 @@
                 fullImg.src = imagesData[currentIndex].full;
             }
 
+            // Поднимаем приоритет соседей в очереди предзагрузки
+            const n = imagesData.length;
+            enqueuePreload((currentIndex + 1) % n, true);
+            enqueuePreload((currentIndex - 1 + n) % n, true);
+
             // Update info and thumbnails
             updateImageInfo();
             requestAnimationFrame(recalculateModalMaxZoom);
@@ -1988,16 +1997,49 @@
             });
         }
 
+        // Очередь приоритетной предзагрузки
+        const preloadQueue = [];
+        let preloadRunning = false;
+
+        function enqueuePreload(index, priority = false) {
+            if (fullImagesLoaded.has(index)) return;
+            // Убираем если уже есть, чтобы переставить с новым приоритетом
+            const existing = preloadQueue.indexOf(index);
+            if (existing !== -1) preloadQueue.splice(existing, 1);
+            if (priority) {
+                preloadQueue.unshift(index); // высокий приоритет — в начало
+            } else {
+                preloadQueue.push(index);
+            }
+            if (!preloadRunning) drainPreloadQueue();
+        }
+
+        function drainPreloadQueue() {
+            if (preloadQueue.length === 0) { preloadRunning = false; return; }
+            preloadRunning = true;
+            const index = preloadQueue.shift();
+            if (fullImagesLoaded.has(index)) { drainPreloadQueue(); return; }
+            const img = new Image();
+            img.onload = img.onerror = () => {
+                if (img.complete && img.naturalWidth) fullImagesLoaded.add(index);
+                // Следующий — через requestIdleCallback чтобы не мешать UI
+                (window.requestIdleCallback || setTimeout)(drainPreloadQueue, { timeout: 2000 });
+            };
+            img.src = imagesData[index].full;
+        }
+
         function preloadFullImages() {
-            imagesData.forEach((imageData, index) => {
-                setTimeout(() => {
-                    const img = new Image();
-                    img.onload = () => {
-                        fullImagesLoaded.add(index);
-                    };
-                    img.src = imageData.full;
-                }, index * 150);
-            });
+            // Сначала грузим соседей текущего индекса, потом всё остальное
+            const n = imagesData.length;
+            const order = [];
+            // Спираль вокруг currentIndex: 0, ±1, ±2, ...
+            for (let d = 0; d < n; d++) {
+                const next = (currentIndex + d) % n;
+                const prev = (currentIndex - d + n) % n;
+                if (!order.includes(next)) order.push(next);
+                if (!order.includes(prev)) order.push(prev);
+            }
+            order.forEach((idx, i) => enqueuePreload(idx, i < 3));
         }
 
         let scrollPosition = 0;
