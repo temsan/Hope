@@ -1563,7 +1563,8 @@
 
         function setupModalSwipeNavigation() {
             modal.addEventListener('touchstart', (e) => {
-                if (modal.style.display !== 'block' || e.touches.length !== 1) return;
+                if (modal.style.display !== 'block') return;
+                if (e.touches.length !== 1) { ignoreModalSwipe = true; return; }
                 ignoreModalSwipe = modalZoomLevel > 1.01 || Boolean(e.target.closest('.nav-buttons, .close'));
                 if (ignoreModalSwipe) return;
                 modalSwipeStartX = e.touches[0].clientX;
