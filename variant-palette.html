@@ -128,12 +128,11 @@ h1{font-size:clamp(2rem,5vw,3.4rem); font-weight:300; letter-spacing:.12em}
 <script>
 const data=[...window.imagesData].sort((a,b)=>a.temperature-b.temperature);
 const stage=document.getElementById('stage');
-// раскладка мазков по палитре: 9 позиций, равномерно по 3 колонки × 3 ряда
-// с учётом дырки (thumb hole) в левом нижнем углу — слот [0] сдвинут правее
+// 9 точек, равномерно распределённых по площади эллипса (алгоритм max-min distance)
 const slots=[
- [28,22],[55,18],[80,24],   // верхний ряд
- [22,50],[52,50],[80,50],   // средний ряд
- [38,76],[60,75],[82,76],   // нижний ряд (левый угол занят дыркой)
+ [14,38],[20,66],[32,17],
+ [44,87],[50,45],[62,10],
+ [68,73],[86,31],[92,59],
 ];
 data.forEach((im,i)=>{
   const d=document.createElement('div');
