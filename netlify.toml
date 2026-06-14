@@ -1,5 +1,5 @@
 [[headers]]
-  for = "/images-data.js"
+  for = "/images-data-v2.js"
   [headers.values]
     Cache-Control = "public, max-age=2592000, immutable"
 
