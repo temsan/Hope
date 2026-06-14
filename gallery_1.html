@@ -112,14 +112,14 @@
             z-index: 3;
             overflow: hidden;
             background: transparent;
-            animation: moonPulse 9s ease-in-out infinite alternate;
+            /* box-shadow управляется из JS синхронно с фазой */
         }
         .moon img {
             width: 100%;
             height: 100%;
             object-fit: cover;
             display: block;
-            transform: scale(1.877) translateX(0.6%);
+            transform: scale(1.99) translateX(0.6%);
         }
 
         .moon::before {
@@ -131,8 +131,7 @@
             position: absolute;
             inset: 0;
             border-radius: 50%;
-            /* тонкий ободок-атмосфера */
-            box-shadow: inset 0 0 18px rgba(255, 245, 180, 0.25);
+            box-shadow: none;
             pointer-events: none;
         }
 
@@ -1221,6 +1220,19 @@
             ctx.filter = 'none';
 
             ctx.restore();
+
+            // Свечение со стороны серпа: смещение box-shadow в сторону освещённой части
+            const illum = (1 - Math.cos(f * Math.PI * 2)) / 2;
+            // Серп справа при waxing, слева при !waxing
+            // Смещение: максимум в четвертях (серп = полукруг), ноль в полнолуние/новолуние
+            const sideShift = Math.sin(f * Math.PI * 2); // +1 при f=0.25 (серп справа), -1 при f=0.75
+            const ox = Math.round(sideShift * 18); // смещение по X до 18px
+            const a1 = (0.15 + illum * 0.65).toFixed(2);
+            const a2 = (0.06 + illum * 0.32).toFixed(2);
+            const r1 = Math.round(25 + illum * 33);
+            const r2 = Math.round(55 + illum * 85);
+            cv.parentElement.style.boxShadow =
+              `${ox}px 0 ${r1}px rgba(210,225,255,${a1}), ${ox}px 0 ${r2}px rgba(180,200,240,${a2})`;
           }
 
           let start = null;
@@ -1294,7 +1306,57 @@
     </div>
 
     <div id="modal" class="modal">
-        <span class="close">✦</span>
+        <span class="close">
+          <svg viewBox="0 0 44 44" width="44" height="44" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <!-- градиент каждого луча: яркий центр → прозрачный конец -->
+              <linearGradient id="ray0" x1="22" y1="22" x2="22" y2="3" gradientUnits="userSpaceOnUse">
+                <stop offset="0" stop-color="currentColor" stop-opacity="0.9"/>
+                <stop offset="1" stop-color="currentColor" stop-opacity="0"/>
+              </linearGradient>
+              <linearGradient id="ray1" x1="22" y1="22" x2="22" y2="41" gradientUnits="userSpaceOnUse">
+                <stop offset="0" stop-color="currentColor" stop-opacity="0.9"/>
+                <stop offset="1" stop-color="currentColor" stop-opacity="0"/>
+              </linearGradient>
+              <linearGradient id="ray2" x1="22" y1="22" x2="3" y2="22" gradientUnits="userSpaceOnUse">
+                <stop offset="0" stop-color="currentColor" stop-opacity="0.9"/>
+                <stop offset="1" stop-color="currentColor" stop-opacity="0"/>
+              </linearGradient>
+              <linearGradient id="ray3" x1="22" y1="22" x2="41" y2="22" gradientUnits="userSpaceOnUse">
+                <stop offset="0" stop-color="currentColor" stop-opacity="0.9"/>
+                <stop offset="1" stop-color="currentColor" stop-opacity="0"/>
+              </linearGradient>
+              <linearGradient id="ray4" x1="22" y1="22" x2="8" y2="8" gradientUnits="userSpaceOnUse">
+                <stop offset="0" stop-color="currentColor" stop-opacity="0.7"/>
+                <stop offset="1" stop-color="currentColor" stop-opacity="0"/>
+              </linearGradient>
+              <linearGradient id="ray5" x1="22" y1="22" x2="36" y2="36" gradientUnits="userSpaceOnUse">
+                <stop offset="0" stop-color="currentColor" stop-opacity="0.7"/>
+                <stop offset="1" stop-color="currentColor" stop-opacity="0"/>
+              </linearGradient>
+              <linearGradient id="ray6" x1="22" y1="22" x2="36" y2="8" gradientUnits="userSpaceOnUse">
+                <stop offset="0" stop-color="currentColor" stop-opacity="0.7"/>
+                <stop offset="1" stop-color="currentColor" stop-opacity="0"/>
+              </linearGradient>
+              <linearGradient id="ray7" x1="22" y1="22" x2="8" y2="36" gradientUnits="userSpaceOnUse">
+                <stop offset="0" stop-color="currentColor" stop-opacity="0.7"/>
+                <stop offset="1" stop-color="currentColor" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <!-- 4 длинных главных луча -->
+            <line x1="22" y1="22" x2="22" y2="3"  stroke="url(#ray0)" stroke-width="1.1" stroke-linecap="round"/>
+            <line x1="22" y1="22" x2="22" y2="41" stroke="url(#ray1)" stroke-width="1.1" stroke-linecap="round"/>
+            <line x1="22" y1="22" x2="3"  y2="22" stroke="url(#ray2)" stroke-width="1.1" stroke-linecap="round"/>
+            <line x1="22" y1="22" x2="41" y2="22" stroke="url(#ray3)" stroke-width="1.1" stroke-linecap="round"/>
+            <!-- 4 коротких диагональных луча -->
+            <line x1="22" y1="22" x2="8"  y2="8"  stroke="url(#ray4)" stroke-width="0.8" stroke-linecap="round"/>
+            <line x1="22" y1="22" x2="36" y2="36" stroke="url(#ray5)" stroke-width="0.8" stroke-linecap="round"/>
+            <line x1="22" y1="22" x2="36" y2="8"  stroke="url(#ray6)" stroke-width="0.8" stroke-linecap="round"/>
+            <line x1="22" y1="22" x2="8"  y2="36" stroke="url(#ray7)" stroke-width="0.8" stroke-linecap="round"/>
+            <!-- яркая точка в центре -->
+            <circle cx="22" cy="22" r="1.5" fill="currentColor" opacity="0.95"/>
+          </svg>
+        </span>
         <img class="modal-content" id="modalImg">
         <div class="image-info" id="imageInfo"></div>
         <div class="nav-buttons">
