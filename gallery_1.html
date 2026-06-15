@@ -1397,7 +1397,7 @@
         '  x += wiggle*(0.5-abs(x))*(n.z-0.5);',
         '  x *= 0.7;',
         '  float ti = fract(t+n.z);',
-        '  y = (Saw(0.85,ti)-0.5)*0.9+0.5;',
+        '  y = (ti-0.5)*0.9+0.5;',           // монотонно вниз, без хода назад
         '  vec2 p2 = vec2(x,y);',
         '  float d = length((st-p2)*a.yx);',
         '  float mainDrop = smoothstep(0.4,0.0,d);',
