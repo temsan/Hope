@@ -1289,7 +1289,7 @@
 
     <div class="stars" id="stars"></div>
 
-    <!-- Гиперреалистичные капли + дождь: WebGL шейдер (rain on glass) -->
+    <!-- Физически реалистичные струи воды по стеклу: WebGL шейдер -->
     <canvas id="rainCanvas" style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:1;pointer-events:none;"></canvas>
     <script>
     function __startRain(){
@@ -1297,132 +1297,160 @@
       const cv = document.getElementById('rainCanvas');
       const gl = cv.getContext('webgl', {alpha:true, premultipliedAlpha:true})
               || cv.getContext('experimental-webgl', {alpha:true, premultipliedAlpha:true});
-      if (!gl){ return; } // нет WebGL — фон остаётся чистым
+      if (!gl){ return; }
       window.__rainRunning = true;
       const DPR = Math.min(window.devicePixelRatio || 1, 1.5);
 
       const VS = 'attribute vec2 p; void main(){ gl_Position = vec4(p,0.0,1.0); }';
 
-      // Техника rain-on-glass (по мотивам Heartfelt, Martijn Steinrucken, CC-BY).
-      // Капли стекают, оставляют следы, преломляют фон. Фон — прозрачный,
-      // капли видны как искажение + бликовка над космосом сайта.
-      const FS = [
-        'precision highp float;',
-        'uniform vec2 iResolution;',
-        'uniform float iTime;',
-        '',
-        'vec3 N13(float p){',
-        '  vec3 p3 = fract(vec3(p)*vec3(.1031,.11369,.13787));',
-        '  p3 += dot(p3, p3.yzx+19.19);',
-        '  return fract(vec3((p3.x+p3.y)*p3.z,(p3.x+p3.z)*p3.y,(p3.y+p3.z)*p3.x));',
-        '}',
-        'float N(float t){ return fract(sin(t*12345.564)*7658.76); }',
-        'float Saw(float b, float t){ return smoothstep(0.,b,t)*smoothstep(1.,b,t); }',
-        '',
-        'vec2 DropLayer2(vec2 uv, float t){',
-        '  vec2 UV = uv;',
-        '  uv.y += t*0.75;',
-        '  vec2 a = vec2(3.0,0.5);',
-        '  vec2 grid = a*2.0;',
-        '  vec2 id = floor(uv*grid);',
-        '  float colShift = N(id.x);',
-        '  uv.y += colShift;',
-        '  id = floor(uv*grid);',
-        '  vec3 n = N13(id.x*35.2+id.y*2376.1);',
-        '  vec2 st = fract(uv*grid)-vec2(0.5,0.0);',
-        '  float x = n.x-0.5;',
-        '  float y = UV.y*20.0;',
-        '  float wiggle = sin(y+sin(y));',
-        '  x += wiggle*(0.5-abs(x))*(n.z-0.5);',
-        '  x *= 0.7;',
-        '  float ti = fract(t+n.z);',
-        '  y = (Saw(0.85,ti)-0.5)*0.9+0.5;',
-        '  vec2 p2 = vec2(x,y);',
-        '  float d = length((st-p2)*a.yx);',
-        '  float mainDrop = smoothstep(0.4,0.0,d);',
-        '  float r = sqrt(smoothstep(1.0,y,st.y));',
-        '  float cd = abs(st.x-x);',
-        '  float trail = smoothstep(0.23*r,0.15*r*r,cd);',
-        '  float trailFront = smoothstep(-0.02,0.02,st.y-y);',
-        '  trail *= trailFront*r*r;',
-        '  y = UV.y;',
-        '  float trail2 = smoothstep(0.2*r,0.0,cd);',
-        '  float droplets = max(0.0,(sin(y*(1.0-y)*120.0)-st.y))*trail2*trailFront*n.z;',
-        '  y = fract(y*10.0)+(st.y-0.5);',
-        '  float dd = length(st-vec2(x,y));',
-        '  droplets = smoothstep(0.3,0.0,dd);',
-        '  float m = mainDrop+droplets*r*trailFront;',
-        '  return vec2(m, trail);',
-        '}',
-        '',
-        'float StaticDrops(vec2 uv, float t){',
-        '  uv *= 20.0;',
-        '  vec2 id = floor(uv);',
-        '  uv = fract(uv)-0.5;',
-        '  vec3 n = N13(id.x*107.45+id.y*3543.654);',
-        '  vec2 p2 = (n.xy-0.5)*0.7;',
-        '  float d = length(uv-p2);',
-        '  float fade = Saw(0.025, fract(t+n.z));',
-        '  float c = smoothstep(0.3,0.0,d)*fract(n.z*10.0)*fade;',
-        '  return c;',
-        '}',
-        '',
-        'vec2 Drops(vec2 uv, float t, float l0, float l1, float l2){',
-        '  float s = StaticDrops(uv,t)*l0;',
-        '  vec2 m1 = DropLayer2(uv,t)*l1;',
-        '  vec2 m2 = DropLayer2(uv*1.4,t)*l2;',
-        '  float c = s+m1.x+m2.x;',
-        '  c = smoothstep(0.3,1.0,c);',
-        '  return vec2(c, max(m1.y*l0, m2.y*l1));',
-        '}',
-        '',
-        '// Дальний дождь: тонкие падающие штрихи перед космосом',
-        'float RainStreaks(vec2 uv, float t){',
-        '  float acc = 0.0;',
-        '  uv.x *= 1.3;',
-        '  vec2 gv = vec2(uv.x*90.0, uv.y);',     // частые колонки
-        '  float col = floor(gv.x);',
-        '  float rx = N(col);',
-        '  if (rx < 0.62) return 0.0;',            // редкие колонки
-        '  float speed = 6.0 + rx*5.0;',
-        '  float yy = fract(uv.y*1.5 + t*speed + rx*7.0);',
-        '  // короткий штрих сверху-длинный хвост',
-        '  float streak = smoothstep(0.0,0.06,yy)*smoothstep(0.5,0.06,yy);',
-        '  float lineX = abs(fract(gv.x)-0.5);',
-        '  float thin = smoothstep(0.5,0.42,lineX);', // тонкая линия в центре колонки
-        '  acc = streak*thin*(0.4+rx*0.5);',
-        '  return acc;',
-        '}',
-        '',
-        'void main(){',
-        '  vec2 uv = (gl_FragCoord.xy-0.5*iResolution.xy)/iResolution.y;',
-        '  float t = iTime*0.2;',
-        '  float staticD=0.30, l1=0.55, l2=0.0;',  // меньше капель, без второго слоя
-        '  vec2 c = Drops(uv,t,staticD,l1,l2);',
-        '  vec2 e = vec2(0.0015,0.0);',
-        '  float cx = Drops(uv+e.xy,t,staticD,l1,l2).x;',
-        '  float cy = Drops(uv+e.yx,t,staticD,l1,l2).x;',
-        '  vec2 n = vec2(cx-c.x, cy-c.x);',
-        '  float refr = (n.x+n.y)*7.0;',
-        '  float drop = c.x;',
-        '  float trail = c.y;',
-        '  float edge = clamp(abs(refr)*2.0,0.0,1.0);',
-        '  float rain = 0.0;',                        // дождь убран
-        '  vec3 col = vec3(0.0); float alpha = 0.0;',
-        '  // капли: деликатная стеклянная линза, мягкий блик по краю',
-        '  if (drop>0.001 || trail>0.001){',
-        '    vec3 glass = vec3(0.58,0.68,0.86);',
-        '    vec3 spec  = vec3(0.95,0.98,1.0);',
-        '    col = mix(glass, spec, edge);',
-        '    alpha = clamp(drop*0.10 + trail*0.05 + edge*0.24, 0.0, 0.4);',
-        '  }',
-        '  // дождь убран',
-        '  vec3 rainCol = vec3(0.72,0.82,1.0);',
-        '  col = col*alpha + rainCol*rain*0.6;',
-        '  alpha = clamp(alpha + rain*0.18, 0.0, 1.0);',
-        '  gl_FragColor = vec4(col, alpha);',
-        '}'
-      ].join('\n');
+      // Физически реалистичные струи воды по стеклу.
+      // Каждая струя — непрерывная искривлённая полоска воды с волатильной шириной,
+      // стекает с разной скоростью, останавливается и снова трогается.
+      // Капля на конце струи — каплевидная (сплюснутая снизу, острая сверху).
+      // Влажный след позади капли — полупрозрачная тонкая полоска.
+      const FS = `
+precision highp float;
+uniform vec2 iResolution;
+uniform float iTime;
+
+// Хэши
+float hash1(float n){ return fract(sin(n)*43758.5453123); }
+float hash1(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453123); }
+vec2  hash2(float n){ return fract(sin(vec2(n,n+1.7))*vec2(43758.5,22578.1)); }
+
+// Плавный пилообразный — капля разгоняется и тормозит
+float saw(float t){ return smoothstep(0.0,0.6,t)*smoothstep(1.0,0.6,t); }
+
+// ============================================================
+// СТРУИ
+// Возвращает: x = маска воды (0..1), y = яркость (0=тень, 1=блик)
+// ============================================================
+vec2 Stream(vec2 uv, float t, float col){
+  // Параметры этой струи
+  float seed   = hash1(col*17.34);
+  float seed2  = hash1(col*41.91+3.7);
+  float xBase  = (seed - 0.5)*0.8;          // горизонтальное смещение центра
+  float speed  = 0.18 + seed2*0.22;         // скорость стекания (медленно!)
+  float period = 0.9 + seed*0.6;            // период цикла (стоп/старт)
+
+  // Время в цикле: капля стоит, потом трогается
+  float phase   = hash1(col*7.77);
+  float cyclT   = fract(t*speed/period + phase);
+  float dropY   = saw(cyclT);               // Y капли в диапазоне 0..1 (0=верх, 1=низ)
+  dropY = 1.0 - dropY;                      // инвертируем: стекает вниз
+
+  // Искривление оси струи (синусоидальное + случайное)
+  float amp    = 0.012 + seed2*0.018;
+  float freq1  = 3.5 + seed*2.0;
+  float freq2  = 7.0 + seed2*4.0;
+  float xWigA  = sin(uv.y*freq1 + t*0.4 + seed*6.28)*amp;
+  float xWigB  = sin(uv.y*freq2 + t*0.7 + seed2*6.28)*amp*0.4;
+  float xAxis  = xBase + xWigA + xWigB;    // ось струи в данной точке по Y
+
+  float dx = uv.x - xAxis;                 // горизонтальное расстояние до оси
+
+  // Ширина тела струи меняется: уже вверху, чуть шире в середине
+  float bodyW = 0.0028 + seed*0.002;
+  bodyW *= (0.6 + 0.4*smoothstep(0.0, 0.5, uv.y));
+
+  // ---- КАПЛЯ на конце струи ----
+  // Каплевидная форма: эллипс, расширенный снизу
+  float ey = uv.y - dropY;                 // вертикаль относительно центра капли
+  // Капля: широкая снизу, острая сверху (ey>0 = выше капли = острая)
+  float rX = 0.022 + seed*0.012;           // радиус по X
+  float rYd = rX * 1.5;                    // радиус вниз (каплевидно шире)
+  float rYu = rX * 0.7;                    // радиус вверх (острее)
+  float rY  = ey > 0.0 ? rYu : rYd;
+  float ddrop = (dx/rX)*(dx/rX) + (ey/rY)*(ey/rY);
+  float drop  = smoothstep(1.0, 0.5, ddrop);
+
+  // ---- ТЕЛО СТРУИ (влажный след выше капли) ----
+  float trailTop = dropY + rYu;            // выше капли
+  float inTrail  = step(uv.y, trailTop);   // только выше центра капли
+  float trailW   = bodyW * (0.5 + 0.5*smoothstep(trailTop, 0.0, uv.y)); // сужается вверх
+  float trail    = smoothstep(trailW, trailW*0.2, abs(dx)) * inTrail;
+  // Влажный след чуть мерцает (поверхностное натяжение)
+  float glisten  = 0.5 + 0.5*sin(uv.y*80.0 + t*2.0 + seed*6.28);
+  trail *= (0.55 + 0.45*glisten);
+
+  // ---- МАСКА ВОДЫ ----
+  float water = max(drop, trail * 0.75);
+
+  // ---- ЯРКОСТЬ (блики/тени на краях) ----
+  float edgeDrop  = smoothstep(0.7, 1.0, 1.0-ddrop) * drop;
+  float edgeTrail = smoothstep(trailW*0.6, trailW*0.1, abs(dx)) * trail;
+  float brightness = max(edgeDrop, edgeTrail * 0.6);
+
+  return vec2(water, brightness);
+}
+
+// ============================================================
+// СТАТИЧНЫЕ МЕЛКИЕ КАПЛИ (прилипшие к стеклу)
+// ============================================================
+float StaticDrop(vec2 uv, float t){
+  vec2 grid = uv * vec2(14.0, 20.0);
+  vec2 id   = floor(grid);
+  vec2 st   = fract(grid) - 0.5;
+  vec3 rnd  = vec3(hash1(id.x*107.45+id.y*3543.65),
+                   hash1(id.x*311.7 +id.y*74.37),
+                   hash1(id.x*951.3 +id.y*631.0));
+  // Не все ячейки заняты
+  if (rnd.x > 0.38) return 0.0;
+  vec2 pos  = (rnd.yz - 0.5)*0.7;
+  float r   = 0.06 + rnd.x*0.06;
+  float d   = length(st - pos);
+  // Мерцание — капля "дышит"
+  float blink = 0.85 + 0.15*sin(t*1.3 + rnd.z*6.28);
+  return smoothstep(r, r*0.5, d) * blink;
+}
+
+void main(){
+  vec2 uv = gl_FragCoord.xy / iResolution.xy;
+  // uv: (0,0)=левый нижний угол, (1,1)=правый верхний
+  // инвертируем Y чтобы капля текла ВНИЗ
+  uv.y = 1.0 - uv.y;
+
+  float t = iTime;
+
+  // --- Несколько струй ---
+  float N_STREAMS = 9.0;
+  vec2 total = vec2(0.0);
+  for(float i=0.0; i<9.0; i++){
+    float col = i / N_STREAMS;
+    // Растягиваем UV по X так чтобы струи равномерно распределились
+    vec2 suv = vec2((uv.x - col) * N_STREAMS, uv.y);
+    vec2 s = Stream(suv, t, i);
+    total = max(total, s);
+  }
+
+  // --- Мелкие статичные капли ---
+  float sd = StaticDrop(uv, t);
+
+  // --- Визуализация ---
+  float water      = max(total.x, sd * 0.7);
+  float brightness = total.y;
+  float edge       = brightness;
+
+  // Цвет: стеклянно-голубоватый, блик белый
+  vec3 glassCol = vec3(0.55, 0.68, 0.88);
+  vec3 specCol  = vec3(0.92, 0.96, 1.0);
+  vec3 col = mix(glassCol, specCol, edge);
+
+  // Альфа: тело струи полупрозрачно, блики более заметны, капли насыщенные
+  float dropMask  = total.x;
+  float trailMask = sd;
+  float alpha = clamp(
+    dropMask * 0.32 +
+    trailMask * 0.18 +
+    edge * 0.28,
+    0.0, 0.55
+  );
+
+  // Premultiplied alpha
+  gl_FragColor = vec4(col * alpha, alpha);
+}
+`;
+
 
       function compile(type, src){
         const s = gl.createShader(type);
