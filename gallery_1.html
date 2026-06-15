@@ -1292,7 +1292,7 @@
     <!-- Гиперреалистичные капли + дождь: WebGL шейдер (rain on glass) -->
     <canvas id="rainCanvas" style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:1;pointer-events:none;"></canvas>
     <script>
-    (function(){
+    function __startRain(){
       if (window.__rainRunning) return;
       const cv = document.getElementById('rainCanvas');
       const gl = cv.getContext('webgl', {alpha:true, premultipliedAlpha:true})
@@ -1468,7 +1468,13 @@
         requestAnimationFrame(frame);
       }
       requestAnimationFrame(frame);
-    })();
+    }
+    // Запуск капель после полной загрузки — не блокирует первичный рендер
+    if (document.readyState === 'complete') {
+      requestAnimationFrame(__startRain);
+    } else {
+      window.addEventListener('load', () => requestAnimationFrame(__startRain));
+    }
     </script>
 
     <header class="header">
