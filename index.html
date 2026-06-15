@@ -1,11 +1,2550 @@
 <!DOCTYPE html>
 <html lang="ru">
+
 <head>
-<meta charset="UTF-8">
-<meta http-equiv="refresh" content="0; url=gallery_1.html">
-<title>Надежда Жди</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Надежда Жди</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap"
+        rel="stylesheet">
+    <style>
+        /* Fluid Art — краска на воде */
+        :root {
+            --ink-dark: #08040f;
+            --ink-deep: #0d0818;
+            --ink-mid: #120d22;
+
+            --paint-violet: #6a1fa8;
+            --paint-teal: #0d8a9e;
+            --paint-amber: #c86a10;
+            --paint-cobalt: #1440a8;
+
+            --warm-moon: #fff8e7;
+            --warm-candle: #ffd9a3;
+            --warm-candle-glow: rgba(255, 180, 100, 0.6);
+            --candle-shadow: 0 0 20px rgba(255, 180, 100, 0.5), 0 0 40px rgba(255, 150, 50, 0.3);
+            --moon-shadow: 0 0 40px rgba(245, 230, 200, 0.3), 0 0 80px rgba(245, 230, 200, 0.1);
+
+            --text-primary: #f5e6d3;
+            --text-secondary: rgba(245, 230, 211, 0.7);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        button, a {
+            -webkit-tap-highlight-color: transparent;
+            outline: none;
+        }
+
+        body {
+            font-family: 'Cormorant Garamond', serif;
+            background: var(--ink-dark);
+            min-height: 100vh;
+            overflow-x: hidden;
+            color: var(--text-primary);
+        }
+
+        /* Фон — живые пятна краски на воде */
+        .atmosphere {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        /* Слои краски — animate медленно, имитируя растекание */
+        .atmosphere::before {
+            content: '';
+            position: absolute;
+            inset: -20%;
+            background:
+                radial-gradient(ellipse 55% 40% at 18% 22%, rgba(90, 18, 160, 0.38) 0%, transparent 60%),
+                radial-gradient(ellipse 45% 35% at 80% 15%, rgba(13, 100, 180, 0.28) 0%, transparent 55%),
+                radial-gradient(ellipse 60% 30% at 55% 70%, rgba(180, 55, 10, 0.18) 0%, transparent 55%),
+                radial-gradient(ellipse 40% 45% at 8% 80%, rgba(10, 120, 130, 0.22) 0%, transparent 50%),
+                radial-gradient(ellipse 50% 25% at 90% 75%, rgba(140, 15, 70, 0.16) 0%, transparent 50%);
+            animation: inkSpread 28s ease-in-out infinite alternate;
+        }
+
+        .atmosphere::after {
+            content: '';
+            position: absolute;
+            inset: -20%;
+            background:
+                radial-gradient(ellipse 35% 50% at 35% 45%, rgba(200, 95, 10, 0.1) 0%, transparent 55%),
+                radial-gradient(ellipse 50% 30% at 70% 35%, rgba(60, 15, 130, 0.14) 0%, transparent 50%);
+            animation: inkSpread 38s ease-in-out infinite alternate-reverse;
+        }
+
+        @keyframes inkSpread {
+            0% {
+                transform: scale(1) rotate(0deg) translate(0, 0);
+            }
+
+            33% {
+                transform: scale(1.06) rotate(1.5deg) translate(1%, 0.5%);
+            }
+
+            66% {
+                transform: scale(0.97) rotate(-1deg) translate(-0.5%, 1%);
+            }
+
+            100% {
+                transform: scale(1.04) rotate(0.5deg) translate(0.5%, -0.5%);
+            }
+        }
+
+        /* ══ ЛУНА — реальное фото ════════════════════════════ */
+        /* .moon-glow — обёртка для позиции и box-shadow (clip-path обрезает тени, поэтому тень на родителе) */
+        .moon-glow {
+            position: fixed;
+            top: 8%;
+            right: 3%;
+            width: 160px;
+            height: 160px;
+            border-radius: 50%;
+            z-index: 3;
+            /* box-shadow управляется из JS синхронно с фазой */
+        }
+        .moon {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            overflow: hidden;
+            background: transparent;
+            clip-path: circle(50% at 50% 50%);
+        }
+        .moon img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            transform: scale(1.877) translateX(0.6%);
+        }
+
+        .moon::before { display: none; }
+        .moon::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            box-shadow: none;
+            pointer-events: none;
+        }
+
+        @keyframes moonPulse {
+            0% {
+                box-shadow: 0 0 35px rgba(255, 245, 180, 0.50), 0 0 80px rgba(245, 225, 140, 0.22);
+            }
+
+            100% {
+                box-shadow: 0 0 58px rgba(255, 248, 190, 0.80), 0 0 140px rgba(245, 225, 140, 0.38);
+            }
+        }
+
+        @keyframes moonPulse {
+            0% {
+                box-shadow: 0 0 35px rgba(255, 245, 180, 0.50), 0 0 80px rgba(245, 225, 140, 0.22);
+            }
+
+            100% {
+                box-shadow: 0 0 58px rgba(255, 248, 190, 0.80), 0 0 140px rgba(245, 225, 140, 0.38);
+            }
+        }
+
+        /* ══ СВЕЧИ ════════════════════════════════════════════ */
+        .candles-container {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 220px;
+            z-index: 4;
+            pointer-events: none;
+        }
+
+        .candle {
+            position: absolute;
+            bottom: 0;
+        }
+
+        .candle-body {
+            width: 22px;
+            background: linear-gradient(90deg,
+                    rgba(255, 252, 240, 0.92) 0%,
+                    rgba(255, 248, 228, 0.96) 50%,
+                    rgba(238, 232, 215, 0.90) 100%);
+            border-radius: 3px 3px 6px 6px;
+            position: relative;
+        }
+
+        .candle-body::before {
+            content: '';
+            position: absolute;
+            top: -9px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 3px;
+            height: 10px;
+            background: #2a1e0a;
+            border-radius: 2px;
+        }
+
+        .flame {
+            position: absolute;
+            top: -32px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 14px;
+            height: 26px;
+            background: radial-gradient(ellipse at 50% 80%,
+                    rgba(255, 210, 80, 0.95) 0%,
+                    rgba(255, 140, 40, 0.70) 45%,
+                    rgba(255, 80, 20, 0.35) 75%,
+                    transparent 100%);
+            border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+            filter: blur(0.8px);
+            animation: flicker 1.8s ease-in-out infinite;
+            box-shadow: 0 0 18px rgba(255, 160, 40, 0.6), 0 0 40px rgba(255, 100, 20, 0.3);
+        }
+
+        @keyframes flicker {
+
+            0%,
+            100% {
+                transform: translateX(-50%) scaleX(1) scaleY(1) rotate(-1deg);
+                opacity: .95;
+            }
+
+            25% {
+                transform: translateX(-50%) scaleX(1.06) scaleY(1.04) rotate(1.5deg);
+                opacity: 1;
+            }
+
+            50% {
+                transform: translateX(-50%) scaleX(0.97) scaleY(0.98) rotate(-1.5deg);
+                opacity: .9;
+            }
+
+            75% {
+                transform: translateX(-50%) scaleX(1.03) scaleY(1.02) rotate(2deg);
+                opacity: .95;
+            }
+        }
+
+        /* Туман у основания */
+        .mist {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 280px;
+            background: linear-gradient(to top,
+                    rgba(8, 4, 15, 0.88) 0%,
+                    rgba(8, 4, 15, 0.45) 35%,
+                    transparent 100%);
+            z-index: 3;
+            pointer-events: none;
+        }
+
+        /* ══ ПАЛИТРА — правый нижний угол (fixed) ═══════════ */
+        .palette-wrap {
+            position: fixed;
+            bottom: max(4px, env(safe-area-inset-bottom));
+            right: max(8px, env(safe-area-inset-right));
+            width: min(470px, calc(100vw - 14px));
+            height: min(338px, calc((100vw - 14px) * 0.72));
+            z-index: 1006;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.4s ease, transform 0.55s cubic-bezier(0.2, 0.9, 0.2, 1);
+            transform: translate3d(0, 8px, 0) scale(0.985);
+        }
+
+        .palette-wrap.visible {
+            opacity: 1;
+            transform: translate3d(0, 0, 0) scale(1);
+        }
+
+        .palette-wrap::before,
+        .palette-wrap::after {
+            content: none;
+        }
+
+        .palette-shape {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            filter:
+                drop-shadow(0 18px 34px rgba(16, 10, 6, 0.2))
+                drop-shadow(0 4px 16px rgba(255, 201, 134, 0.08));
+            z-index: 2;
+        }
+
+        .palette-dots {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            z-index: 3;
+            /* маска формой палитры: мазки не вылезают за край и не закрывают отверстие */
+            -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 220'%3E%3Cpath fill='%23000' fill-rule='evenodd' d='M 41,108 C 41,57 91,21 166,21 C 225,21 279,42 297,74 C 302,85 296,92 283,91 C 263,90 251,101 257,114 C 264,127 280,137 280,155 C 280,188 233,211 160,211 C 86,211 41,174 41,108 Z M 258,132 C 258,147 243,159 224,159 C 205,159 190,147 190,132 C 190,117 205,105 224,105 C 243,105 258,117 258,132 Z'/%3E%3C/svg%3E");
+            mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 220'%3E%3Cpath fill='%23000' fill-rule='evenodd' d='M 41,108 C 41,57 91,21 166,21 C 225,21 279,42 297,74 C 302,85 296,92 283,91 C 263,90 251,101 257,114 C 264,127 280,137 280,155 C 280,188 233,211 160,211 C 86,211 41,174 41,108 Z M 258,132 C 258,147 243,159 224,159 C 205,159 190,147 190,132 C 190,117 205,105 224,105 C 243,105 258,117 258,132 Z'/%3E%3C/svg%3E");
+            -webkit-mask-size: 100% 100%;
+            mask-size: 100% 100%;
+            -webkit-mask-repeat: no-repeat;
+            mask-repeat: no-repeat;
+        }
+
+        /* Звёзды (мелкие, поверх фото) */
+        .stars {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        .star {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            animation: twinkle 3s infinite ease-in-out;
+        }
+
+        @keyframes twinkle {
+
+            0%,
+            100% {
+                opacity: 0.15;
+            }
+
+            50% {
+                opacity: 0.7;
+            }
+        }
+
+        /* Млечный путь - фото через unsplash */
+        .milky-way {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        .milky-way img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center 30%;
+            opacity: 0;
+            transition: opacity 2s ease;
+            display: block;
+        }
+
+        .milky-way img.loaded {
+            opacity: 0.55;
+        }
+
+        /* Затемняющий оверлей поверх фото */
+        .milky-way::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background:
+                linear-gradient(to bottom,
+                    rgba(6, 10, 20, 0.35) 0%,
+                    rgba(6, 10, 20, 0.1) 40%,
+                    rgba(6, 10, 20, 0.55) 75%,
+                    rgba(6, 10, 20, 0.92) 100%),
+                radial-gradient(ellipse 80% 60% at 50% 0%, rgba(6, 8, 24, 0.5) 0%, transparent 70%);
+        }
+
+        /* ─── старые блоки .moon (SVG), .candle, .mist удалены ─── */
+
+        /* Заголовок прижат к луне */
+        .header {
+            position: relative;
+            z-index: 30;
+            padding: 36px 40px 10px;
+            text-align: right;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header-content {
+            display: inline-block;
+            text-align: right;
+            padding-right: 140px;
+        }
+
+        .header-content h1 {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: clamp(2.2rem, 5vw, 4.5rem);
+            font-weight: 300;
+            font-style: italic;
+            letter-spacing: 0.22em;
+            margin: 0;
+            color: #fff8e7;
+            text-shadow:
+                0 0 20px rgba(255, 248, 231, 0.9),
+                0 0 50px rgba(245, 230, 200, 0.6),
+                0 0 100px rgba(245, 230, 200, 0.3);
+            line-height: 1;
+            white-space: nowrap;
+        }
+
+        .header-content .subtitle {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: clamp(0.75rem, 1.5vw, 1rem);
+            font-weight: 300;
+            font-style: normal;
+            letter-spacing: 0.5em;
+            text-transform: uppercase;
+            color: rgba(255, 248, 231, 0.65);
+            text-shadow:
+                0 0 15px rgba(245, 230, 200, 0.5),
+                0 0 30px rgba(245, 230, 200, 0.3);
+            margin: 6px 0 0 0;
+        }
+
+        /* Container */
+        .container {
+            position: relative;
+            z-index: 10;
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 20px 60px 80px;
+        }
+
+
+
+        /* Галерея */
+        .gallery {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 36px;
+            padding: 40px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .gallery-item {
+            position: relative;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+            outline: none;
+            opacity: 0;
+            transform: translateY(40px) scale(0.97);
+            transition: transform 0.7s cubic-bezier(0.23, 1, 0.32, 1),
+                opacity 0.7s ease,
+                filter 0.5s ease;
+        }
+
+        .gallery-item.loaded {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+
+        /* Пятно краски под картиной при наведении */
+        .gallery-item::after {
+            content: '';
+            position: absolute;
+            bottom: -18px;
+            left: 10%;
+            width: 80%;
+            height: 30px;
+            border-radius: 50%;
+            background: radial-gradient(ellipse, rgba(110, 30, 200, 0.35) 0%, transparent 70%);
+            filter: blur(10px);
+            opacity: 0;
+            transition: opacity 0.5s ease, transform 0.5s ease;
+            transform: scaleX(0.6);
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .gallery-item:hover {
+            transform: translateY(-8px) scale(1.02);
+            filter: saturate(1.15) brightness(1.05);
+            z-index: 2;
+        }
+
+        .gallery-item:hover::after {
+            opacity: 1;
+            transform: scaleX(1);
+        }
+
+        .gallery-item img {
+            width: 100%;
+            height: 480px;
+            object-fit: contain;
+            display: block;
+            -webkit-tap-highlight-color: transparent;
+            outline: none;
+            transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+        }
+
+        .gallery-item:hover img {
+            transform: scale(1.03);
+        }
+
+
+
+        /* Модальное окно */
+        .modal {
+            display: block;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(ellipse at center, var(--modal-bg-color, rgba(12, 6, 30, 0.92)) 0%, rgba(4, 8, 18, 0.98) 70%);
+            backdrop-filter: blur(24px) saturate(1.4);
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transition: opacity 0.35s ease, visibility 0.35s ease, background 0.6s ease;
+        }
+        .modal.open {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+        }
+
+        .modal-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            --modal-zoom: 1;
+            --modal-pan-x: 0px;
+            --modal-pan-y: 0px;
+            transform: translate(calc(-50% + var(--modal-pan-x)), calc(-50% + var(--modal-pan-y))) scale(var(--modal-zoom));
+            max-width: 90vw;
+            max-height: 85vh;
+            object-fit: contain;
+            border-radius: 6px;
+            box-shadow:
+                0 40px 100px rgba(0, 0, 0, 0.6),
+                0 0 0 1px rgba(255, 248, 220, 0.06),
+                0 0 80px rgba(60, 20, 120, 0.15);
+            opacity: 0;
+            transition: opacity 0.5s ease, transform 0.12s ease;
+            transform-origin: center center;
+            cursor: zoom-in;
+            user-select: none;
+            touch-action: none;
+        }
+
+        .modal-content.loaded {
+            opacity: 1;
+        }
+
+        .modal-content.zoomed {
+            cursor: grab;
+        }
+
+        .modal-content.zoomed.panning {
+            cursor: grabbing;
+        }
+
+        .modal-content {
+            touch-action: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        .image-info {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            letter-spacing: 0.2em;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .temp-bar {
+            display: inline-block;
+            width: 50px;
+            height: 3px;
+            background: linear-gradient(to right, #3b82f6, #8b5cf6, #ef4444);
+            border-radius: 2px;
+            position: relative;
+            vertical-align: middle;
+        }
+
+        .temp-marker {
+            position: absolute;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 6px;
+            height: 6px;
+            background: white;
+            border-radius: 50%;
+            box-shadow: 0 0 4px rgba(255, 255, 255, 0.8);
+        }
+
+        /* ══════════════════════════════════════════
+           ПАЛИТРА ХУДОЖНИКА — овальная карусель
+        ══════════════════════════════════════════ */
+        .thumbnails-scroll {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1005;
+            user-select: none;
+            pointer-events: auto;
+            touch-action: none;
+            overflow: visible;
+        }
+
+        /* Овальная дощечка палитры */
+        .thumbnails-track {
+            position: relative;
+            background: transparent;
+            border-radius: 0;
+            box-shadow: none;
+            filter: none;
+        }
+
+        .thumbnails-track::before {
+            content: none;
+        }
+
+        .thumbnails-track::after {
+            content: none;
+        }
+
+        /* Каждая ляпка акрила — превью без жёсткой обводки */
+        .thumb-item {
+            position: absolute;
+            width: 54px;
+            height: 50px;
+            overflow: hidden;
+            cursor: pointer;
+            opacity: 0.97;
+            -webkit-tap-highlight-color: transparent;
+            outline: none;
+            transition:
+                opacity 0.35s ease,
+                box-shadow 0.35s ease,
+                filter 0.35s ease,
+                transform 0.45s cubic-bezier(0.2, 0.9, 0.2, 1),
+                border-radius 0.5s ease;
+            pointer-events: auto;
+            touch-action: manipulation;
+            transform: translate3d(0, 0, 0) rotate(var(--blob-rotate, 0deg)) scale(var(--blob-scale, 1));
+            transform-origin: center center;
+            background:
+                radial-gradient(circle at 26% 18%,
+                    rgba(255, 244, 221, 0.34) 0%,
+                    rgba(255, 233, 205, 0.12) 18%,
+                    transparent 50%),
+                radial-gradient(circle at 72% 78%,
+                    rgba(84, 48, 24, 0.18) 0%,
+                    transparent 46%);
+            box-shadow:
+                inset 0 1px 2px rgba(255, 249, 238, 0.28),
+                inset -7px -9px 12px rgba(96, 54, 28, 0.16),
+                0 8px 14px rgba(16, 10, 6, 0.16),
+                0 2px 4px rgba(255, 243, 228, 0.08);
+            border: none;
+        }
+
+        .thumb-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            user-select: none;
+            pointer-events: none;
+            display: block;
+            border-radius: inherit;
+            filter: saturate(1.12) contrast(1.06) brightness(1.03);
+        }
+
+        /* растушёванный край: мазки перетекают друг в друга, как сырая краска */
+        .thumb-item {
+            -webkit-mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 46%, rgba(0,0,0,.55) 68%, transparent 96%);
+            mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 46%, rgba(0,0,0,.55) 68%, transparent 96%);
+        }
+
+        .thumb-item:hover,
+        .thumb-item.active {
+            -webkit-mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 62%, rgba(0,0,0,.7) 80%, transparent 99%);
+            mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 62%, rgba(0,0,0,.7) 80%, transparent 99%);
+        }
+
+        .thumb-item::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            background:
+                radial-gradient(ellipse at 24% 18%,
+                    rgba(255, 248, 240, 0.44) 0%,
+                    rgba(255, 236, 214, 0.16) 18%,
+                    rgba(255, 255, 255, 0.02) 34%,
+                    transparent 56%),
+                radial-gradient(ellipse at 74% 72%,
+                    rgba(72, 40, 20, 0.14) 0%,
+                    transparent 40%),
+                linear-gradient(180deg,
+                    rgba(255, 247, 236, 0.05) 0%,
+                    rgba(255, 255, 255, 0) 40%,
+                    rgba(70, 38, 20, 0.1) 100%);
+            pointer-events: none;
+            z-index: 2;
+            mix-blend-mode: normal;
+        }
+
+        .thumb-item::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            background:
+                radial-gradient(ellipse at 46% 40%,
+                    rgba(255, 248, 232, 0.08) 0%,
+                    transparent 60%),
+                linear-gradient(180deg,
+                    rgba(255, 249, 240, 0.02) 0%,
+                    rgba(255, 255, 255, 0) 34%,
+                    rgba(48, 27, 16, 0.16) 100%);
+            pointer-events: none;
+            z-index: 1;
+            mix-blend-mode: normal;
+        }
+
+        .thumb-item:hover {
+            opacity: 1;
+            filter: saturate(1.16) brightness(1.09);
+            --blob-scale: 1.06;
+            box-shadow:
+                inset 0 1px 2px rgba(255, 251, 245, 0.2),
+                inset -8px -10px 14px rgba(48, 28, 16, 0.18),
+                0 14px 24px rgba(10, 8, 6, 0.22),
+                0 0 20px rgba(255, 218, 164, 0.16);
+            z-index: 10;
+        }
+
+        .thumb-item.active {
+            opacity: 1;
+            filter: saturate(1.18) brightness(1.1);
+            --blob-scale: 1.03;
+            box-shadow:
+                inset 0 1px 2px rgba(255, 252, 246, 0.22),
+                inset -8px -10px 14px rgba(52, 30, 18, 0.18),
+                0 14px 28px rgba(10, 8, 6, 0.24),
+                0 0 24px rgba(255, 222, 176, 0.2);
+            z-index: 10;
+        }
+
+
+
+        /* Анимация дыхания */
+        
+
+        /* Синхронное моргание глаз - вдоль длинной оси (глаза раскосые) */
+        /* Правый глаз наклонён ~-20° (справа налево вверх) */
+        
+
+        /* Левый глаз наклонён ~+20° (слева направо вверх) */
+        
+
+        /* Кнопка закрытия — чистый крест без стекла */
+        .close {
+            position: absolute;
+            top: 32px;
+            right: 40px;
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            -webkit-tap-highlight-color: transparent;
+            outline: none;
+            color: rgba(245, 230, 210, 0.7);
+            font-size: 28px;
+            font-weight: 200;
+            cursor: pointer;
+            z-index: 1001;
+            transition: color 0.3s ease, transform 0.4s ease, opacity 0.3s ease;
+            background: none;
+            border: none;
+            opacity: 0.7;
+        }
+
+        .close:hover {
+            color: rgba(255, 255, 255, 0.95);
+            transform: rotate(45deg) scale(1.2);
+            opacity: 1;
+        }
+
+        @keyframes starBloom {
+            0%   { transform: rotate(0deg) scale(1);   opacity: 0.7; filter: none; }
+            30%  { transform: rotate(20deg) scale(1.8); opacity: 1;   filter: drop-shadow(0 0 8px rgba(220,235,255,0.9)); }
+            60%  { transform: rotate(45deg) scale(1.4); opacity: 1;   filter: drop-shadow(0 0 14px rgba(200,220,255,0.7)); }
+            100% { transform: rotate(45deg) scale(1.2); opacity: 1;   filter: drop-shadow(0 0 4px rgba(200,220,255,0.4)); }
+        }
+        .close:active {
+            animation: starBloom 0.45s cubic-bezier(.34,1.56,.64,1) forwards;
+        }
+
+        .nav-buttons {
+            position: absolute;
+            top: 50%;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 30px;
+            transform: translateY(-50%);
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        .nav-btn {
+            width: 52px;
+            height: 52px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: none;
+            border: none;
+            color: rgba(245, 230, 210, 0.5);
+            font-size: 28px;
+            cursor: pointer;
+            transition: color 0.3s ease, transform 0.4s cubic-bezier(0.23, 1, 0.32, 1), opacity 0.3s ease;
+            pointer-events: auto;
+            opacity: 0.6;
+        }
+
+        .nav-btn:hover {
+            color: rgba(255, 255, 255, 0.9);
+            transform: scale(1.2);
+            opacity: 1;
+        }
+
+        .nav-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* Footer */
+        .footer {
+            position: relative;
+            z-index: 10;
+            padding: 60px 40px;
+            text-align: center;
+            border-top: 1px solid rgba(255, 255, 255, 0.04);
+        }
+
+        .footer p {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 0.85rem;
+            font-style: italic;
+            color: rgba(232, 228, 220, 0.35);
+            letter-spacing: 0.3em;
+            text-transform: uppercase;
+        }
+
+        /* Responsive - Adaptive */
+
+        /* Large Desktop */
+        @media (min-width: 1600px) {
+            .gallery {
+                grid-template-columns: repeat(3, 1fr);
+                gap: 40px;
+            }
+
+            .gallery-item img {
+                height: 520px;
+            }
+        }
+
+        /* Desktop */
+        @media (max-width: 1400px) {
+            .gallery {
+                grid-template-columns: repeat(3, 1fr);
+                gap: 35px;
+            }
+
+            .gallery-item img {
+                height: 450px;
+            }
+        }
+
+        /* Tablet Landscape */
+        @media (max-width: 1024px) {
+            .container {
+                padding: 30px;
+            }
+
+            .gallery {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 25px;
+            }
+
+            .gallery-item img {
+                height: 380px;
+            }
+
+            .moon-glow {
+                width: 150px;
+                height: 150px;
+                right: 4%;
+                top: 6%;
+            }
+
+            .header {
+                padding: 80px 30px 50px;
+            }
+        }
+
+        /* Tablet Portrait */
+        @media (max-width: 768px) {
+            .header {
+                padding: 60px 20px 40px;
+            }
+
+            .header-content h1 {
+                letter-spacing: 0.1em;
+            }
+
+            .container {
+                padding: 20px;
+            }
+
+            .gallery {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 15px;
+            }
+
+            .gallery-item img {
+                height: 280px;
+            }
+
+            .gallery-item:hover {
+                transform: scale(1.04);
+            }
+
+            .gallery-item:hover img {
+                transform: scale(1.06);
+            }
+
+            .image-name {
+                font-size: 0.65rem;
+                bottom: -25px;
+            }
+
+            .nav-buttons {
+                padding: 0 15px;
+            }
+
+            .nav-btn {
+                width: 45px;
+                height: 45px;
+                font-size: 18px;
+            }
+
+            .close {
+                right: 15px;
+                top: 15px;
+                width: 45px;
+                height: 45px;
+                font-size: 26px;
+            }
+
+            .moon-glow {
+                width: 115px;
+                height: 115px;
+                top: 4%;
+                right: 4%;
+            }
+
+            .candles-container {
+                display: none;
+            }
+
+            .modal-content {
+                max-width: 95vw;
+                max-height: 80vh;
+            }
+
+            .palette-wrap {
+                right: 6px;
+                bottom: 10px;
+                width: min(408px, calc(100vw - 10px));
+                height: min(294px, calc((100vw - 10px) * 0.72));
+            }
+        }
+
+        /* Mobile */
+        @media (max-width: 480px) {
+            .header {
+                padding: 50px 15px 30px;
+            }
+
+            .subtitle {
+                letter-spacing: 0.2em;
+            }
+
+            .divider {
+                margin: 20px auto;
+            }
+
+            .container {
+                padding: 15px;
+            }
+
+            .intro {
+                margin-bottom: 40px;
+                font-size: 1rem;
+            }
+
+            .gallery {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+
+            .gallery-item img {
+                height: 320px;
+            }
+
+            .footer {
+                padding: 40px 20px;
+            }
+
+            .footer p {
+                font-size: 0.9rem;
+            }
+
+            .nav-buttons {
+                padding: 0 10px;
+            }
+
+            .nav-btn {
+                width: 40px;
+                height: 40px;
+                font-size: 16px;
+                background: rgba(255, 255, 255, 0.08);
+            }
+
+            .stars {
+                display: none;
+            }
+
+            .moon-glow {
+                width: 95px;
+                height: 95px;
+            }
+
+            .palette-wrap {
+                right: 4px;
+                bottom: 8px;
+                width: min(324px, calc(100vw - 8px));
+                height: min(234px, calc((100vw - 8px) * 0.72));
+            }
+        }
+
+        /* Small Mobile */
+        @media (max-width: 360px) {
+            .gallery-item img {
+                height: 260px;
+            }
+
+            .header-content h1 {
+                font-size: 2rem;
+            }
+
+            .palette-wrap {
+                width: min(310px, calc(100vw - 8px));
+                height: min(224px, calc((100vw - 8px) * 0.72));
+                right: 4px;
+                bottom: 8px;
+            }
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--cold-deep);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 248, 220, 0.08);
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 248, 220, 0.16);
+        }
+
+        /* Fluid art ink divider */
+        .fluid-divider {
+            position: relative;
+            z-index: 10;
+            width: 100%;
+            max-width: 700px;
+            height: 2px;
+            margin: 0 auto 10px;
+            overflow: visible;
+        }
+
+        .fluid-divider svg {
+            width: 100%;
+            height: 30px;
+            overflow: visible;
+        }
+
+        /* Gallery revealed glow */
+        .gallery-item.revealed {
+            filter: drop-shadow(0 0 20px rgba(80, 40, 160, 0.08));
+        }
+
+
+    </style>
 </head>
+
 <body>
-<script>location.replace('gallery_1.html')</script>
+    <div class="atmosphere"></div>
+
+    <!-- Canvas: живые вихри краски -->
+    <canvas id="fluidCanvas" style="
+        position:fixed; inset:0; width:100%; height:100%;
+        z-index:0; pointer-events:none; opacity:0.55;
+        mix-blend-mode: screen;
+    "></canvas>
+
+    <!-- Млечный путь -->
+    <div class="milky-way" id="milkyWay">
+        <img id="milkyWayImg"
+            src="https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1800&q=80&auto=format&fit=crop" alt=""
+            crossorigin="anonymous" />
+    </div>
+
+    <!-- Луна — реальное фото -->
+    <div class="moon-glow" id="moonGlow">
+    <div class="moon" id="moonEl">
+        <img src="https://images.unsplash.com/photo-1532693322450-2cb5c511067d?w=400&q=85&auto=format&fit=crop"
+            alt="Moon" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;" />
+        <canvas id="moonCanvas" style="position:absolute;inset:0;width:100%;height:100%;border-radius:50%;pointer-events:none;"></canvas>
+        <script>
+        (function(){
+          if (window.__moonRunning) return;
+          window.__moonRunning = true;
+          const cv = document.getElementById('moonCanvas');
+          const PERIOD = 30000;
+          const TILT = 0.087;
+
+          // Физика: солнце всегда справа. Луна обходит Землю.
+          // После новолуния серп появляется СПРАВА и растёт.
+          // После полнолуния убывает — тень наползает СЛЕВА.
+          // Тень ВСЕГДА слева от терминатора. Терминатор движется справа налево (растущая)
+          // и обратно слева направо (убывающая). Переключение только в новолуние — вся тёмная.
+          //
+          // Параметр p = cos(2πf):
+          //   f=0:    p=+1  → терминатор у правого края  → вся тень (новолуние)
+          //   f=0.25: p=0   → терминатор по центру       → тень слева, серп справа
+          //   f=0.5:  p=-1  → терминатор у левого края   → нет тени (полнолуние)
+          //   f=0.75: p=0   → терминатор по центру       → тень справа, серп слева
+          //
+          // Тень = область левее терминатора ∩ диск.
+          // Терминатор-эллипс центрирован в (cx, cy), rx=R·|p|, ry=R.
+          // p>0: тень = левый полукруг МИНУС правый клин эллипса  (серп справа)
+          // p<0: тень = левый полукруг ПЛЮС  левый клин эллипса   (серп слева)
+          // p=±1: новолуние/полнолуние — trx=R, переключение скрыто в полной тьме/свете.
+          // Переключение знака p при f=0 (новолуние, вся тёмная) и f=0.5 (полнолуние, вся светлая).
+
+          function draw(f) {
+            const S = cv.offsetWidth * (window.devicePixelRatio || 1);
+            if (cv.width !== S) { cv.width = S; cv.height = S; }
+            const ctx = cv.getContext('2d');
+            const R = S / 2, cx = R, cy = R;
+            ctx.clearRect(0, 0, S, S);
+
+            const cosF = Math.cos(f * Math.PI * 2);
+            const trx = Math.abs(cosF) * R;
+            const waxing = f < 0.5;
+            const illum = (1 - Math.cos(f * Math.PI * 2)) / 2;
+
+            // ── Тень: чёткая форма + мягкий только терминатор ─────────────
+            // Идея: рисуем НЕразмытую тень (доходит до края диска точно),
+            // отдельно поверх — размытую копию ТОЛЬКО вдоль терминатора,
+            // чтобы внешний край диска оставался чётким, а граница свет/тень мягкой.
+            const soft = Math.max(4, R * 0.08);
+            const Rover = R + Math.ceil(soft) + 2; // запас за край под blur
+
+            // offscreen: строим размытую тень
+            const off = document.createElement('canvas');
+            off.width = S; off.height = S;
+            const oc = off.getContext('2d');
+            oc.filter = `blur(${soft}px)`;
+            oc.fillStyle = 'rgba(4,8,20,0.94)';
+            oc.beginPath();
+            if (waxing) {
+              oc.arc(cx, cy, Rover, -Math.PI/2, Math.PI/2, true);
+              oc.ellipse(cx, cy, trx, Rover, TILT, Math.PI/2, -Math.PI/2, cosF > 0);
+            } else {
+              oc.arc(cx, cy, Rover, -Math.PI/2, Math.PI/2, false);
+              oc.ellipse(cx, cy, trx, Rover, TILT, Math.PI/2, -Math.PI/2, cosF < 0);
+            }
+            oc.closePath();
+            oc.fill();
+            oc.filter = 'none';
+            // обрезаем тень строго по диску — blur за краем отсекается,
+            // но форма строилась за Rover, так что у края тень полной плотности
+            oc.globalCompositeOperation = 'destination-in';
+            oc.beginPath(); oc.arc(cx, cy, R, 0, Math.PI*2); oc.fill();
+
+            ctx.save();
+            ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI*2); ctx.clip();
+            ctx.drawImage(off, 0, 0);
+
+            // ── Edge-vignette: убирает светлую кромку, мягкий и узкий ──────
+            const vig = ctx.createRadialGradient(cx, cy, R * 0.94, cx, cy, R);
+            vig.addColorStop(0, 'rgba(4,8,20,0)');
+            vig.addColorStop(1, 'rgba(4,8,20,0.28)');
+            ctx.fillStyle = vig;
+            ctx.fillRect(0, 0, S, S);
+            ctx.restore();
+
+            // ── Свечение ───────────────────────────────────────────────────
+            const sinF = Math.sin(f * Math.PI * 2);
+            const shiftMag = sinF * 18;
+            const ox = Math.round(shiftMag * Math.cos(TILT));
+            const oy = Math.round(-shiftMag * Math.sin(TILT));
+            const a0 = (0.06 + illum * 0.22).toFixed(2);
+            const a1 = (0.03 + illum * 0.14).toFixed(2);
+            const a2 = (0.01 + illum * 0.08).toFixed(2);
+            const r0 = Math.round(20 + illum * 35);
+            const r1 = Math.round(50 + illum * 80);
+            const r2 = Math.round(100 + illum * 160);
+            cv.parentElement.parentElement.style.boxShadow =
+              `${ox}px ${oy}px ${r0}px rgba(210,225,255,${a0}), ` +
+              `${ox}px ${oy}px ${r1}px rgba(190,210,255,${a1}), ` +
+              `${ox}px ${oy}px ${r2}px rgba(160,190,235,${a2})`;
+          }
+
+          let start = null;
+          function tick(ts) {
+            if (!start) start = ts;
+            // старт с полнолуния: f=0.5 → p=-1 → trx=R, но тень=0 (полнолуние)
+            draw((0.5 + ((ts - start) % PERIOD) / PERIOD) % 1);
+            requestAnimationFrame(tick);
+          }
+          requestAnimationFrame(tick);
+        })();
+        </script>
+    </div>
+    </div>
+
+    <!-- Свечи -->
+    <div class="candles-container">
+        <div class="candle" style="left:5%">
+            <div class="candle-body" style="height:70px">
+                <div class="flame"></div>
+            </div>
+        </div>
+        <div class="candle" style="left:9%">
+            <div class="candle-body" style="height:95px">
+                <div class="flame"></div>
+            </div>
+        </div>
+        <div class="candle" style="right:7%">
+            <div class="candle-body" style="height:80px">
+                <div class="flame"></div>
+            </div>
+        </div>
+        <div class="candle" style="right:11%">
+            <div class="candle-body" style="height:58px">
+                <div class="flame"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mist"></div>
+
+    <div class="stars" id="stars"></div>
+
+    <!-- Капли на стекле: каплевидные, с растягивающимися следами влаги -->
+    <canvas id="rainCanvas" style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:1;pointer-events:none;"></canvas>
+    <script>
+    (function(){
+      if (window.__rainRunning) return;
+      window.__rainRunning = true;
+      const cv = document.getElementById('rainCanvas');
+      const ctx = cv.getContext('2d');
+      let W, H;
+      const DPR = Math.min(window.devicePixelRatio || 1, 2);
+      const rnd = (a, b) => a + (b - a) * Math.random();
+
+      let drops = [];
+
+      function resize(){
+        W = window.innerWidth; H = window.innerHeight;
+        cv.width = W * DPR; cv.height = H * DPR;
+        ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+        drops = [];
+      }
+
+      function spawnDrop(){
+        const r = rnd(5, 12);
+        drops.push({
+          x: rnd(20, W - 20),
+          y: rnd(-40, -10),
+          r,
+          vy: 0,
+          accel: rnd(0.006, 0.02),
+          stick: rnd(0.4, 1.4),     // «прилипание» — порог скорости старта
+          moving: false,
+          wobble: rnd(-0.3, 0.3),
+          phase: rnd(0, 6.28),
+          trail: [],                 // точки следа влаги
+          life: 0
+        });
+      }
+
+      // Каплевидная форма: круглое тело + заострённый верх (хвост вверх)
+      function drawTeardrop(x, y, r, elong){
+        ctx.save();
+        // Тень-преломление чуть ниже-правее
+        ctx.beginPath();
+        teardropPath(x + r*0.1, y + r*0.15, r, elong);
+        ctx.fillStyle = 'rgba(8,14,32,0.22)';
+        ctx.fill();
+
+        // Тело: тонкий мениск по краю, прозрачный центр (линза)
+        const body = ctx.createRadialGradient(x, y, r*0.15, x, y + r*0.2, r*1.1);
+        body.addColorStop(0,   'rgba(170,198,240,0.05)');
+        body.addColorStop(0.7, 'rgba(140,172,225,0.07)');
+        body.addColorStop(0.92,'rgba(110,148,210,0.14)');
+        body.addColorStop(1,   'rgba(95,130,195,0.22)');
+        ctx.beginPath();
+        teardropPath(x, y, r, elong);
+        ctx.fillStyle = body;
+        ctx.fill();
+
+        // Преломлённый свет — светлое пятно в нижней части линзы
+        const lit = ctx.createRadialGradient(x, y + r*0.4, 0, x, y + r*0.35, r*0.8);
+        lit.addColorStop(0, 'rgba(220,236,255,0.18)');
+        lit.addColorStop(1, 'rgba(220,236,255,0)');
+        ctx.beginPath();
+        teardropPath(x, y, r*0.9, elong);
+        ctx.fillStyle = lit;
+        ctx.fill();
+
+        // Тонкий вытянутый блик сверху-слева (не круглый зрачок)
+        ctx.beginPath();
+        ctx.ellipse(x - r*0.28, y - r*0.25, r*0.12, r*0.32, -0.4, 0, Math.PI*2);
+        ctx.fillStyle = 'rgba(255,255,255,0.45)';
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // Путь каплевидной формы: низ круглый, верх вытянут в хвостик
+      function teardropPath(x, y, r, elong){
+        // elong: 0 = круг, >0 = вытянутый хвост вверх
+        const top = y - r * (1 + elong);
+        ctx.moveTo(x, top);                                  // острый верх
+        ctx.bezierCurveTo(x + r*0.55, y - r*0.5, x + r, y - r*0.1, x + r, y + r*0.25);
+        ctx.bezierCurveTo(x + r, y + r*0.85, x + r*0.5, y + r*1.15, x, y + r*1.15);
+        ctx.bezierCurveTo(x - r*0.5, y + r*1.15, x - r, y + r*0.85, x - r, y + r*0.25);
+        ctx.bezierCurveTo(x - r, y - r*0.1, x - r*0.55, y - r*0.5, x, top);
+        ctx.closePath();
+      }
+
+      function step(){
+        ctx.clearRect(0, 0, W, H);
+
+        if (drops.length < Math.round(W / 130) && Math.random() < 0.05) spawnDrop();
+
+        for (let i = drops.length - 1; i >= 0; i--){
+          const d = drops[i];
+          d.life++;
+
+          // капля сначала «висит», набирает массу, потом срывается и ускоряется
+          d.vy += d.accel;
+          if (!d.moving && d.vy > d.stick) d.moving = true;
+          if (d.moving){
+            d.phase += 0.04;
+            d.x += Math.sin(d.phase) * d.wobble;
+            d.y += d.vy;
+            // оставляем след влаги — точки уменьшающегося радиуса
+            if (d.life % 3 === 0){
+              d.trail.push({ x: d.x + rnd(-0.5,0.5), y: d.y - d.r, r: d.r * rnd(0.3, 0.55), a: 1 });
+            }
+          }
+
+          // рисуем след влаги (растягивающаяся дорожка, истончается и тает)
+          for (let t = 0; t < d.trail.length; t++){
+            const p = d.trail[t];
+            p.a *= 0.992;
+            const aBody = 0.12 * p.a;
+            const aHi = 0.18 * p.a;
+            // тонкая стеклянная капелька следа
+            ctx.beginPath();
+            ctx.ellipse(p.x, p.y, p.r*0.6, p.r, 0, 0, Math.PI*2);
+            ctx.fillStyle = `rgba(120,150,205,${aBody})`;
+            ctx.fill();
+            ctx.beginPath();
+            ctx.ellipse(p.x - p.r*0.2, p.y - p.r*0.2, p.r*0.18, p.r*0.4, -0.4, 0, Math.PI*2);
+            ctx.fillStyle = `rgba(255,255,255,${aHi})`;
+            ctx.fill();
+          }
+          d.trail = d.trail.filter(p => p.a > 0.04);
+
+          // вытянутость хвоста зависит от скорости
+          const elong = d.moving ? Math.min(0.9, d.vy * 0.4) : 0.15;
+          drawTeardrop(d.x, d.y, d.r, elong);
+
+          if (d.y > H + 40) drops.splice(i, 1);
+        }
+
+        requestAnimationFrame(step);
+      }
+      window.addEventListener('resize', resize);
+      resize();
+      requestAnimationFrame(step);
+    })();
+    </script>
+
+    <header class="header">
+        <div class="header-content">
+            <h1>Надежда Жди</h1>
+            <p class="subtitle">fluid art</p>
+        </div>
+    </header>
+
+
+
+
+    <div class="fluid-divider">
+        <svg viewBox="0 0 700 30" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+                <linearGradient id="divGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stop-color="rgba(255,248,220,0)" />
+                    <stop offset="25%" stop-color="rgba(180,120,220,0.5)" />
+                    <stop offset="50%" stop-color="rgba(255,248,220,0.7)" />
+                    <stop offset="75%" stop-color="rgba(80,160,220,0.5)" />
+                    <stop offset="100%" stop-color="rgba(255,248,220,0)" />
+                </linearGradient>
+            </defs>
+            <path d="M0,15 Q70,8 140,15 Q210,22 280,13 Q350,4 420,15 Q490,26 560,14 Q630,6 700,15"
+                stroke="url(#divGrad)" stroke-width="1" fill="none" opacity="0.6" />
+        </svg>
+    </div>
+
+    <div class="container">
+        <div id="gallery" class="gallery"></div>
+    </div>
+
+    <div id="modal" class="modal">
+        <span class="close">
+          <svg viewBox="0 0 44 44" width="44" height="44" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <!-- градиент каждого луча: яркий центр → прозрачный конец -->
+              <linearGradient id="ray0" x1="22" y1="22" x2="22" y2="3" gradientUnits="userSpaceOnUse">
+                <stop offset="0" stop-color="currentColor" stop-opacity="0.9"/>
+                <stop offset="1" stop-color="currentColor" stop-opacity="0"/>
+              </linearGradient>
+              <linearGradient id="ray1" x1="22" y1="22" x2="22" y2="41" gradientUnits="userSpaceOnUse">
+                <stop offset="0" stop-color="currentColor" stop-opacity="0.9"/>
+                <stop offset="1" stop-color="currentColor" stop-opacity="0"/>
+              </linearGradient>
+              <linearGradient id="ray2" x1="22" y1="22" x2="3" y2="22" gradientUnits="userSpaceOnUse">
+                <stop offset="0" stop-color="currentColor" stop-opacity="0.9"/>
+                <stop offset="1" stop-color="currentColor" stop-opacity="0"/>
+              </linearGradient>
+              <linearGradient id="ray3" x1="22" y1="22" x2="41" y2="22" gradientUnits="userSpaceOnUse">
+                <stop offset="0" stop-color="currentColor" stop-opacity="0.9"/>
+                <stop offset="1" stop-color="currentColor" stop-opacity="0"/>
+              </linearGradient>
+              <linearGradient id="ray4" x1="22" y1="22" x2="8" y2="8" gradientUnits="userSpaceOnUse">
+                <stop offset="0" stop-color="currentColor" stop-opacity="0.7"/>
+                <stop offset="1" stop-color="currentColor" stop-opacity="0"/>
+              </linearGradient>
+              <linearGradient id="ray5" x1="22" y1="22" x2="36" y2="36" gradientUnits="userSpaceOnUse">
+                <stop offset="0" stop-color="currentColor" stop-opacity="0.7"/>
+                <stop offset="1" stop-color="currentColor" stop-opacity="0"/>
+              </linearGradient>
+              <linearGradient id="ray6" x1="22" y1="22" x2="36" y2="8" gradientUnits="userSpaceOnUse">
+                <stop offset="0" stop-color="currentColor" stop-opacity="0.7"/>
+                <stop offset="1" stop-color="currentColor" stop-opacity="0"/>
+              </linearGradient>
+              <linearGradient id="ray7" x1="22" y1="22" x2="8" y2="36" gradientUnits="userSpaceOnUse">
+                <stop offset="0" stop-color="currentColor" stop-opacity="0.7"/>
+                <stop offset="1" stop-color="currentColor" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <!-- 4 длинных главных луча -->
+            <line x1="22" y1="22" x2="22" y2="3"  stroke="url(#ray0)" stroke-width="1.1" stroke-linecap="round"/>
+            <line x1="22" y1="22" x2="22" y2="41" stroke="url(#ray1)" stroke-width="1.1" stroke-linecap="round"/>
+            <line x1="22" y1="22" x2="3"  y2="22" stroke="url(#ray2)" stroke-width="1.1" stroke-linecap="round"/>
+            <line x1="22" y1="22" x2="41" y2="22" stroke="url(#ray3)" stroke-width="1.1" stroke-linecap="round"/>
+            <!-- 4 коротких диагональных луча -->
+            <line x1="22" y1="22" x2="8"  y2="8"  stroke="url(#ray4)" stroke-width="0.8" stroke-linecap="round"/>
+            <line x1="22" y1="22" x2="36" y2="36" stroke="url(#ray5)" stroke-width="0.8" stroke-linecap="round"/>
+            <line x1="22" y1="22" x2="36" y2="8"  stroke="url(#ray6)" stroke-width="0.8" stroke-linecap="round"/>
+            <line x1="22" y1="22" x2="8"  y2="36" stroke="url(#ray7)" stroke-width="0.8" stroke-linecap="round"/>
+            <!-- яркая точка в центре -->
+            <circle cx="22" cy="22" r="1.5" fill="currentColor" opacity="0.95"/>
+          </svg>
+        </span>
+        <img class="modal-content" id="modalImg">
+        <div class="image-info" id="imageInfo"></div>
+        <div class="nav-buttons">
+            <button id="prevBtn" class="nav-btn" title="Предыдущая">&#10094;</button>
+            <button id="nextBtn" class="nav-btn" title="Следующая">&#10095;</button>
+        </div>
+    </div>
+
+    <!-- Палитра — правый нижний угол, поверх всего -->
+    <div class="palette-wrap" id="paletteWrap">
+        <!-- 🎨 Классическая палитра с мазками-миниатюрами -->
+        <svg class="palette-shape" viewBox="0 0 300 220" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+                <linearGradient id="paletteGlassBody" x1="10%" y1="8%" x2="88%" y2="92%">
+                    <stop offset="0%" stop-color="rgb(255, 247, 235)" stop-opacity="0.38" />
+                    <stop offset="28%" stop-color="rgb(244, 225, 197)" stop-opacity="0.28" />
+                    <stop offset="64%" stop-color="rgb(207, 168, 120)" stop-opacity="0.18" />
+                    <stop offset="100%" stop-color="rgb(110, 76, 48)" stop-opacity="0.24" />
+                </linearGradient>
+
+                <radialGradient id="paletteGlassBloom" cx="34%" cy="22%" r="72%">
+                    <stop offset="0%" stop-color="rgb(255,253,248)" stop-opacity="0.42" />
+                    <stop offset="28%" stop-color="rgb(255, 236, 212)" stop-opacity="0.16" />
+                    <stop offset="100%" stop-color="rgb(255,255,255)" stop-opacity="0" />
+                </radialGradient>
+
+                <radialGradient id="paletteGlassLens" cx="48%" cy="44%" r="72%">
+                    <stop offset="0%" stop-color="rgb(255,248,238)" stop-opacity="0.12" />
+                    <stop offset="48%" stop-color="rgb(214, 184, 144)" stop-opacity="0.06" />
+                    <stop offset="100%" stop-color="rgb(70, 42, 24)" stop-opacity="0.1" />
+                </radialGradient>
+
+                <linearGradient id="paletteGlassEdge" x1="18%" y1="16%" x2="84%" y2="88%">
+                    <stop offset="0%" stop-color="rgba(255,248,238,0.58)" />
+                    <stop offset="40%" stop-color="rgba(234,204,172,0.18)" />
+                    <stop offset="100%" stop-color="rgba(112,78,48,0.36)" />
+                </linearGradient>
+
+                <linearGradient id="paletteGlassSpecular" x1="18%" y1="12%" x2="66%" y2="74%">
+                    <stop offset="0%" stop-color="rgba(255,252,247,0.46)" />
+                    <stop offset="18%" stop-color="rgba(255,241,222,0.16)" />
+                    <stop offset="48%" stop-color="rgba(255,255,255,0.02)" />
+                    <stop offset="100%" stop-color="rgba(255,255,255,0)" />
+                </linearGradient>
+
+                <linearGradient id="paletteGlassRefract" x1="16%" y1="18%" x2="80%" y2="82%">
+                    <stop offset="0%" stop-color="rgba(255,250,244,0.16)" />
+                    <stop offset="16%" stop-color="rgba(255,245,232,0.04)" />
+                    <stop offset="34%" stop-color="rgba(230, 196, 152, 0.08)" />
+                    <stop offset="52%" stop-color="rgba(255,255,255,0.02)" />
+                    <stop offset="72%" stop-color="rgba(124, 86, 52, 0.08)" />
+                    <stop offset="100%" stop-color="rgba(255,255,255,0)" />
+                </linearGradient>
+
+                <linearGradient id="paletteHoleRim" x1="18%" y1="20%" x2="84%" y2="86%">
+                    <stop offset="0%" stop-color="rgba(255, 249, 242, 0.46)" />
+                    <stop offset="50%" stop-color="rgba(232, 205, 174, 0.18)" />
+                    <stop offset="100%" stop-color="rgba(106, 74, 46, 0.28)" />
+                </linearGradient>
+
+                <radialGradient id="paletteHoleGlow" cx="38%" cy="34%" r="66%">
+                    <stop offset="0%" stop-color="rgba(255, 247, 236, 0.22)" />
+                    <stop offset="54%" stop-color="rgba(255, 232, 204, 0.06)" />
+                    <stop offset="100%" stop-color="rgba(255,255,255,0)" />
+                </radialGradient>
+
+                <filter id="paletteShadow">
+                    <feGaussianBlur in="SourceAlpha" stdDeviation="3.2" />
+                    <feOffset dx="0" dy="6" result="offsetblur" />
+                    <feComponentTransfer>
+                        <feFuncA type="linear" slope="0.26" />
+                    </feComponentTransfer>
+                    <feMerge>
+                        <feMergeNode />
+                        <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                </filter>
+
+                <radialGradient id="shine" cx="30%" cy="25%" r="45%">
+                    <stop offset="0%" stop-color="rgb(255,255,255)" stop-opacity="0.95" />
+                    <stop offset="100%" stop-color="rgb(255,255,255)" stop-opacity="0" />
+                </radialGradient>
+
+                <clipPath id="paletteDecorClip">
+                    <path
+                        d="M 38,108
+                        C 38,54 90,18 166,18
+                        C 227,18 282,39 300,73
+                        C 306,85 299,94 284,93
+                        C 265,92 254,102 260,114
+                        C 267,127 283,137 283,155
+                        C 283,190 234,214 160,214
+                        C 84,214 38,176 38,108
+                        Z
+                        M 254,132
+                        C 254,145 241,156 224,156
+                        C 207,156 194,145 194,132
+                        C 194,119 207,108 224,108
+                        C 241,108 254,119 254,132
+                        Z"
+                        clip-rule="evenodd" />
+                </clipPath>
+            </defs>
+
+            <!-- Основная форма палитры -->
+            <g filter="url(#paletteShadow)">
+                <path id="paletteBodyPath"
+                    d="M 38,108
+                    C 38,54 90,18 166,18
+                    C 227,18 282,39 300,73
+                    C 306,85 299,94 284,93
+                    C 265,92 254,102 260,114
+                    C 267,127 283,137 283,155
+                    C 283,190 234,214 160,214
+                    C 84,214 38,176 38,108
+                    Z
+                    M 254,132
+                    C 254,145 241,156 224,156
+                    C 207,156 194,145 194,132
+                    C 194,119 207,108 224,108
+                    C 241,108 254,119 254,132
+                    Z"
+                    fill="url(#paletteGlassBody)" fill-rule="evenodd" />
+                <path
+                    d="M 38,108
+                    C 38,54 90,18 166,18
+                    C 227,18 282,39 300,73
+                    C 306,85 299,94 284,93
+                    C 265,92 254,102 260,114
+                    C 267,127 283,137 283,155
+                    C 283,190 234,214 160,214
+                    C 84,214 38,176 38,108
+                    Z
+                    M 254,132
+                    C 254,145 241,156 224,156
+                    C 207,156 194,145 194,132
+                    C 194,119 207,108 224,108
+                    C 241,108 254,119 254,132
+                    Z"
+                    fill="url(#paletteGlassLens)" fill-rule="evenodd" opacity="0.84" />
+                <path
+                    d="M 38,108
+                    C 38,54 90,18 166,18
+                    C 227,18 282,39 300,73
+                    C 306,85 299,94 284,93
+                    C 265,92 254,102 260,114
+                    C 267,127 283,137 283,155
+                    C 283,190 234,214 160,214
+                    C 84,214 38,176 38,108
+                    Z
+                    M 254,132
+                    C 254,145 241,156 224,156
+                    C 207,156 194,145 194,132
+                    C 194,119 207,108 224,108
+                    C 241,108 254,119 254,132
+                    Z"
+                    fill="url(#paletteGlassBloom)" fill-rule="evenodd" opacity="0.7" />
+                <path
+                    d="M 38,108
+                    C 38,54 90,18 166,18
+                    C 227,18 282,39 300,73
+                    C 306,85 299,94 284,93
+                    C 265,92 254,102 260,114
+                    C 267,127 283,137 283,155
+                    C 283,190 234,214 160,214
+                    C 84,214 38,176 38,108
+                    Z
+                    M 254,132
+                    C 254,145 241,156 224,156
+                    C 207,156 194,145 194,132
+                    C 194,119 207,108 224,108
+                    C 241,108 254,119 254,132
+                    Z"
+                    fill="none" fill-rule="evenodd" stroke="url(#paletteGlassEdge)"
+                    stroke-width="1.6" />
+            </g>
+
+            <g clip-path="url(#paletteDecorClip)">
+                <path
+                    d="M 52,66
+                    C 84,46 136,38 186,44
+                    C 218,47 243,58 254,74
+                    C 226,69 185,68 144,77
+                    C 107,85 76,96 52,66 Z"
+                    fill="url(#paletteGlassRefract)" opacity="0.36" />
+                <path
+                    d="M 98,102
+                    C 136,88 179,88 218,98
+                    C 196,104 170,112 150,124
+                    C 128,136 110,150 88,164
+                    C 88,136 90,116 98,102 Z"
+                    fill="url(#paletteGlassRefract)" opacity="0.18" />
+                <path
+                    d="M 62,70
+                    C 84,38 134,25 188,30
+                    C 214,32 235,38 247,48
+                    C 220,44 184,43 150,50
+                    C 114,57 83,67 62,70 Z"
+                    fill="url(#paletteGlassSpecular)" opacity="0.28" />
+                <ellipse cx="98" cy="58" rx="70" ry="20" fill="url(#shine)" opacity="0.11"
+                    transform="rotate(-18 98 58)" />
+                <ellipse cx="108" cy="126" rx="72" ry="34" fill="rgba(176, 132, 88, 0.06)"
+                    transform="rotate(-14 108 126)" />
+                <ellipse cx="188" cy="142" rx="64" ry="28" fill="rgba(110, 84, 66, 0.05)"
+                    transform="rotate(12 188 142)" />
+            </g>
+
+            <!-- Отверстие для пальца -->
+            <g>
+                <ellipse cx="224" cy="132" rx="22.2" ry="17.2" fill="url(#paletteHoleGlow)" opacity="0.16" />
+                <ellipse cx="224" cy="132" rx="24" ry="18.8" fill="none" stroke="url(#paletteHoleRim)" stroke-width="1.1" />
+            </g>
+
+            <path id="paletteGuideOuter"
+                d="M 78,118
+                C 71,92 82,65 111,51
+                C 145,36 191,37 224,49
+                C 239,54 248,63 249,74
+                C 250,84 243,92 229,99
+                C 210,108 183,114 151,117
+                C 116,120 88,121 78,118"
+                fill="none" stroke="none" />
+            <path id="paletteGuideMiddle"
+                d="M 88,142
+                C 83,121 92,101 112,88
+                C 134,74 160,72 180,77
+                C 191,80 199,87 201,96
+                C 202,104 197,112 188,119
+                C 173,129 154,136 134,141
+                C 115,145 95,146 88,142"
+                fill="none" stroke="none" />
+            <path id="paletteGuideInner"
+                d="M 103,159
+                C 100,145 106,130 118,120
+                C 131,110 146,106 158,108
+                C 166,110 171,115 172,121
+                C 173,128 169,135 162,141
+                C 151,149 138,155 124,159
+                C 114,161 106,162 103,159"
+                fill="none" stroke="none" />
+        </svg>
+        <!-- Превьюшки расставляются JS-ом -->
+        <div class="palette-dots" id="thumbnailsTrack"></div>
+    </div>
+
+    <!-- Кошка Пуля -->
+    <footer class="footer">
+        <p>Надежда Жди</p>
+    </footer>
+
+    <script>
+        function initApp(imagesData) {
+        let currentIndex = 0;
+
+        const gallery = document.getElementById('gallery');
+        const modal = document.getElementById('modal');
+        const modalImg = document.getElementById('modalImg');
+        const imageInfo = document.getElementById('imageInfo');
+        const closeBtn = document.querySelector('.close');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const thumbnailsTrack = document.getElementById('thumbnailsTrack');
+        const thumbnailsScroll = document.querySelector('.thumbnails-scroll');
+
+
+
+        let thumbDragStartX = 0;
+        let thumbDragDeltaX = 0;
+        let isThumbDragging = false;
+        let modalSwipeStartX = 0;
+        let modalSwipeStartY = 0;
+        let ignoreModalSwipe = false;
+        const SWIPE_THRESHOLD = 60;
+        const CAROUSEL_WHEEL_THRESHOLD = 18;
+        const CAROUSEL_NAV_COOLDOWN_MS = 240;
+        let lastCarouselNavAt = 0;
+        const ZOOM_STEP = 0.18;
+        const MAX_ZOOM_CAP = 16;
+        let modalZoomLevel = 1;
+        let modalMaxZoom = 1;
+        let modalPanX = 0;
+        let modalPanY = 0;
+        let modalPanMaxX = 0;
+        let modalPanMaxY = 0;
+        let isModalPanning = false;
+        let modalPanMoved = false;
+        let modalPanPointerId = null;
+        let modalPanStartX = 0;
+        let modalPanStartY = 0;
+        let modalPanOriginX = 0;
+        let modalPanOriginY = 0;
+
+        function updateModalPanLimits() {
+            if (!modalImg.clientWidth || !modalImg.clientHeight) {
+                modalPanMaxX = 0;
+                modalPanMaxY = 0;
+                return;
+            }
+
+            modalPanMaxX = Math.max(0, (modalImg.clientWidth * modalZoomLevel - modalImg.clientWidth) / 2);
+            modalPanMaxY = Math.max(0, (modalImg.clientHeight * modalZoomLevel - modalImg.clientHeight) / 2);
+        }
+
+        function clampModalPan() {
+            updateModalPanLimits();
+            modalPanX = Math.max(-modalPanMaxX, Math.min(modalPanMaxX, modalPanX));
+            modalPanY = Math.max(-modalPanMaxY, Math.min(modalPanMaxY, modalPanY));
+        }
+
+        function stopModalPanTracking() {
+            isModalPanning = false;
+            modalPanPointerId = null;
+            modalImg.classList.remove('panning');
+        }
+
+        function applyModalZoom() {
+            clampModalPan();
+            modalImg.style.setProperty('--modal-zoom', modalZoomLevel.toFixed(4));
+            modalImg.style.setProperty('--modal-pan-x', `${modalPanX.toFixed(2)}px`);
+            modalImg.style.setProperty('--modal-pan-y', `${modalPanY.toFixed(2)}px`);
+            const isZoomed = modalZoomLevel > 1.01;
+            modalImg.classList.toggle('zoomed', isZoomed);
+            if (!isZoomed) {
+                stopModalPanTracking();
+            }
+        }
+
+        function resetModalZoom() {
+            modalZoomLevel = 1;
+            modalMaxZoom = 1;
+            modalPanX = 0;
+            modalPanY = 0;
+            modalPanMoved = false;
+            stopModalPanTracking();
+            applyModalZoom();
+        }
+
+        function recalculateModalMaxZoom() {
+            if (!modalImg.naturalWidth || !modalImg.clientWidth || !modalImg.clientHeight) return;
+            const ratioW = modalImg.naturalWidth / modalImg.clientWidth;
+            const ratioH = modalImg.naturalHeight / modalImg.clientHeight;
+            modalMaxZoom = Math.max(1, Math.min(MAX_ZOOM_CAP, Math.max(ratioW, ratioH)));
+            if (modalZoomLevel > modalMaxZoom) {
+                modalZoomLevel = modalMaxZoom;
+            }
+            applyModalZoom();
+        }
+
+        function zoomModalIn() {
+            if (!modal.classList.contains('open')) return;
+            recalculateModalMaxZoom();
+            if (modalMaxZoom <= 1.01) return;
+
+            const nextZoom = modalZoomLevel * (1 + ZOOM_STEP);
+            modalZoomLevel = Math.max(1, Math.min(modalMaxZoom, nextZoom));
+            applyModalZoom();
+        }
+
+        function showPrevImage() {
+            showImage((currentIndex - 1 + imagesData.length) % imagesData.length);
+        }
+
+        function showNextImage() {
+            showImage((currentIndex + 1) % imagesData.length);
+        }
+
+        function navigateCarouselByDelta(delta) {
+            if (!modal.classList.contains('open')) return;
+            if (modalZoomLevel > 1.01) return;
+            if (Math.abs(delta) < CAROUSEL_WHEEL_THRESHOLD) return;
+
+            const now = Date.now();
+            if (now - lastCarouselNavAt < CAROUSEL_NAV_COOLDOWN_MS) return;
+            lastCarouselNavAt = now;
+
+            if (delta > 0) {
+                showNextImage();
+            } else {
+                showPrevImage();
+            }
+        }
+
+        function setupModalSwipeNavigation() {
+            modal.addEventListener('touchstart', (e) => {
+                if (!modal.classList.contains('open')) return;
+                if (e.touches.length !== 1) { ignoreModalSwipe = true; return; }
+                ignoreModalSwipe = modalZoomLevel > 1.01 || Boolean(e.target.closest('.nav-buttons, .close'));
+                if (ignoreModalSwipe) return;
+                modalSwipeStartX = e.touches[0].clientX;
+                modalSwipeStartY = e.touches[0].clientY;
+            }, { passive: true });
+
+            modal.addEventListener('touchend', (e) => {
+                if (!modal.classList.contains('open') || e.changedTouches.length !== 1 || ignoreModalSwipe) {
+                    ignoreModalSwipe = false;
+                    return;
+                }
+
+                const deltaX = e.changedTouches[0].clientX - modalSwipeStartX;
+                const deltaY = e.changedTouches[0].clientY - modalSwipeStartY;
+                ignoreModalSwipe = false;
+
+                if (Math.abs(deltaX) < SWIPE_THRESHOLD || Math.abs(deltaX) < Math.abs(deltaY) * 1.2) {
+                    return;
+                }
+
+                if (deltaX > 0) {
+                    showPrevImage();
+                } else {
+                    showNextImage();
+                }
+            }, { passive: true });
+        }
+
+        function setupModalWheelCarousel() {
+            const onWheel = (e) => {
+                if (!modal.classList.contains('open')) return;
+                if (e.target === modalImg) return;
+                if (e.target.closest('.nav-buttons, .close')) return;
+                if (Math.abs(e.deltaX) === 0 && Math.abs(e.deltaY) === 0) return;
+
+                e.preventDefault();
+                const dominantDelta = Math.abs(e.deltaX) >= Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+                navigateCarouselByDelta(dominantDelta);
+            };
+            modal.addEventListener('wheel', onWheel, { passive: false });
+
+            // палитра — всегда листает, даже при зуме картины
+            document.getElementById('paletteWrap').addEventListener('wheel', (e) => {
+                if (!modal.classList.contains('open')) return;
+                if (Math.abs(e.deltaX) === 0 && Math.abs(e.deltaY) === 0) return;
+                e.preventDefault();
+                e.stopPropagation();
+                const dominantDelta = Math.abs(e.deltaX) >= Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+                if (Math.abs(dominantDelta) < CAROUSEL_WHEEL_THRESHOLD) return;
+                const now = Date.now();
+                if (now - lastCarouselNavAt < CAROUSEL_NAV_COOLDOWN_MS) return;
+                lastCarouselNavAt = now;
+                if (dominantDelta > 0) showNextImage(); else showPrevImage();
+            }, { passive: false });
+        }
+
+        function setupModalWheelZoom() {
+            modalImg.addEventListener('load', () => {
+                recalculateModalMaxZoom();
+            });
+
+            modalImg.addEventListener('wheel', (e) => {
+                if (!modal.classList.contains('open')) return;
+                e.preventDefault();
+                e.stopPropagation();
+
+                const isHorizontal = Math.abs(e.deltaX) > Math.abs(e.deltaY) * 1.15;
+                if (isHorizontal) {
+                    navigateCarouselByDelta(e.deltaX);
+                    return;
+                }
+
+                recalculateModalMaxZoom();
+                if (modalMaxZoom <= 1 && e.deltaY < 0) return;
+
+                const zoomFactor = e.deltaY < 0 ? (1 + ZOOM_STEP) : (1 / (1 + ZOOM_STEP));
+                const nextZoom = modalZoomLevel * zoomFactor;
+                modalZoomLevel = Math.max(1, Math.min(modalMaxZoom, nextZoom));
+                applyModalZoom();
+            }, { passive: false });
+        }
+
+        function setupModalPanInteractions() {
+            modalImg.addEventListener('pointerdown', (e) => {
+                if (!modal.classList.contains('open')) return;
+                if (modalZoomLevel <= 1.01) return;
+                if (e.pointerType === 'mouse' && e.button !== 0) return;
+
+                isModalPanning = true;
+                modalPanMoved = false;
+                modalPanPointerId = e.pointerId;
+                modalPanStartX = e.clientX;
+                modalPanStartY = e.clientY;
+                modalPanOriginX = modalPanX;
+                modalPanOriginY = modalPanY;
+                modalImg.classList.add('panning');
+
+                if (modalImg.setPointerCapture) {
+                    modalImg.setPointerCapture(e.pointerId);
+                }
+
+                e.preventDefault();
+                e.stopPropagation();
+            });
+
+            modalImg.addEventListener('pointermove', (e) => {
+                if (!isModalPanning || e.pointerId !== modalPanPointerId) return;
+
+                const deltaX = e.clientX - modalPanStartX;
+                const deltaY = e.clientY - modalPanStartY;
+                if (Math.abs(deltaX) > 2 || Math.abs(deltaY) > 2) {
+                    modalPanMoved = true;
+                }
+
+                modalPanX = modalPanOriginX + deltaX;
+                modalPanY = modalPanOriginY + deltaY;
+                applyModalZoom();
+
+                e.preventDefault();
+                e.stopPropagation();
+            });
+
+            const finishPan = (e) => {
+                if (e && modalPanPointerId !== null && e.pointerId !== modalPanPointerId) return;
+                if (!isModalPanning && modalPanPointerId === null) return;
+
+                if (e && modalImg.releasePointerCapture && modalImg.hasPointerCapture && modalImg.hasPointerCapture(e.pointerId)) {
+                    modalImg.releasePointerCapture(e.pointerId);
+                }
+
+                stopModalPanTracking();
+            };
+
+            modalImg.addEventListener('pointerup', finishPan);
+            modalImg.addEventListener('pointercancel', finishPan);
+            modalImg.addEventListener('lostpointercapture', finishPan);
+        }
+
+        // Pinch-to-zoom для мобильных устройств
+        function setupModalPinchZoom() {
+            let initialPinchDistance = 0;
+            let initialZoomLevel = 1;
+            let isPinching = false;
+
+            modalImg.addEventListener('touchstart', (e) => {
+                if (!modal.classList.contains('open')) return;
+                if (e.touches.length === 2) {
+                    // Начало pinch жеста двумя пальцами
+                    isPinching = true;
+                    initialPinchDistance = Math.hypot(
+                        e.touches[0].clientX - e.touches[1].clientX,
+                        e.touches[0].clientY - e.touches[1].clientY
+                    );
+                    initialZoomLevel = modalZoomLevel;
+                    recalculateModalMaxZoom();
+                }
+            }, { passive: true });
+
+            modalImg.addEventListener('touchmove', (e) => {
+                if (!isPinching || e.touches.length !== 2) return;
+                e.preventDefault();
+
+                const currentDistance = Math.hypot(
+                    e.touches[0].clientX - e.touches[1].clientX,
+                    e.touches[0].clientY - e.touches[1].clientY
+                );
+
+                if (initialPinchDistance > 0) {
+                    const pinchRatio = currentDistance / initialPinchDistance;
+                    const newZoom = initialZoomLevel * pinchRatio;
+                    modalZoomLevel = Math.max(1, Math.min(modalMaxZoom, newZoom));
+                    applyModalZoom();
+                }
+            }, { passive: false });
+
+            const endPinch = () => {
+                isPinching = false;
+                initialPinchDistance = 0;
+            };
+
+            modalImg.addEventListener('touchend', endPinch);
+            modalImg.addEventListener('touchcancel', endPinch);
+        }
+        setupModalSwipeNavigation();
+        setupModalWheelCarousel();
+        setupModalWheelZoom();
+        setupModalPanInteractions();
+        setupModalPinchZoom();
+
+        // Show specific image in modal
+        function showImage(index) {
+            currentIndex = index;
+            modalImg.classList.remove('loaded');
+            resetModalZoom();
+
+            // Update background color based on temperature
+            const currentImage = imagesData[currentIndex];
+            if (currentImage.temperature !== undefined) {
+                const temp = Math.max(-0.3, Math.min(0.3, currentImage.temperature));
+                const r = Math.round(20 + (temp + 0.3) / 0.6 * 80);
+                const g = Math.round(40 + (0.3 - Math.abs(temp)) / 0.3 * 40);
+                const b = Math.round(80 - (temp + 0.3) / 0.6 * 60);
+                modal.style.setProperty('--modal-bg-color', `rgba(${r}, ${g}, ${b}, 0.9)`);
+            }
+
+            // Плавное открытие: сразу full если в кэше, иначе fade-in после загрузки
+            const snapIndex = currentIndex;
+            if (fullCache.has(snapIndex)) {
+                modalImg.src = fullCache.get(snapIndex);
+                modalImg.classList.add('loaded');
+            } else {
+                modalImg.src = imagesData[snapIndex].thumbnail;
+                modalImg.classList.add('loaded');
+                getFullSrc(snapIndex).then(src => {
+                    if (currentIndex !== snapIndex) return;
+                    const tmp = new Image();
+                    tmp.onload = () => {
+                        if (currentIndex !== snapIndex) return;
+                        modalImg.classList.remove('loaded');
+                        requestAnimationFrame(() => {
+                            modalImg.src = src;
+                            requestAnimationFrame(() => modalImg.classList.add('loaded'));
+                        });
+                    };
+                    tmp.src = src;
+                });
+            }
+
+            // Прогрев соседей
+            const n = imagesData.length;
+            enqueuePreload((currentIndex + 1) % n);
+            enqueuePreload((currentIndex - 1 + n) % n);
+
+            // Update info and thumbnails
+            updateImageInfo();
+            requestAnimationFrame(recalculateModalMaxZoom);
+        }
+
+        // Generate thumbnails for modal
+        // ── ПАЛИТРА: превьюшки как мазки краски по всей видимой стеклянной форме ──
+        const BLOB_SPECS = [
+            { w: 64, h: 50, rot: -11, shape: '72% 28% 56% 44% / 34% 66% 42% 58%' },
+            { w: 56, h: 54, rot: -6, shape: '38% 62% 27% 73% / 63% 31% 69% 37%' },
+            { w: 66, h: 46, rot: 8, shape: '68% 32% 60% 40% / 28% 72% 36% 64%' },
+            { w: 54, h: 52, rot: -9, shape: '46% 54% 74% 26% / 58% 42% 26% 74%' },
+            { w: 62, h: 48, rot: -3, shape: '31% 69% 42% 58% / 66% 34% 59% 41%' },
+            { w: 58, h: 56, rot: 4, shape: '63% 37% 24% 76% / 48% 52% 70% 30%' },
+            { w: 64, h: 48, rot: 9, shape: '52% 48% 67% 33% / 25% 75% 43% 57%' },
+            { w: 56, h: 52, rot: -7, shape: '74% 26% 35% 65% / 41% 59% 71% 29%' },
+            { w: 62, h: 56, rot: -1, shape: '28% 72% 58% 42% / 67% 33% 38% 62%' },
+            { w: 64, h: 50, rot: 5, shape: '59% 41% 31% 69% / 72% 28% 47% 53%' },
+            { w: 58, h: 48, rot: 11, shape: '43% 57% 71% 29% / 27% 73% 61% 39%' },
+            { w: 66, h: 54, rot: -5, shape: '70% 30% 46% 54% / 57% 43% 29% 71%' },
+        ];
+
+        const PALETTE_VIEWBOX = { w: 300, h: 220 };
+
+        function renderPaletteBubbles(items, bubbles) {
+            items.forEach((item, i) => {
+                const spec = BLOB_SPECS[i % BLOB_SPECS.length];
+                const bubble = bubbles[i];
+                item.style.width = bubble.w + 'px';
+                item.style.height = bubble.h + 'px';
+                item.style.left = Math.round(bubble.x - bubble.w / 2) + 'px';
+                item.style.top = Math.round(bubble.y - bubble.h / 2) + 'px';
+                item.style.borderRadius = spec.shape;
+                item.style.setProperty('--blob-rotate', `${spec.rot}deg`);
+            });
+        }
+
+        function layoutPalette() {
+            const items = thumbnailsTrack.querySelectorAll('.thumb-item');
+            const n = items.length;
+            if (!n) return;
+            const layoutStart = performance.now();
+
+            const trackRect = thumbnailsTrack.getBoundingClientRect();
+            const wrapRect = paletteWrap.getBoundingClientRect();
+            const wrapW = paletteWrap.clientWidth || 1;
+            const wrapH = paletteWrap.clientHeight || 1;
+            const trackLeft = trackRect.left - wrapRect.left;
+            const trackTop = trackRect.top - wrapRect.top;
+            const sx = wrapW / PALETTE_VIEWBOX.w;
+            const sy = wrapH / PALETTE_VIEWBOX.h;
+
+            // равномерные слоты по всему телу палитры (svg-координаты, отверстие обойдено),
+            // змейкой — чтобы соседние по температуре мазки лежали рядом и перетекали градиентом
+            const SLOTS = [
+                [112, 54], [166, 48], [222, 58],            // верхний ряд →
+                [248, 92], [188, 92], [130, 90], [74, 98],  // средний ряд ←
+                [66, 144], [122, 142], [172, 152],          // нижне-средний → (отверстие правее)
+                [162, 190], [108, 184],                     // нижний ряд ←
+            ];
+
+            // от холодных к тёплым вдоль змейки
+            const order = imagesData.map((_, i) => i)
+                .sort((a, b) => (imagesData[a].temperature ?? 0) - (imagesData[b].temperature ?? 0));
+
+            // крупнее обычного — края растушёваны маской и мазки сливаются внахлёст
+            // (track теперь на весь wrap, поэтому базовый множитель меньше прежнего)
+            const scaleBase = Math.min((trackRect.width || 360) / 320, (trackRect.height || 230) / 206) * 1.18;
+            const bubbles = new Array(n);
+            order.forEach((imgIdx, k) => {
+                const [sxPos, syPos] = SLOTS[k % SLOTS.length];
+                const spec = BLOB_SPECS[imgIdx % BLOB_SPECS.length];
+                bubbles[imgIdx] = {
+                    w: Math.round(spec.w * scaleBase),
+                    h: Math.round(spec.h * scaleBase),
+                    x: sxPos * sx - trackLeft,
+                    y: syPos * sy - trackTop,
+                };
+            });
+
+            window.__paletteProfile = {
+                layoutMs: Math.round((performance.now() - layoutStart) * 10) / 10,
+                mode: 'slots',
+                count: n,
+            };
+            renderPaletteBubbles(items, bubbles);
+        }
+
+        function generateThumbnails(animate = false) {
+            thumbnailsTrack.innerHTML = '';
+            imagesData.forEach((img, idx) => {
+                const thumb = document.createElement('div');
+                thumb.className = 'thumb-item';
+                thumb.dataset.index = idx;
+                if (idx === currentIndex) thumb.classList.add('active');
+
+                const thumbImg = document.createElement('img');
+                thumbImg.src = img.thumbnail;
+                thumbImg.loading = "lazy";
+                thumbImg.draggable = false;
+                thumb.appendChild(thumbImg);
+
+                thumb.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    showImage(idx);
+                });
+
+                thumbnailsTrack.appendChild(thumb);
+            });
+
+            requestAnimationFrame(() => layoutPalette({ animate: false }));
+        }
+
+        // Generate stars
+        function createStars() {
+            const starsContainer = document.getElementById('stars');
+            const starCount = 100;
+
+            for (let i = 0; i < starCount; i++) {
+                const star = document.createElement('div');
+                star.className = 'star';
+                const size = Math.random() * 2 + 1;
+                star.style.width = size + 'px';
+                star.style.height = size + 'px';
+                star.style.left = Math.random() * 100 + '%';
+                star.style.top = Math.random() * 70 + '%';
+                star.style.animationDelay = Math.random() * 4 + 's';
+                star.style.opacity = Math.random() * 0.6 + 0.1;
+                starsContainer.appendChild(star);
+            }
+        }
+
+        // Initialize gallery
+        let revealObserver;
+
+        function initGallery() {
+            createStars();
+
+            imagesData.forEach((imageData, index) => {
+                createGalleryItem(imageData, index);
+            });
+
+            setupRevealObserver();
+            preloadFullImages();
+        }
+
+        function createGalleryItem(imageData, index) {
+            const item = document.createElement('div');
+            item.className = 'gallery-item';
+            item.style.order = index; /* Сохраняем порядок сортировки */
+
+            const img = document.createElement('img');
+            img.src = imageData.thumbnail;
+            img.alt = '';
+            img.loading = 'lazy';
+
+            item.appendChild(img);
+            item.addEventListener('click', () => openModal(index));
+            gallery.appendChild(item);
+
+            setTimeout(() => {
+                item.classList.add('loaded');
+            }, index * 100);
+        }
+
+        // Shadow reveal effect using Intersection Observer
+        function setupRevealObserver() {
+            const options = {
+                root: null,
+                rootMargin: '-5% 0px -5% 0px',
+                threshold: [0, 0.1, 0.25, 0.5, 0.75, 1]
+            };
+
+            revealObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    const ratio = entry.intersectionRatio;
+
+                    if (ratio > 0.25) {
+                        entry.target.classList.add('revealed');
+                    } else {
+                        entry.target.classList.remove('revealed');
+                    }
+                });
+            }, options);
+
+            document.querySelectorAll('.gallery-item').forEach(item => {
+                revealObserver.observe(item);
+            });
+        }
+
+        // Кэш полных картин: index -> base64 data URL
+        const fullCache = new Map();
+        // Единственный источник full-данных — images-full.js (грузим один раз лениво)
+        let fullDataPromise = null;
+        function getFullData() {
+            if (!fullDataPromise) {
+                fullDataPromise = new Promise(resolve => {
+                    if (window.imagesFullData) { resolve(window.imagesFullData); return; }
+                    const s = document.createElement('script');
+                    s.src = 'images-full.js';
+                    s.onload = () => resolve(window.imagesFullData);
+                    s.onerror = () => resolve(null);
+                    document.head.appendChild(s);
+                });
+            }
+            return fullDataPromise;
+        }
+
+        function getFullSrc(index) {
+            if (fullCache.has(index)) return Promise.resolve(fullCache.get(index));
+            return getFullData().then(data => {
+                const src = (data && data[index]) || imagesData[index].thumbnail;
+                fullCache.set(index, src);
+                return src;
+            });
+        }
+
+        function preloadFullImages() {
+            // После загрузки thumbnails — начинаем тянуть full в фоне через idle
+            (window.requestIdleCallback || setTimeout)(() => {
+                getFullData().then(data => {
+                    if (!data) return;
+                    data.forEach((src, i) => { if (src) fullCache.set(i, src); });
+                });
+            }, { timeout: 3000 });
+        }
+
+        function enqueuePreload(index) {
+            // Прогрев кэша для конкретного индекса
+            getFullSrc(index);
+        }
+
+        let scrollPosition = 0;
+
+        const paletteWrap = document.getElementById('paletteWrap');
+
+        function openModal(index) {
+            scrollPosition = window.pageYOffset || document.documentElement.scrollTop;
+            modal.classList.add('open');
+            document.body.style.overflow = 'hidden';
+            if (paletteWrap) paletteWrap.classList.add('visible');
+            generateThumbnails(false);
+            showImage(index);
+        }
+
+        function updateImageInfo() {
+            const currentImage = imagesData[currentIndex];
+            let tempBar = '';
+            if (currentImage.temperature !== undefined) {
+                const temp = Math.max(-0.3, Math.min(0.3, currentImage.temperature));
+                const percent = ((temp + 0.3) / 0.6) * 100;
+                tempBar = ` <span class="temp-bar"><span class="temp-marker" style="left:${percent}%"></span></span>`;
+            }
+            imageInfo.innerHTML = `${currentIndex + 1} / ${imagesData.length}${tempBar}`;
+            document.querySelectorAll('.thumb-item').forEach((thumb, idx) => {
+                thumb.classList.toggle('active', idx === currentIndex);
+            });
+        }
+
+        function closeModal() {
+            modal.classList.remove('open');
+            document.body.style.overflow = '';
+            resetModalZoom();
+            if (paletteWrap) paletteWrap.classList.remove('visible');
+            window.scrollTo(0, scrollPosition);
+        }
+
+        closeBtn.addEventListener('click', closeModal);
+
+        modalImg.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (modalPanMoved) {
+                modalPanMoved = false;
+                return;
+            }
+            zoomModalIn();
+        });
+
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeModal();
+        });
+
+        prevBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            showPrevImage();
+        });
+
+        nextBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            showNextImage();
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (modal.classList.contains('open')) {
+                if (e.key === 'ArrowLeft') showPrevImage();
+                if (e.key === 'ArrowRight') showNextImage();
+                if (e.key === 'Escape') closeModal();
+            }
+        });
+
+        window.addEventListener('resize', () => {
+            if (modal.classList.contains('open')) {
+                requestAnimationFrame(recalculateModalMaxZoom);
+                requestAnimationFrame(() => layoutPalette({ animate: false }));
+            }
+        });
+
+        window.addEventListener('load', initGallery);
+
+        // Млечный путь
+        const mwImg = document.getElementById('milkyWayImg');
+        if (mwImg) {
+            if (mwImg.complete && mwImg.naturalWidth > 0) {
+                mwImg.classList.add('loaded');
+            } else {
+                mwImg.addEventListener('load', () => mwImg.classList.add('loaded'));
+                mwImg.addEventListener('error', () => {
+                    document.getElementById('milkyWay').style.display = 'none';
+                });
+            }
+        }
+
+        // ── Fluid Art Canvas: вихри краски ──────────────────────────────
+        (function () {
+            const canvas = document.getElementById('fluidCanvas');
+            const ctx = canvas.getContext('2d');
+
+            function resize() {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            }
+            resize();
+            window.addEventListener('resize', resize);
+
+            // Палитра fluid art — насыщенные краски
+            const COLORS = [
+                [106, 31, 168],   // фиолетовый
+                [13, 138, 158],  // бирюзовый
+                [200, 80, 10],   // янтарный
+                [20, 64, 168],  // кобальт
+                [168, 21, 80],   // малиновый
+                [20, 140, 60],   // изумрудный
+            ];
+
+            // Вихревые "потоки" — spiraling blobs
+            const NUM_BLOBS = 7;
+            const blobs = [];
+
+            for (let i = 0; i < NUM_BLOBS; i++) {
+                const c = COLORS[i % COLORS.length];
+                blobs.push({
+                    x: Math.random() * window.innerWidth,
+                    y: Math.random() * window.innerHeight,
+                    vx: (Math.random() - 0.5) * 0.3,
+                    vy: (Math.random() - 0.5) * 0.3,
+                    r: 150 + Math.random() * 220,
+                    color: c,
+                    angle: Math.random() * Math.PI * 2,
+                    spin: (Math.random() - 0.5) * 0.003,
+                    pulse: Math.random() * Math.PI * 2,
+                    pulseS: 0.0008 + Math.random() * 0.001,
+                });
+            }
+
+            function drawBlob(b) {
+                const pf = 0.88 + 0.12 * Math.sin(b.pulse);
+                const r = b.r * pf;
+
+                // Вытянутое пятно с вращением
+                ctx.save();
+                ctx.translate(b.x, b.y);
+                ctx.rotate(b.angle);
+
+                const grd = ctx.createRadialGradient(0, 0, 0, 0, 0, r);
+                grd.addColorStop(0, `rgba(${b.color[0]},${b.color[1]},${b.color[2]},0.22)`);
+                grd.addColorStop(0.4, `rgba(${b.color[0]},${b.color[1]},${b.color[2]},0.12)`);
+                grd.addColorStop(1, `rgba(${b.color[0]},${b.color[1]},${b.color[2]},0)`);
+
+                ctx.scale(1, 0.55);  // вытянуть в эллипс
+                ctx.beginPath();
+                ctx.arc(0, 0, r, 0, Math.PI * 2);
+                ctx.fillStyle = grd;
+                ctx.fill();
+                ctx.restore();
+            }
+
+            function tick() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                for (const b of blobs) {
+                    b.x += b.vx;
+                    b.y += b.vy;
+                    b.angle += b.spin;
+                    b.pulse += b.pulseS;
+
+                    // Мягкий отскок от краёв
+                    if (b.x < -b.r) b.x = canvas.width + b.r;
+                    if (b.x > canvas.width + b.r) b.x = -b.r;
+                    if (b.y < -b.r) b.y = canvas.height + b.r;
+                    if (b.y > canvas.height + b.r) b.y = -b.r;
+
+                    drawBlob(b);
+                }
+
+                requestAnimationFrame(tick);
+            }
+
+            tick();
+        })();
+        } // end initApp
+    </script>
+    <script src="images-thumbs.js"></script>
+    <script>
+        initApp(window.imagesThumbsData);
+    </script>
 </body>
-</html>

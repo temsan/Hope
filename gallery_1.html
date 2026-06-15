@@ -102,18 +102,24 @@
         }
 
         /* ══ ЛУНА — реальное фото ════════════════════════════ */
-        .moon {
+        /* .moon-glow — обёртка для позиции и box-shadow (clip-path обрезает тени, поэтому тень на родителе) */
+        .moon-glow {
             position: fixed;
             top: 8%;
             right: 3%;
-            width: 140px;
-            height: 140px;
+            width: 160px;
+            height: 160px;
             border-radius: 50%;
             z-index: 3;
+            /* box-shadow управляется из JS синхронно с фазой */
+        }
+        .moon {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
             overflow: hidden;
             background: transparent;
-            clip-path: circle(49% at 50% 50%);
-            /* box-shadow управляется из JS синхронно с фазой */
+            clip-path: circle(50% at 50% 50%);
         }
         .moon img {
             width: 100%;
@@ -123,10 +129,7 @@
             transform: scale(1.877) translateX(0.6%);
         }
 
-        .moon::before {
-            display: none;
-        }
-
+        .moon::before { display: none; }
         .moon::after {
             content: '';
             position: absolute;
@@ -905,9 +908,9 @@
                 height: 380px;
             }
 
-            .moon {
-                width: 130px;
-                height: 130px;
+            .moon-glow {
+                width: 150px;
+                height: 150px;
                 right: 4%;
                 top: 6%;
             }
@@ -971,9 +974,9 @@
                 font-size: 26px;
             }
 
-            .moon {
-                width: 90px;
-                height: 90px;
+            .moon-glow {
+                width: 115px;
+                height: 115px;
                 top: 4%;
                 right: 4%;
             }
@@ -1050,9 +1053,9 @@
                 display: none;
             }
 
-            .moon {
-                width: 72px;
-                height: 72px;
+            .moon-glow {
+                width: 95px;
+                height: 95px;
             }
 
             .palette-wrap {
@@ -1143,6 +1146,7 @@
     </div>
 
     <!-- Луна — реальное фото -->
+    <div class="moon-glow" id="moonGlow">
     <div class="moon" id="moonEl">
         <img src="https://images.unsplash.com/photo-1532693322450-2cb5c511067d?w=400&q=85&auto=format&fit=crop"
             alt="Moon" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;" />
@@ -1181,69 +1185,67 @@
             const R = S / 2, cx = R, cy = R;
             ctx.clearRect(0, 0, S, S);
 
-            // Освещённая доля: illum = (1 - cos(2πf)) / 2
-            // f=0 → illum=0 (новолуние), f=0.5 → illum=1 (полнолуние)
-            // Терминатор-эллипс: rx = R·|cos(2πf)|, всегда центр (cx,cy), ry=R
-            // Серп = правый полукруг ∪ (или ∖) эллипс в зависимости от фазы
-            //
-            // Строим ОСВЕЩЁННУЮ область, потом инвертируем через destination-out:
-            // 1. Заливаем весь диск тёмным
-            // 2. destination-out: вырезаем освещённый серп
-            //    Серп всегда = правый полукруг + эллипс-терминатор обратно
-            //    cos>0 (f∈0..0.25 и 0.75..1): эллипс CCW → серп тонкий справа
-            //    cos<0 (f∈0.25..0.75):         эллипс CW  → серп широкий (убывает слева)
-            // Переключение знака cos при f=0.25 и f=0.75 — там trx=0, путь = правый полукруг, одинаково.
-
-            // f=0..0.5: растущая, серп СПРАВА  → вырезаем правый полукруг + эллипс
-            // f=0.5..1: убывающая, серп СЛЕВА  → вырезаем левый полукруг + эллипс
-            // trx = |cos(2πf)|·R:
-            //   f=0:    trx=R  (новолуние — серп=0, но мы вырезаем правый полукруг + эллипс CW = ничего)
-            //   f=0.25: trx=0  (первая четверть — только полукруг = правая половина)
-            //   f=0.5:  trx=R  (полнолуние — вырезаем всё, переключаем на левый)
-            //   f=0.75: trx=0  (последняя четверть — только левый полукруг)
-            // Переключение при f=0.5: trx=R, оба варианта вырезают весь диск → незаметно.
-            // Переключение при f=0: trx=R, новолуние — оба варианта вырезают 0 → незаметно.
-            const cosF = Math.cos(f * Math.PI * 2); // +1 новолуние, -1 полнолуние
+            const cosF = Math.cos(f * Math.PI * 2);
             const trx = Math.abs(cosF) * R;
             const waxing = f < 0.5;
+            const illum = (1 - Math.cos(f * Math.PI * 2)) / 2;
+
+            // ── Тень: чёткая форма + мягкий только терминатор ─────────────
+            // Идея: рисуем НЕразмытую тень (доходит до края диска точно),
+            // отдельно поверх — размытую копию ТОЛЬКО вдоль терминатора,
+            // чтобы внешний край диска оставался чётким, а граница свет/тень мягкой.
+            const soft = Math.max(4, R * 0.08);
+            const Rover = R + Math.ceil(soft) + 2; // запас за край под blur
+
+            // offscreen: строим размытую тень
+            const off = document.createElement('canvas');
+            off.width = S; off.height = S;
+            const oc = off.getContext('2d');
+            oc.filter = `blur(${soft}px)`;
+            oc.fillStyle = 'rgba(4,8,20,0.94)';
+            oc.beginPath();
+            if (waxing) {
+              oc.arc(cx, cy, Rover, -Math.PI/2, Math.PI/2, true);
+              oc.ellipse(cx, cy, trx, Rover, TILT, Math.PI/2, -Math.PI/2, cosF > 0);
+            } else {
+              oc.arc(cx, cy, Rover, -Math.PI/2, Math.PI/2, false);
+              oc.ellipse(cx, cy, trx, Rover, TILT, Math.PI/2, -Math.PI/2, cosF < 0);
+            }
+            oc.closePath();
+            oc.fill();
+            oc.filter = 'none';
+            // обрезаем тень строго по диску — blur за краем отсекается,
+            // но форма строилась за Rover, так что у края тень полной плотности
+            oc.globalCompositeOperation = 'destination-in';
+            oc.beginPath(); oc.arc(cx, cy, R, 0, Math.PI*2); oc.fill();
 
             ctx.save();
-            ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.clip();
+            ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI*2); ctx.clip();
+            ctx.drawImage(off, 0, 0);
 
-            // шаг 1: весь диск тёмный
-            ctx.fillStyle = 'rgba(8,16,35,0.92)';
-            ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fill();
-
-            // шаг 2: вырезаем освещённый серп с blur на краю терминатора
-            ctx.filter = `blur(${Math.round(R * 0.05)}px)`;
-            ctx.globalCompositeOperation = 'destination-out';
-            ctx.beginPath();
-            if (waxing) {
-              ctx.arc(cx, cy, R, -Math.PI / 2, Math.PI / 2, false);
-              ctx.ellipse(cx, cy, trx, R, TILT, Math.PI / 2, -Math.PI / 2, cosF > 0);
-            } else {
-              ctx.arc(cx, cy, R, -Math.PI / 2, Math.PI / 2, true);
-              ctx.ellipse(cx, cy, trx, R, TILT, Math.PI / 2, -Math.PI / 2, cosF < 0);
-            }
-            ctx.closePath();
-            ctx.fillStyle = 'rgba(0,0,0,1)';
-            ctx.fill();
-            ctx.filter = 'none';
-
+            // ── Edge-vignette: убирает светлую кромку, мягкий и узкий ──────
+            const vig = ctx.createRadialGradient(cx, cy, R * 0.94, cx, cy, R);
+            vig.addColorStop(0, 'rgba(4,8,20,0)');
+            vig.addColorStop(1, 'rgba(4,8,20,0.28)');
+            ctx.fillStyle = vig;
+            ctx.fillRect(0, 0, S, S);
             ctx.restore();
 
-            // Свечение со стороны серпа: смещение box-shadow в сторону освещённой части
-            const illum = (1 - Math.cos(f * Math.PI * 2)) / 2;
-            // Серп справа при waxing, слева при !waxing
-            // Смещение: максимум в четвертях (серп = полукруг), ноль в полнолуние/новолуние
-            const sideShift = Math.sin(f * Math.PI * 2); // +1 при f=0.25 (серп справа), -1 при f=0.75
-            const ox = Math.round(sideShift * 18); // смещение по X до 18px
-            const a1 = (0.15 + illum * 0.65).toFixed(2);
-            const a2 = (0.06 + illum * 0.32).toFixed(2);
-            const r1 = Math.round(25 + illum * 33);
-            const r2 = Math.round(55 + illum * 85);
-            cv.parentElement.style.boxShadow =
-              `${ox}px 0 ${r1}px rgba(210,225,255,${a1}), ${ox}px 0 ${r2}px rgba(180,200,240,${a2})`;
+            // ── Свечение ───────────────────────────────────────────────────
+            const sinF = Math.sin(f * Math.PI * 2);
+            const shiftMag = sinF * 18;
+            const ox = Math.round(shiftMag * Math.cos(TILT));
+            const oy = Math.round(-shiftMag * Math.sin(TILT));
+            const a0 = (0.06 + illum * 0.22).toFixed(2);
+            const a1 = (0.03 + illum * 0.14).toFixed(2);
+            const a2 = (0.01 + illum * 0.08).toFixed(2);
+            const r0 = Math.round(20 + illum * 35);
+            const r1 = Math.round(50 + illum * 80);
+            const r2 = Math.round(100 + illum * 160);
+            cv.parentElement.parentElement.style.boxShadow =
+              `${ox}px ${oy}px ${r0}px rgba(210,225,255,${a0}), ` +
+              `${ox}px ${oy}px ${r1}px rgba(190,210,255,${a1}), ` +
+              `${ox}px ${oy}px ${r2}px rgba(160,190,235,${a2})`;
           }
 
           let start = null;
@@ -1256,6 +1258,7 @@
           requestAnimationFrame(tick);
         })();
         </script>
+    </div>
     </div>
 
     <!-- Свечи -->
@@ -1285,6 +1288,148 @@
     <div class="mist"></div>
 
     <div class="stars" id="stars"></div>
+
+    <!-- Капли на стекле: каплевидные, с растягивающимися следами влаги -->
+    <canvas id="rainCanvas" style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:1;pointer-events:none;"></canvas>
+    <script>
+    (function(){
+      if (window.__rainRunning) return;
+      window.__rainRunning = true;
+      const cv = document.getElementById('rainCanvas');
+      const ctx = cv.getContext('2d');
+      let W, H;
+      const DPR = Math.min(window.devicePixelRatio || 1, 2);
+      const rnd = (a, b) => a + (b - a) * Math.random();
+
+      let drops = [];
+
+      function resize(){
+        W = window.innerWidth; H = window.innerHeight;
+        cv.width = W * DPR; cv.height = H * DPR;
+        ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+        drops = [];
+      }
+
+      function spawnDrop(){
+        const r = rnd(5, 12);
+        drops.push({
+          x: rnd(20, W - 20),
+          y: rnd(-40, -10),
+          r,
+          vy: 0,
+          accel: rnd(0.006, 0.02),
+          stick: rnd(0.4, 1.4),     // «прилипание» — порог скорости старта
+          moving: false,
+          wobble: rnd(-0.3, 0.3),
+          phase: rnd(0, 6.28),
+          trail: [],                 // точки следа влаги
+          life: 0
+        });
+      }
+
+      // Каплевидная форма: круглое тело + заострённый верх (хвост вверх)
+      function drawTeardrop(x, y, r, elong){
+        ctx.save();
+        // Тень-преломление чуть ниже-правее
+        ctx.beginPath();
+        teardropPath(x + r*0.1, y + r*0.15, r, elong);
+        ctx.fillStyle = 'rgba(8,14,32,0.22)';
+        ctx.fill();
+
+        // Тело: тонкий мениск по краю, прозрачный центр (линза)
+        const body = ctx.createRadialGradient(x, y, r*0.15, x, y + r*0.2, r*1.1);
+        body.addColorStop(0,   'rgba(170,198,240,0.05)');
+        body.addColorStop(0.7, 'rgba(140,172,225,0.07)');
+        body.addColorStop(0.92,'rgba(110,148,210,0.14)');
+        body.addColorStop(1,   'rgba(95,130,195,0.22)');
+        ctx.beginPath();
+        teardropPath(x, y, r, elong);
+        ctx.fillStyle = body;
+        ctx.fill();
+
+        // Преломлённый свет — светлое пятно в нижней части линзы
+        const lit = ctx.createRadialGradient(x, y + r*0.4, 0, x, y + r*0.35, r*0.8);
+        lit.addColorStop(0, 'rgba(220,236,255,0.18)');
+        lit.addColorStop(1, 'rgba(220,236,255,0)');
+        ctx.beginPath();
+        teardropPath(x, y, r*0.9, elong);
+        ctx.fillStyle = lit;
+        ctx.fill();
+
+        // Тонкий вытянутый блик сверху-слева (не круглый зрачок)
+        ctx.beginPath();
+        ctx.ellipse(x - r*0.28, y - r*0.25, r*0.12, r*0.32, -0.4, 0, Math.PI*2);
+        ctx.fillStyle = 'rgba(255,255,255,0.45)';
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // Путь каплевидной формы: низ круглый, верх вытянут в хвостик
+      function teardropPath(x, y, r, elong){
+        // elong: 0 = круг, >0 = вытянутый хвост вверх
+        const top = y - r * (1 + elong);
+        ctx.moveTo(x, top);                                  // острый верх
+        ctx.bezierCurveTo(x + r*0.55, y - r*0.5, x + r, y - r*0.1, x + r, y + r*0.25);
+        ctx.bezierCurveTo(x + r, y + r*0.85, x + r*0.5, y + r*1.15, x, y + r*1.15);
+        ctx.bezierCurveTo(x - r*0.5, y + r*1.15, x - r, y + r*0.85, x - r, y + r*0.25);
+        ctx.bezierCurveTo(x - r, y - r*0.1, x - r*0.55, y - r*0.5, x, top);
+        ctx.closePath();
+      }
+
+      function step(){
+        ctx.clearRect(0, 0, W, H);
+
+        if (drops.length < Math.round(W / 130) && Math.random() < 0.05) spawnDrop();
+
+        for (let i = drops.length - 1; i >= 0; i--){
+          const d = drops[i];
+          d.life++;
+
+          // капля сначала «висит», набирает массу, потом срывается и ускоряется
+          d.vy += d.accel;
+          if (!d.moving && d.vy > d.stick) d.moving = true;
+          if (d.moving){
+            d.phase += 0.04;
+            d.x += Math.sin(d.phase) * d.wobble;
+            d.y += d.vy;
+            // оставляем след влаги — точки уменьшающегося радиуса
+            if (d.life % 3 === 0){
+              d.trail.push({ x: d.x + rnd(-0.5,0.5), y: d.y - d.r, r: d.r * rnd(0.3, 0.55), a: 1 });
+            }
+          }
+
+          // рисуем след влаги (растягивающаяся дорожка, истончается и тает)
+          for (let t = 0; t < d.trail.length; t++){
+            const p = d.trail[t];
+            p.a *= 0.992;
+            const aBody = 0.12 * p.a;
+            const aHi = 0.18 * p.a;
+            // тонкая стеклянная капелька следа
+            ctx.beginPath();
+            ctx.ellipse(p.x, p.y, p.r*0.6, p.r, 0, 0, Math.PI*2);
+            ctx.fillStyle = `rgba(120,150,205,${aBody})`;
+            ctx.fill();
+            ctx.beginPath();
+            ctx.ellipse(p.x - p.r*0.2, p.y - p.r*0.2, p.r*0.18, p.r*0.4, -0.4, 0, Math.PI*2);
+            ctx.fillStyle = `rgba(255,255,255,${aHi})`;
+            ctx.fill();
+          }
+          d.trail = d.trail.filter(p => p.a > 0.04);
+
+          // вытянутость хвоста зависит от скорости
+          const elong = d.moving ? Math.min(0.9, d.vy * 0.4) : 0.15;
+          drawTeardrop(d.x, d.y, d.r, elong);
+
+          if (d.y > H + 40) drops.splice(i, 1);
+        }
+
+        requestAnimationFrame(step);
+      }
+      window.addEventListener('resize', resize);
+      resize();
+      requestAnimationFrame(step);
+    })();
+    </script>
 
     <header class="header">
         <div class="header-content">
@@ -2142,7 +2287,6 @@
             img.src = imageData.thumbnail;
             img.alt = '';
             img.loading = 'lazy';
-            if (imageData.rotation) img.style.transform = 'rotate(' + imageData.rotation + 'deg)';
 
             item.appendChild(img);
             item.addEventListener('click', () => openModal(index));
@@ -2400,5 +2544,7 @@
         } // end initApp
     </script>
     <script src="images-thumbs.js"></script>
-    <script>initApp(window.imagesThumbsData);</script>
+    <script>
+        initApp(window.imagesThumbsData);
+    </script>
 </body>
