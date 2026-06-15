@@ -1289,216 +1289,140 @@
 
     <div class="stars" id="stars"></div>
 
-    <!-- Дождь за окном (фон, за картинами) -->
-    <canvas id="rainBgCanvas" style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:1;pointer-events:none;"></canvas>
-    <!-- Капли на стекле (поверх картин) -->
-    <canvas id="rainCanvas" style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:40;pointer-events:none;"></canvas>
+    <!-- Гиперреалистичные капли + дождь: WebGL шейдер (rain on glass) -->
+    <canvas id="rainCanvas" style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:1;pointer-events:none;"></canvas>
     <script>
-    // ── Слой 1: ДОЖДЬ ЗА ОКНОМ ──────────────────────────────
-    function __startRainBg(){
-      if (window.__rainBgRunning) return;
-      const cv = document.getElementById('rainBgCanvas');
-      const gl = cv.getContext('webgl', {alpha:true, premultipliedAlpha:true})
-              || cv.getContext('experimental-webgl', {alpha:true, premultipliedAlpha:true});
-      if (!gl){ return; }
-      window.__rainBgRunning = true;
-      const DPR = Math.min(window.devicePixelRatio || 1, 1.5);
-      const VS = 'attribute vec2 p; void main(){ gl_Position = vec4(p,0.0,1.0); }';
-
-      // Падающие струи дождя — диагональные, размытые в движении, дальний план.
-      const FS = [
-        'precision highp float;',
-        'uniform vec2 iResolution;',
-        'uniform float iTime;',
-        'float h(float n){ return fract(sin(n*127.1)*43758.5); }',
-        'float layer(vec2 uv, float t, float dens, float speed, float slant, float bright){',
-        '  uv.x += uv.y*slant;',          // наклон струй
-        '  vec2 g = vec2(uv.x*dens, uv.y);',
-        '  float col = floor(g.x);',
-        '  float r = h(col*1.7);',
-        '  float r2 = h(col*7.3);',
-        '  float yy = fract(g.y*0.5 + t*(speed+r*2.0) + r*10.0);',
-        '  float streak = smoothstep(0.0,0.04,yy)*smoothstep(0.55,0.05,yy);', // короткая черта + хвост
-        '  float lx = abs(fract(g.x)-0.5);',
-        '  float thin = smoothstep(0.5,0.46,lx);',  // тонкая линия
-        '  float on = step(0.45, r2);',             // не все колонки активны
-        '  return streak*thin*on*bright;',
-        '}',
-        'void main(){',
-        '  vec2 uv = gl_FragCoord.xy/iResolution.xy;',
-        '  uv.y = 1.0-uv.y;',
-        '  float t = iTime;',
-        '  float r = 0.0;',
-        '  r += layer(uv, t, 70.0, 7.0, 0.12, 0.45);', // ближний слой, ярче
-        '  r += layer(uv, t, 120.0, 10.0, 0.10, 0.28);', // средний
-        '  r += layer(uv, t, 200.0, 14.0, 0.08, 0.16);', // дальний, тусклый
-        '  vec3 col = vec3(0.70,0.80,1.0);',
-        '  float a = clamp(r,0.0,0.5);',
-        '  gl_FragColor = vec4(col*a, a);',
-        '}'
-      ].join('\n');
-
-      function compile(type, src){
-        const s = gl.createShader(type);
-        gl.shaderSource(s, src); gl.compileShader(s);
-        if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)){
-          console.warn('rainBg:', gl.getShaderInfoLog(s)); return null;
-        }
-        return s;
-      }
-      const vs = compile(gl.VERTEX_SHADER, VS);
-      const fs = compile(gl.FRAGMENT_SHADER, FS);
-      if (!vs || !fs){ window.__rainBgRunning=false; return; }
-      const prog = gl.createProgram();
-      gl.attachShader(prog,vs); gl.attachShader(prog,fs); gl.linkProgram(prog);
-      gl.useProgram(prog);
-      const b = gl.createBuffer();
-      gl.bindBuffer(gl.ARRAY_BUFFER,b);
-      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1,1,-1,-1,1,1,1]), gl.STATIC_DRAW);
-      const loc = gl.getAttribLocation(prog,'p');
-      gl.enableVertexAttribArray(loc);
-      gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);
-      const uRes = gl.getUniformLocation(prog,'iResolution');
-      const uTime = gl.getUniformLocation(prog,'iTime');
-      gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-      function resize(){
-        const w=Math.floor(window.innerWidth*DPR), hh=Math.floor(window.innerHeight*DPR);
-        if(cv.width!==w||cv.height!==hh){cv.width=w;cv.height=hh;}
-        gl.viewport(0,0,w,hh);
-      }
-      window.addEventListener('resize',resize); resize();
-      const t0=performance.now();
-      function frame(){
-        resize();
-        gl.uniform2f(uRes,cv.width,cv.height);
-        gl.uniform1f(uTime,(performance.now()-t0)/1000);
-        gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
-        requestAnimationFrame(frame);
-      }
-      requestAnimationFrame(frame);
-    }
-
-    // ── Слой 2: КАПЛИ НА СТЕКЛЕ ─────────────────────────────
     function __startRain(){
       if (window.__rainRunning) return;
       const cv = document.getElementById('rainCanvas');
       const gl = cv.getContext('webgl', {alpha:true, premultipliedAlpha:true})
               || cv.getContext('experimental-webgl', {alpha:true, premultipliedAlpha:true});
-      if (!gl){ return; }
+      if (!gl){ return; } // нет WebGL — фон остаётся чистым
       window.__rainRunning = true;
       const DPR = Math.min(window.devicePixelRatio || 1, 1.5);
 
       const VS = 'attribute vec2 p; void main(){ gl_Position = vec4(p,0.0,1.0); }';
 
-      // Реалистичные капли-линзы на стекле + крупные стекающие капли с дорожками.
-      // Каждая капля: тёмный ободок (тень от мениска) + яркий блик (отражение
-      // источника света сверху-слева) + светлая нижняя кромка (преломлённый фон).
+      // Техника rain-on-glass (по мотивам Heartfelt, Martijn Steinrucken, CC-BY).
+      // Капли стекают, оставляют следы, преломляют фон. Фон — прозрачный,
+      // капли видны как искажение + бликовка над космосом сайта.
       const FS = [
         'precision highp float;',
         'uniform vec2 iResolution;',
         'uniform float iTime;',
         '',
-        'float h1(float n){ return fract(sin(n*127.1+311.7)*43758.5); }',
-        'float h2(float n){ return fract(sin(n*269.5+183.3)*22578.1); }',
-        'float saw(float x){ return smoothstep(0.0,0.5,x)*smoothstep(1.0,0.5,x); }',
+        'vec3 N13(float p){',
+        '  vec3 p3 = fract(vec3(p)*vec3(.1031,.11369,.13787));',
+        '  p3 += dot(p3, p3.yzx+19.19);',
+        '  return fract(vec3((p3.x+p3.y)*p3.z,(p3.x+p3.z)*p3.y,(p3.y+p3.z)*p3.x));',
+        '}',
+        'float N(float t){ return fract(sin(t*12345.564)*7658.76); }',
+        'float Saw(float b, float t){ return smoothstep(0.,b,t)*smoothstep(1.,b,t); }',
         '',
-        // Рисует одну каплю-линзу. lightDir — направление света.
-        // d = расстояние до центра, r = радиус. Возвращает rgba.
-        'vec4 lens(float d, float r, vec2 nrm){',
-        '  float body = smoothstep(r, r*0.92, d);',           // тело капли
-        '  if(body<=0.0) return vec4(0.0);',
-        '  vec2 L = normalize(vec2(-0.6,0.8));',              // свет сверху-слева
-        '  float ndl = dot(nrm, L);',
-        '  float spec = pow(max(ndl,0.0), 6.0);',            // блик
-        '  float rim  = smoothstep(r*0.7, r, d);',           // ободок у края
-        '  float darkRim = rim * smoothstep(0.2,-0.4,ndl);', // тёмная нижне-правая дуга
-        '  float litRim  = rim * smoothstep(0.0,0.7,ndl);',  // светлая верхне-левая дуга
-        '  vec3 c = vec3(0.40,0.52,0.72);',                  // базовое стекло
-        '  c = mix(c, vec3(0.05,0.08,0.14), darkRim*0.8);',  // тень
-        '  c = mix(c, vec3(0.85,0.92,1.0), litRim*0.5);',    // подсветка кромки
-        '  c = mix(c, vec3(1.0), spec*0.9);',                // яркий блик
-        '  float a = body*(0.22 + darkRim*0.5 + litRim*0.35 + spec*0.7);',
-        '  return vec4(c, clamp(a,0.0,0.85));',
+        'vec2 DropLayer2(vec2 uv, float t){',
+        '  vec2 UV = uv;',
+        '  uv.y += t*0.75;',
+        '  vec2 a = vec2(3.0,0.5);',
+        '  vec2 grid = a*2.0;',
+        '  vec2 id = floor(uv*grid);',
+        '  float colShift = N(id.x);',
+        '  uv.y += colShift;',
+        '  id = floor(uv*grid);',
+        '  vec3 n = N13(id.x*35.2+id.y*2376.1);',
+        '  vec2 st = fract(uv*grid)-vec2(0.5,0.0);',
+        '  float x = n.x-0.5;',
+        '  float y = UV.y*20.0;',
+        '  float wiggle = sin(y+sin(y));',
+        '  x += wiggle*(0.5-abs(x))*(n.z-0.5);',
+        '  x *= 0.7;',
+        '  float ti = fract(t+n.z);',
+        '  y = (Saw(0.85,ti)-0.5)*0.9+0.5;',
+        '  vec2 p2 = vec2(x,y);',
+        '  float d = length((st-p2)*a.yx);',
+        '  float mainDrop = smoothstep(0.4,0.0,d);',
+        '  float r = sqrt(smoothstep(1.0,y,st.y));',
+        '  float cd = abs(st.x-x);',
+        '  float trail = smoothstep(0.23*r,0.15*r*r,cd);',
+        '  float trailFront = smoothstep(-0.02,0.02,st.y-y);',
+        '  trail *= trailFront*r*r;',
+        '  y = UV.y;',
+        '  float trail2 = smoothstep(0.2*r,0.0,cd);',
+        '  float droplets = max(0.0,(sin(y*(1.0-y)*120.0)-st.y))*trail2*trailFront*n.z;',
+        '  y = fract(y*10.0)+(st.y-0.5);',
+        '  float dd = length(st-vec2(x,y));',
+        '  droplets = smoothstep(0.3,0.0,dd);',
+        '  float m = mainDrop+droplets*r*trailFront;',
+        '  return vec2(m, trail);',
         '}',
         '',
-        // Слой статичных капель в сетке (разный размер)
-        'vec4 staticLayer(vec2 uv, float t, float scale){',
-        '  vec2 g = uv*scale;',
-        '  vec2 id = floor(g);',
-        '  vec2 st = fract(g)-0.5;',
-        '  float r0 = h1(id.x*57.4+id.y*113.7);',
-        '  if(r0>0.55) return vec4(0.0);',                   // плотность
-        '  vec2 off = (vec2(h2(id.x*7.0+id.y),h1(id.x+id.y*3.0))-0.5)*0.5;',
-        '  vec2 p = st-off;',
-        '  float r = (0.16+r0*0.22)/scale*scale;',
-        '  r = 0.18+r0*0.22;',
-        '  float d = length(p);',
-        '  vec2 nrm = vec2(p.x, p.y)/max(d,0.001);',
-        '  nrm = vec2(nrm.x, -nrm.y);',                      // экранная нормаль (y вниз)
-        '  float z = sqrt(max(0.0, r*r-d*d))/r;',
-        '  vec2 sphereN = normalize(vec2(p/r));',
-        '  return lens(d, r, sphereN);',
+        'float StaticDrops(vec2 uv, float t){',
+        '  uv *= 20.0;',
+        '  vec2 id = floor(uv);',
+        '  uv = fract(uv)-0.5;',
+        '  vec3 n = N13(id.x*107.45+id.y*3543.654);',
+        '  vec2 p2 = (n.xy-0.5)*0.7;',
+        '  float d = length(uv-p2);',
+        '  float fade = Saw(0.025, fract(t+n.z));',
+        '  float c = smoothstep(0.3,0.0,d)*fract(n.z*10.0)*fade;',
+        '  return c;',
         '}',
         '',
-        // Крупная стекающая капля + влажная дорожка за ней
-        'vec4 runner(vec2 uv, float t, float idx){',
-        '  float s1 = h1(idx*17.3);',
-        '  float s2 = h2(idx*41.9);',
-        '  float x0 = (s1-0.5)*1.7;',
-        '  float speed = 0.18+s2*0.22;',
-        '  float ph = h1(idx*7.7);',
-        '  float prog = fract(t*speed*0.3 + ph);',           // 0 вверху → 1 внизу
-        '  float dropY = mix(-0.1, 1.1, prog);',
-        '  float wob = sin(uv.y*5.0+s1*6.28)*0.02 + sin(uv.y*11.0+s2*6.28)*0.008;',
-        '  float xc = x0 + wob;',
-        '  float dx = uv.x - xc;',
-        '  float r = 0.045+s1*0.03;',
-        '  vec2 p = vec2(dx, uv.y-dropY);',
-        '  p.y *= (p.y>0.0)?0.7:1.4;',                       // каплевидно
-        '  float d = length(p);',
-        '  vec2 nrm = normalize(vec2(p.x, -(uv.y-dropY))/r);',
-        '  vec4 head = lens(d, r, nrm);',
-        '  float tw = r*0.35;',
-        '  float trailMask = smoothstep(tw,tw*0.2,abs(dx)) * step(uv.y,dropY) * smoothstep(dropY-0.6,dropY,uv.y);',
-        '  float beads = 0.5+0.5*sin(uv.y*50.0 - t*3.0 + s1*6.28);',
-        '  vec2 tnrm = normalize(vec2(dx/tw, 0.3));',
-        '  vec4 trail = lens(abs(dx)*0.5, tw, tnrm);',
-        '  trail.a *= trailMask*(0.4+0.4*beads);',
-        '  trail.rgb *= 1.0;',
-        '  if(head.a > trail.a) return head;',
-        '  return trail;',
+        'vec2 Drops(vec2 uv, float t, float l0, float l1, float l2){',
+        '  float s = StaticDrops(uv,t)*l0;',
+        '  vec2 m1 = DropLayer2(uv,t)*l1;',
+        '  vec2 m2 = DropLayer2(uv*1.4,t)*l2;',
+        '  float c = s+m1.x+m2.x;',
+        '  c = smoothstep(0.3,1.0,c);',
+        '  return vec2(c, max(m1.y*l0, m2.y*l1));',
+        '}',
+        '',
+        '// Дальний дождь: тонкие падающие штрихи перед космосом',
+        'float RainStreaks(vec2 uv, float t){',
+        '  float acc = 0.0;',
+        '  uv.x *= 1.3;',
+        '  vec2 gv = vec2(uv.x*90.0, uv.y);',     // частые колонки
+        '  float col = floor(gv.x);',
+        '  float rx = N(col);',
+        '  if (rx < 0.62) return 0.0;',            // редкие колонки
+        '  float speed = 6.0 + rx*5.0;',
+        '  float yy = fract(uv.y*1.5 + t*speed + rx*7.0);',
+        '  // короткий штрих сверху-длинный хвост',
+        '  float streak = smoothstep(0.0,0.06,yy)*smoothstep(0.5,0.06,yy);',
+        '  float lineX = abs(fract(gv.x)-0.5);',
+        '  float thin = smoothstep(0.5,0.42,lineX);', // тонкая линия в центре колонки
+        '  acc = streak*thin*(0.4+rx*0.5);',
+        '  return acc;',
         '}',
         '',
         'void main(){',
-        '  vec2 uv = gl_FragCoord.xy/iResolution.xy;',
-        '  float asp = iResolution.x/iResolution.y;',
-        '  uv.y = 1.0-uv.y;',
-        '  vec2 auv = vec2(uv.x*asp, uv.y);',                // коррекция пропорций
-        '  float t = iTime;',
-        '  vec4 acc = vec4(0.0);',
-        // статичные капли двух масштабов
-        '  vec4 sA = staticLayer(auv, t, 9.0);',
-        '  vec4 sB = staticLayer(auv+vec2(3.7,1.3), t, 16.0);',
-        // крупные стекающие
-        '  vec4 r0 = runner(uv, t, 0.0);',
-        '  vec4 r1 = runner(uv, t, 1.0);',
-        '  vec4 r2 = runner(uv, t, 2.0);',
-        '  vec4 r3 = runner(uv, t, 3.0);',
-        '  vec4 r4 = runner(uv, t, 4.0);',
-        '  vec4 r5 = runner(uv, t, 5.0);',
-        // композим по убыванию альфы (over)
-        '  vec4 arr[8];',
-        '  arr[0]=sB; arr[1]=sA; arr[2]=r0; arr[3]=r1; arr[4]=r2; arr[5]=r3; arr[6]=r4; arr[7]=r5;',
-        '  for(int i=0;i<8;i++){',
-        '    vec4 c = arr[i];',
-        '    acc.rgb = mix(acc.rgb, c.rgb, c.a);',
-        '    acc.a = acc.a + c.a*(1.0-acc.a);',
+        '  vec2 uv = (gl_FragCoord.xy-0.5*iResolution.xy)/iResolution.y;',
+        '  float t = iTime*0.2;',
+        '  float staticD=0.30, l1=0.55, l2=0.0;',  // меньше капель, без второго слоя
+        '  vec2 c = Drops(uv,t,staticD,l1,l2);',
+        '  vec2 e = vec2(0.0015,0.0);',
+        '  float cx = Drops(uv+e.xy,t,staticD,l1,l2).x;',
+        '  float cy = Drops(uv+e.yx,t,staticD,l1,l2).x;',
+        '  vec2 n = vec2(cx-c.x, cy-c.x);',
+        '  float refr = (n.x+n.y)*7.0;',
+        '  float drop = c.x;',
+        '  float trail = c.y;',
+        '  float edge = clamp(abs(refr)*2.0,0.0,1.0);',
+        '  float rain = 0.0;',                        // дождь убран
+        '  vec3 col = vec3(0.0); float alpha = 0.0;',
+        '  // капли: деликатная стеклянная линза, мягкий блик по краю',
+        '  if (drop>0.001 || trail>0.001){',
+        '    vec3 glass = vec3(0.58,0.68,0.86);',
+        '    vec3 spec  = vec3(0.95,0.98,1.0);',
+        '    col = mix(glass, spec, edge);',
+        '    alpha = clamp(drop*0.10 + trail*0.05 + edge*0.24, 0.0, 0.4);',
         '  }',
-        '  acc.a = clamp(acc.a, 0.0, 0.9);',
-        '  gl_FragColor = vec4(acc.rgb*acc.a, acc.a);',      // premultiplied
+        '  // дождь убран',
+        '  vec3 rainCol = vec3(0.72,0.82,1.0);',
+        '  col = col*alpha + rainCol*rain*0.6;',
+        '  alpha = clamp(alpha + rain*0.18, 0.0, 1.0);',
+        '  gl_FragColor = vec4(col, alpha);',
         '}'
       ].join('\n');
-
 
       function compile(type, src){
         const s = gl.createShader(type);
@@ -1545,15 +1469,11 @@
       }
       requestAnimationFrame(frame);
     }
-    // Запуск после полной загрузки — не блокирует первичный рендер
-    function __startAllRain(){
-      requestAnimationFrame(__startRainBg);
-      requestAnimationFrame(__startRain);
-    }
+    // Запуск капель после полной загрузки — не блокирует первичный рендер
     if (document.readyState === 'complete') {
-      __startAllRain();
+      requestAnimationFrame(__startRain);
     } else {
-      window.addEventListener('load', __startAllRain);
+      window.addEventListener('load', () => requestAnimationFrame(__startRain));
     }
     </script>
 
