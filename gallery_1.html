@@ -1289,9 +1289,70 @@
 
     <div class="stars" id="stars"></div>
 
-    <!-- Гиперреалистичные капли + дождь: WebGL шейдер (rain on glass) -->
-    <canvas id="rainCanvas" style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:1;pointer-events:none;"></canvas>
+    <!-- Дождь за окном (тонкие линии, дальний план) -->
+    <canvas id="rainBgCanvas" style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:1;pointer-events:none;"></canvas>
+    <!-- Капли на стекле -->
+    <canvas id="rainCanvas" style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:2;pointer-events:none;"></canvas>
     <script>
+    // Дождь за окном: тонкие падающие линии-частицы (Canvas 2D, плавно, без мелькания).
+    function __startRainBg(){
+      if (window.__rainBgRunning) return;
+      const cv = document.getElementById('rainBgCanvas');
+      const ctx = cv.getContext('2d');
+      if (!ctx){ return; }
+      window.__rainBgRunning = true;
+      const DPR = Math.min(window.devicePixelRatio || 1, 2);
+      const rnd = (a,b) => a + (b-a)*Math.random();
+      let W, H, lines = [];
+
+      function makeLine(){
+        // три плана глубины: дальний тоньше/бледнее/медленнее
+        const depth = Math.random();              // 0 дальний … 1 ближний
+        const len   = rnd(14, 40) * (0.5 + depth); // длина штриха
+        return {
+          x: rnd(-40, W+40),
+          y: rnd(-H, 0),
+          len,
+          vy: rnd(7, 12) * (0.5 + depth),          // скорость падения
+          slant: rnd(0.12, 0.22),                  // наклон (ветер)
+          w: 0.6 + depth*0.9,                       // толщина
+          a: 0.06 + depth*0.16                      // прозрачность
+        };
+      }
+
+      function resize(){
+        W = window.innerWidth; H = window.innerHeight;
+        cv.width = W*DPR; cv.height = H*DPR;
+        ctx.setTransform(DPR,0,0,DPR,0,0);
+        const count = Math.round(W / 14);           // плотность дождя
+        lines = []; for (let i=0;i<count;i++){ const l=makeLine(); l.y=rnd(0,H); lines.push(l); }
+      }
+
+      function step(){
+        ctx.clearRect(0,0,W,H);
+        ctx.lineCap = 'round';
+        for (let i=0;i<lines.length;i++){
+          const l = lines[i];
+          l.y += l.vy;
+          l.x += l.vy * l.slant;
+          ctx.beginPath();
+          ctx.moveTo(l.x, l.y);
+          ctx.lineTo(l.x - l.len*l.slant, l.y - l.len);  // штрих вдоль направления падения
+          ctx.lineWidth = l.w;
+          ctx.strokeStyle = 'rgba(180,205,255,'+l.a+')';
+          ctx.stroke();
+          if (l.y - l.len > H + 10){                 // ушла за низ — респавн сверху
+            Object.assign(l, makeLine());
+            l.y = rnd(-40, -5);
+          }
+        }
+        requestAnimationFrame(step);
+      }
+      window.addEventListener('resize', resize);
+      resize();
+      requestAnimationFrame(step);
+    }
+
     function __startRain(){
       if (window.__rainRunning) return;
       const cv = document.getElementById('rainCanvas');
@@ -1395,7 +1456,9 @@
         '}',
         '',
         'void main(){',
-        '  vec2 uv = (gl_FragCoord.xy-0.5*iResolution.xy)/iResolution.y;',
+        '  vec2 fc = gl_FragCoord.xy;',
+        '  fc.y = iResolution.y - fc.y;',          // Y вниз → капли стекают вниз
+        '  vec2 uv = (fc-0.5*iResolution.xy)/iResolution.y;',
         '  float t = iTime*0.2;',
         '  float staticD=0.30, l1=0.55, l2=0.0;',  // меньше капель, без второго слоя
         '  vec2 c = Drops(uv,t,staticD,l1,l2);',
@@ -1469,11 +1532,15 @@
       }
       requestAnimationFrame(frame);
     }
-    // Запуск капель после полной загрузки — не блокирует первичный рендер
-    if (document.readyState === 'complete') {
+    // Запуск после полной загрузки — не блокирует первичный рендер
+    function __startAll(){
+      requestAnimationFrame(__startRainBg);
       requestAnimationFrame(__startRain);
+    }
+    if (document.readyState === 'complete') {
+      __startAll();
     } else {
-      window.addEventListener('load', () => requestAnimationFrame(__startRain));
+      window.addEventListener('load', __startAll);
     }
     </script>
 
