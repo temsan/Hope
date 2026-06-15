@@ -105,13 +105,14 @@
         .moon {
             position: fixed;
             top: 8%;
-            right: 8%;
+            right: 3%;
             width: 140px;
             height: 140px;
             border-radius: 50%;
             z-index: 3;
             overflow: hidden;
             background: transparent;
+            clip-path: circle(49% at 50% 50%);
             /* box-shadow управляется из JS синхронно с фазой */
         }
         .moon img {
@@ -119,7 +120,7 @@
             height: 100%;
             object-fit: cover;
             display: block;
-            transform: scale(1.99) translateX(0.6%);
+            transform: scale(1.877) translateX(0.6%);
         }
 
         .moon::before {
@@ -905,9 +906,9 @@
             }
 
             .moon {
-                width: 80px;
-                height: 80px;
-                right: 6%;
+                width: 130px;
+                height: 130px;
+                right: 4%;
                 top: 6%;
             }
 
@@ -971,10 +972,10 @@
             }
 
             .moon {
-                width: 50px;
-                height: 50px;
+                width: 90px;
+                height: 90px;
                 top: 4%;
-                right: 5%;
+                right: 4%;
             }
 
             .candles-container {
@@ -1050,8 +1051,8 @@
             }
 
             .moon {
-                width: 40px;
-                height: 40px;
+                width: 72px;
+                height: 72px;
             }
 
             .palette-wrap {
@@ -1617,22 +1618,8 @@
         <p>Надежда Жди</p>
     </footer>
 
-    <script async src="images-thumbs.js" onload="__onThumbsReady()"></script>
     <script>
-        // images-data-v2.js грузится async — не блокирует парсинг HTML
-        // onload вызовет initApp когда данные готовы
-        // images-thumbs.js готов (~750KB) — запускаем галерею сразу
-        // full-картины подгружаются лениво при открытии модалки
-        window.__onThumbsReady = function() {
-            const data = window.imagesThumbsData;
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', () => initApp(data));
-            } else {
-                initApp(data);
-            }
-        };
-
-                function initApp(imagesData) {
+        function initApp(imagesData) {
         let currentIndex = 0;
 
         const gallery = document.getElementById('gallery');
@@ -1807,8 +1794,20 @@
                 navigateCarouselByDelta(dominantDelta);
             };
             modal.addEventListener('wheel', onWheel, { passive: false });
-            // палитра — отдельный fixed-элемент: колесо над мазками тоже листает
-            document.getElementById('paletteWrap').addEventListener('wheel', onWheel, { passive: false });
+
+            // палитра — всегда листает, даже при зуме картины
+            document.getElementById('paletteWrap').addEventListener('wheel', (e) => {
+                if (!modal.classList.contains('open')) return;
+                if (Math.abs(e.deltaX) === 0 && Math.abs(e.deltaY) === 0) return;
+                e.preventDefault();
+                e.stopPropagation();
+                const dominantDelta = Math.abs(e.deltaX) >= Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+                if (Math.abs(dominantDelta) < CAROUSEL_WHEEL_THRESHOLD) return;
+                const now = Date.now();
+                if (now - lastCarouselNavAt < CAROUSEL_NAV_COOLDOWN_MS) return;
+                lastCarouselNavAt = now;
+                if (dominantDelta > 0) showNextImage(); else showPrevImage();
+            }, { passive: false });
         }
 
         function setupModalWheelZoom() {
@@ -2400,4 +2399,6 @@
         })();
         } // end initApp
     </script>
+    <script src="images-thumbs.js"></script>
+    <script>initApp(window.imagesThumbsData);</script>
 </body>
