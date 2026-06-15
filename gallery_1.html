@@ -1303,153 +1303,74 @@
 
       const VS = 'attribute vec2 p; void main(){ gl_Position = vec4(p,0.0,1.0); }';
 
-      // Физически реалистичные струи воды по стеклу.
-      // Каждая струя — непрерывная искривлённая полоска воды с волатильной шириной,
-      // стекает с разной скоростью, останавливается и снова трогается.
-      // Капля на конце струи — каплевидная (сплюснутая снизу, острая сверху).
-      // Влажный след позади капли — полупрозрачная тонкая полоска.
-      const FS = `
-precision highp float;
-uniform vec2 iResolution;
-uniform float iTime;
-
-// Хэши
-float hash1(float n){ return fract(sin(n)*43758.5453123); }
-float hash1(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453123); }
-vec2  hash2(float n){ return fract(sin(vec2(n,n+1.7))*vec2(43758.5,22578.1)); }
-
-// Плавный пилообразный — капля разгоняется и тормозит
-float saw(float t){ return smoothstep(0.0,0.6,t)*smoothstep(1.0,0.6,t); }
-
-// ============================================================
-// СТРУИ
-// Возвращает: x = маска воды (0..1), y = яркость (0=тень, 1=блик)
-// ============================================================
-vec2 Stream(vec2 uv, float t, float col){
-  // Параметры этой струи
-  float seed   = hash1(col*17.34);
-  float seed2  = hash1(col*41.91+3.7);
-  float xBase  = (seed - 0.5)*0.8;          // горизонтальное смещение центра
-  float speed  = 0.18 + seed2*0.22;         // скорость стекания (медленно!)
-  float period = 0.9 + seed*0.6;            // период цикла (стоп/старт)
-
-  // Время в цикле: капля стоит, потом трогается
-  float phase   = hash1(col*7.77);
-  float cyclT   = fract(t*speed/period + phase);
-  float dropY   = saw(cyclT);               // Y капли в диапазоне 0..1 (0=верх, 1=низ)
-  dropY = 1.0 - dropY;                      // инвертируем: стекает вниз
-
-  // Искривление оси струи (синусоидальное + случайное)
-  float amp    = 0.012 + seed2*0.018;
-  float freq1  = 3.5 + seed*2.0;
-  float freq2  = 7.0 + seed2*4.0;
-  float xWigA  = sin(uv.y*freq1 + t*0.4 + seed*6.28)*amp;
-  float xWigB  = sin(uv.y*freq2 + t*0.7 + seed2*6.28)*amp*0.4;
-  float xAxis  = xBase + xWigA + xWigB;    // ось струи в данной точке по Y
-
-  float dx = uv.x - xAxis;                 // горизонтальное расстояние до оси
-
-  // Ширина тела струи меняется: уже вверху, чуть шире в середине
-  float bodyW = 0.0028 + seed*0.002;
-  bodyW *= (0.6 + 0.4*smoothstep(0.0, 0.5, uv.y));
-
-  // ---- КАПЛЯ на конце струи ----
-  // Каплевидная форма: эллипс, расширенный снизу
-  float ey = uv.y - dropY;                 // вертикаль относительно центра капли
-  // Капля: широкая снизу, острая сверху (ey>0 = выше капли = острая)
-  float rX = 0.022 + seed*0.012;           // радиус по X
-  float rYd = rX * 1.5;                    // радиус вниз (каплевидно шире)
-  float rYu = rX * 0.7;                    // радиус вверх (острее)
-  float rY  = ey > 0.0 ? rYu : rYd;
-  float ddrop = (dx/rX)*(dx/rX) + (ey/rY)*(ey/rY);
-  float drop  = smoothstep(1.0, 0.5, ddrop);
-
-  // ---- ТЕЛО СТРУИ (влажный след выше капли) ----
-  float trailTop = dropY + rYu;            // выше капли
-  float inTrail  = step(uv.y, trailTop);   // только выше центра капли
-  float trailW   = bodyW * (0.5 + 0.5*smoothstep(trailTop, 0.0, uv.y)); // сужается вверх
-  float trail    = smoothstep(trailW, trailW*0.2, abs(dx)) * inTrail;
-  // Влажный след чуть мерцает (поверхностное натяжение)
-  float glisten  = 0.5 + 0.5*sin(uv.y*80.0 + t*2.0 + seed*6.28);
-  trail *= (0.55 + 0.45*glisten);
-
-  // ---- МАСКА ВОДЫ ----
-  float water = max(drop, trail * 0.75);
-
-  // ---- ЯРКОСТЬ (блики/тени на краях) ----
-  float edgeDrop  = smoothstep(0.7, 1.0, 1.0-ddrop) * drop;
-  float edgeTrail = smoothstep(trailW*0.6, trailW*0.1, abs(dx)) * trail;
-  float brightness = max(edgeDrop, edgeTrail * 0.6);
-
-  return vec2(water, brightness);
-}
-
-// ============================================================
-// СТАТИЧНЫЕ МЕЛКИЕ КАПЛИ (прилипшие к стеклу)
-// ============================================================
-float StaticDrop(vec2 uv, float t){
-  vec2 grid = uv * vec2(14.0, 20.0);
-  vec2 id   = floor(grid);
-  vec2 st   = fract(grid) - 0.5;
-  vec3 rnd  = vec3(hash1(id.x*107.45+id.y*3543.65),
-                   hash1(id.x*311.7 +id.y*74.37),
-                   hash1(id.x*951.3 +id.y*631.0));
-  // Не все ячейки заняты
-  if (rnd.x > 0.38) return 0.0;
-  vec2 pos  = (rnd.yz - 0.5)*0.7;
-  float r   = 0.06 + rnd.x*0.06;
-  float d   = length(st - pos);
-  // Мерцание — капля "дышит"
-  float blink = 0.85 + 0.15*sin(t*1.3 + rnd.z*6.28);
-  return smoothstep(r, r*0.5, d) * blink;
-}
-
-void main(){
-  vec2 uv = gl_FragCoord.xy / iResolution.xy;
-  // uv: (0,0)=левый нижний угол, (1,1)=правый верхний
-  // инвертируем Y чтобы капля текла ВНИЗ
-  uv.y = 1.0 - uv.y;
-
-  float t = iTime;
-
-  // --- Несколько струй ---
-  float N_STREAMS = 9.0;
-  vec2 total = vec2(0.0);
-  for(float i=0.0; i<9.0; i++){
-    float col = i / N_STREAMS;
-    // Растягиваем UV по X так чтобы струи равномерно распределились
-    vec2 suv = vec2((uv.x - col) * N_STREAMS, uv.y);
-    vec2 s = Stream(suv, t, i);
-    total = max(total, s);
-  }
-
-  // --- Мелкие статичные капли ---
-  float sd = StaticDrop(uv, t);
-
-  // --- Визуализация ---
-  float water      = max(total.x, sd * 0.7);
-  float brightness = total.y;
-  float edge       = brightness;
-
-  // Цвет: стеклянно-голубоватый, блик белый
-  vec3 glassCol = vec3(0.55, 0.68, 0.88);
-  vec3 specCol  = vec3(0.92, 0.96, 1.0);
-  vec3 col = mix(glassCol, specCol, edge);
-
-  // Альфа: тело струи полупрозрачно, блики более заметны, капли насыщенные
-  float dropMask  = total.x;
-  float trailMask = sd;
-  float alpha = clamp(
-    dropMask * 0.32 +
-    trailMask * 0.18 +
-    edge * 0.28,
-    0.0, 0.55
-  );
-
-  // Premultiplied alpha
-  gl_FragColor = vec4(col * alpha, alpha);
-}
-`;
+      const FS = [
+        'precision highp float;',
+        'uniform vec2 iResolution;',
+        'uniform float iTime;',
+        '',
+        'float h1(float n){ return fract(sin(n*127.1+311.7)*43758.5); }',
+        'float h2(float n){ return fract(sin(n*951.3+631.0)*22578.1); }',
+        'float saw(float t){ return smoothstep(0.0,0.6,t)*smoothstep(1.0,0.6,t); }',
+        '',
+        'vec2 Stream(vec2 uv, float t, float idx){',
+        '  float s1 = h1(idx*17.34);',
+        '  float s2 = h2(idx*41.91);',
+        '  float xBase = (s1-0.5)*1.6;',
+        '  float speed = 0.12+s2*0.18;',
+        '  float phase = h1(idx*7.77);',
+        '  float cyclT = fract(t*speed + phase);',
+        '  float dropY = 1.0 - saw(cyclT);',
+        '  float amp   = 0.014+s2*0.018;',
+        '  float xAxis = xBase',
+        '    + sin(uv.y*(3.5+s1*2.0)+t*0.5+s1*6.28)*amp',
+        '    + sin(uv.y*(7.0+s2*4.0)+t*0.9+s2*6.28)*amp*0.35;',
+        '  float dx = uv.x - xAxis;',
+        '  float rX  = 0.028+s1*0.014;',
+        '  float ey  = uv.y - dropY;',
+        '  float rY  = ey > 0.0 ? rX*0.65 : rX*1.6;',
+        '  float dd  = (dx/rX)*(dx/rX)+(ey/rY)*(ey/rY);',
+        '  float drop = smoothstep(1.0,0.3,dd);',
+        '  float tw   = 0.004+s1*0.002;',
+        '  float trail= smoothstep(tw,tw*0.15,abs(dx))',
+        '    * step(uv.y, dropY+rX*0.65)',
+        '    * (0.5+0.5*sin(uv.y*60.0+t*2.5+s1*6.28));',
+        '  float brightness = smoothstep(0.6,1.0,1.0-dd)*drop',
+        '    + smoothstep(tw*0.5,tw*0.05,abs(dx))*trail*0.5;',
+        '  return vec2(max(drop, trail*0.8), brightness);',
+        '}',
+        '',
+        'float SDrop(vec2 uv, float t){',
+        '  vec2 id = floor(uv*vec2(13.0,19.0));',
+        '  vec2 st = fract(uv*vec2(13.0,19.0))-0.5;',
+        '  float r0 = h1(id.x*107.45+id.y*3543.65);',
+        '  if(r0>0.35) return 0.0;',
+        '  vec2 p = (vec2(h2(id.x+id.y*7.0),h1(id.x*3.1+id.y))-0.5)*0.7;',
+        '  float r = 0.07+r0*0.06;',
+        '  return smoothstep(r,r*0.4,length(st-p))*(0.8+0.2*sin(t*1.2+r0*6.28));',
+        '}',
+        '',
+        'void main(){',
+        '  vec2 uv = gl_FragCoord.xy/iResolution.xy;',
+        '  uv.y = 1.0-uv.y;',
+        '  float t = iTime*0.55;',
+        '  vec2 tot = vec2(0.0);',
+        '  vec2 s0  = Stream(vec2(uv.x*9.0-0.0,uv.y),t,0.0); tot=max(tot,s0);',
+        '  vec2 s1  = Stream(vec2(uv.x*9.0-1.0,uv.y),t,1.0); tot=max(tot,s1);',
+        '  vec2 s2  = Stream(vec2(uv.x*9.0-2.0,uv.y),t,2.0); tot=max(tot,s2);',
+        '  vec2 s3  = Stream(vec2(uv.x*9.0-3.0,uv.y),t,3.0); tot=max(tot,s3);',
+        '  vec2 s4  = Stream(vec2(uv.x*9.0-4.0,uv.y),t,4.0); tot=max(tot,s4);',
+        '  vec2 s5  = Stream(vec2(uv.x*9.0-5.0,uv.y),t,5.0); tot=max(tot,s5);',
+        '  vec2 s6  = Stream(vec2(uv.x*9.0-6.0,uv.y),t,6.0); tot=max(tot,s6);',
+        '  vec2 s7  = Stream(vec2(uv.x*9.0-7.0,uv.y),t,7.0); tot=max(tot,s7);',
+        '  vec2 s8  = Stream(vec2(uv.x*9.0-8.0,uv.y),t,8.0); tot=max(tot,s8);',
+        '  float sd = SDrop(uv,t);',
+        '  float water = max(tot.x, sd*0.65);',
+        '  float edge  = tot.y;',
+        '  vec3 col = mix(vec3(0.52,0.66,0.88), vec3(0.93,0.97,1.0), edge);',
+        '  float alpha = clamp(tot.x*0.38 + sd*0.22 + edge*0.30, 0.0, 0.6);',
+        '  gl_FragColor = vec4(col*alpha, alpha);',
+        '}'
+      ].join('\n');
 
 
       function compile(type, src){
