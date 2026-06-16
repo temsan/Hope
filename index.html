@@ -1289,6 +1289,8 @@
 
     <div class="stars" id="stars"></div>
 
+    <!-- html2canvas: снимок фона для преломления в каплях -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <!-- Дождь за окном (тонкие линии, дальний план) -->
     <canvas id="rainBgCanvas" style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:1;pointer-events:none;"></canvas>
     <!-- Капли на стекле -->
@@ -1455,35 +1457,46 @@
         '  return acc;',
         '}',
         '',
+        'uniform sampler2D iTex;',                   // снимок фона+картин
+        'uniform float iHasTex;',                     // 1.0 если текстура готова
         'void main(){',
         '  vec2 fc = gl_FragCoord.xy;',
         '  fc.y = iResolution.y - fc.y;',          // Y вниз → капли стекают вниз
         '  vec2 uv = (fc-0.5*iResolution.xy)/iResolution.y;',
+        '  vec2 screen = gl_FragCoord.xy / iResolution.xy;', // экранные UV для текстуры
         '  float t = iTime*0.2;',
         '  float staticD=0.30, l1=0.55, l2=0.0;',  // меньше капель, без второго слоя
         '  vec2 c = Drops(uv,t,staticD,l1,l2);',
         '  vec2 e = vec2(0.0015,0.0);',
         '  float cx = Drops(uv+e.xy,t,staticD,l1,l2).x;',
         '  float cy = Drops(uv+e.yx,t,staticD,l1,l2).x;',
-        '  vec2 n = vec2(cx-c.x, cy-c.x);',
+        '  vec2 n = vec2(cx-c.x, cy-c.x);',          // градиент маски = нормаль линзы
         '  float refr = (n.x+n.y)*7.0;',
         '  float drop = c.x;',
         '  float trail = c.y;',
         '  float edge = clamp(abs(refr)*2.0,0.0,1.0);',
-        '  float rain = 0.0;',                        // дождь убран
         '  vec3 col = vec3(0.0); float alpha = 0.0;',
-        '  // капли: деликатная стеклянная линза, мягкий блик по краю',
         '  if (drop>0.001 || trail>0.001){',
-        '    vec3 glass = vec3(0.58,0.68,0.86);',
-        '    vec3 spec  = vec3(0.95,0.98,1.0);',
-        '    col = mix(glass, spec, edge);',
-        '    alpha = clamp(drop*0.10 + trail*0.05 + edge*0.24, 0.0, 0.4);',
+        '    float water = clamp(drop+trail*0.6, 0.0, 1.0);',
+        '    if (iHasTex > 0.5){',
+        // настоящее преломление: смещаем сэмпл текстуры по нормали капли.
+        // знак Y инвертируем — текстура снята в экранных координатах (Y вверх).
+        '      vec2 disp = vec2(n.x, -n.y) * (4.0 + drop*7.0);',   // мягкая линза
+        '      vec2 suv = screen - disp;',
+        '      suv = clamp(suv, 0.001, 0.999);',
+        '      vec3 bg = texture2D(iTex, suv).rgb;',
+        // капля как линза: фон ярче и чуть холоднее + сильный блик по верх-краю
+        '      vec3 tint = bg*vec3(1.08,1.12,1.18) + 0.03;',
+        '      col = mix(tint, vec3(1.0), edge*0.65);',           // блик
+        '      alpha = clamp(water*0.7 + edge*0.3, 0.0, 0.92);',
+        '    } else {',
+        // запасной вид без текстуры (как раньше)
+        '      vec3 glass = vec3(0.58,0.68,0.86);',
+        '      col = mix(glass, vec3(0.95,0.98,1.0), edge);',
+        '      alpha = clamp(drop*0.10 + trail*0.05 + edge*0.24, 0.0, 0.4);',
+        '    }',
         '  }',
-        '  // дождь убран',
-        '  vec3 rainCol = vec3(0.72,0.82,1.0);',
-        '  col = col*alpha + rainCol*rain*0.6;',
-        '  alpha = clamp(alpha + rain*0.18, 0.0, 1.0);',
-        '  gl_FragColor = vec4(col, alpha);',
+        '  gl_FragColor = vec4(col*alpha, alpha);',   // premultiplied
         '}'
       ].join('\n');
 
@@ -1511,8 +1524,47 @@
 
       const uRes = gl.getUniformLocation(prog,'iResolution');
       const uTime = gl.getUniformLocation(prog,'iTime');
+      const uTex = gl.getUniformLocation(prog,'iTex');
+      const uHasTex = gl.getUniformLocation(prog,'iHasTex');
       gl.enable(gl.BLEND);
       gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+
+      // Текстура снимка фона (космос + картины) для настоящего преломления.
+      const bgTex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, bgTex);
+      gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array([0,0,0,0]));
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      let hasTex = 0;
+
+      // Снимок страницы (без canvas капель/дождя) в текстуру через html2canvas.
+      function captureBackground(){
+        if (typeof html2canvas !== 'function') return;
+        const rb = document.getElementById('rainBgCanvas');
+        const rc = document.getElementById('rainCanvas');
+        const prevA = rb ? rb.style.display : '', prevB = rc ? rc.style.display : '';
+        if (rb) rb.style.display = 'none';
+        if (rc) rc.style.display = 'none';
+        html2canvas(document.body, {backgroundColor:'#0a0e1a', scale:0.4, logging:false, useCORS:true})
+          .then(snap => {
+            if (rb) rb.style.display = prevA;
+            if (rc) rc.style.display = prevB;
+            gl.bindTexture(gl.TEXTURE_2D, bgTex);
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);  // привести к экранным UV (Y вверх)
+            gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,snap);
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+            hasTex = 1;
+          })
+          .catch(() => { if (rb) rb.style.display = prevA; if (rc) rc.style.display = prevB; });
+      }
+      // первый снимок чуть позже загрузки, и обновление при ресайзе
+      setTimeout(captureBackground, 400);
+      let capT;
+      window.addEventListener('resize', () => { clearTimeout(capT); capT = setTimeout(captureBackground, 300); });
+      // повторный снимок при открытии/закрытии модалки и скролле
+      window.__recaptureRainBg = () => { clearTimeout(capT); capT = setTimeout(captureBackground, 250); };
 
       function resize(){
         const w = Math.floor(window.innerWidth*DPR);
@@ -1527,6 +1579,10 @@
         resize();
         gl.uniform2f(uRes, cv.width, cv.height);
         gl.uniform1f(uTime, (performance.now()-t0)/1000);
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, bgTex);
+        gl.uniform1i(uTex, 0);
+        gl.uniform1f(uHasTex, hasTex);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
         requestAnimationFrame(frame);
       }
