@@ -1459,6 +1459,21 @@
         '',
         'uniform sampler2D iTex;',                   // снимок фона+картин
         'uniform float iHasTex;',                     // 1.0 если текстура готова
+        // мягкое размытие фона: стекло мокрое, фон НЕ в фокусе, чёткое — в каплях.
+        // WebGL1 без textureLod -> размываем вручную 9 сэмплами по кругу.
+        'vec3 blurTex(vec2 uv, float rad){',
+        '  vec3 s = texture2D(iTex, uv).rgb;',
+        '  vec2 px = vec2(rad) / iResolution.xy;',
+        '  s += texture2D(iTex, uv+vec2( px.x, 0.0)).rgb;',
+        '  s += texture2D(iTex, uv+vec2(-px.x, 0.0)).rgb;',
+        '  s += texture2D(iTex, uv+vec2(0.0,  px.y)).rgb;',
+        '  s += texture2D(iTex, uv+vec2(0.0, -px.y)).rgb;',
+        '  s += texture2D(iTex, uv+vec2( px.x*0.7,  px.y*0.7)).rgb;',
+        '  s += texture2D(iTex, uv+vec2(-px.x*0.7,  px.y*0.7)).rgb;',
+        '  s += texture2D(iTex, uv+vec2( px.x*0.7, -px.y*0.7)).rgb;',
+        '  s += texture2D(iTex, uv+vec2(-px.x*0.7, -px.y*0.7)).rgb;',
+        '  return s / 9.0;',
+        '}',
         'void main(){',
         '  vec2 fc = gl_FragCoord.xy;',
         '  fc.y = iResolution.y - fc.y;',          // Y вниз → капли стекают вниз
@@ -1479,30 +1494,24 @@
         '  if (drop>0.001 || trail>0.001){',
         '    float water = clamp(drop+trail*0.6, 0.0, 1.0);',
         '    if (iHasTex > 0.5){',
-        // ЛОКАЛЬНАЯ линза. Нормаль n измерена с шагом e=0.0015 в координатах,
-        // нормированных по высоте экрана. Чтобы наклон поверхности капли стал
-        // смещением в ПИКСЕЛЯХ, делим на шаг e.x, затем переводим пиксели в
-        // текстурные UV (делим на iResolution). Это привязывает образец к
-        // физическому размеру капли, а не к произвольной амплитуде.
-        '      vec2 slope = vec2(n.x, -n.y) / e.x;',          // наклон в ед/экран-высоту
-        '      vec2 pxDisp = slope * 6.0;',                    // ход луча в пикселях (малый)
-        // ЖЁСТКИЙ предел: образец не дальше LIMIT пикселей от самой капли
-        '      float LIMIT = 14.0;',
-        '      float dl = length(pxDisp);',
-        '      if (dl > LIMIT) pxDisp *= LIMIT / dl;',
-        '      vec2 disp = pxDisp / iResolution.xy;',          // пиксели -> текстурные UV
-        '      vec2 suv = screen + disp;',
-        '      suv = clamp(suv, 0.001, 0.999);',
-        // лёгкая хроматическая аберрация: каналы расходятся вдоль смещения
-        '      vec2 ca = (dl>0.0001 ? pxDisp/dl : vec2(0.0)) * edge * 1.2 / iResolution.xy;',
-        '      float rr = texture2D(iTex, clamp(suv+ca,0.001,0.999)).r;',
-        '      float gg = texture2D(iTex, suv).g;',
-        '      float bb = texture2D(iTex, clamp(suv-ca,0.001,0.999)).b;',
-        '      vec3 bg = vec3(rr, gg, bb);',
-        // капля как линза: фон ярче и чуть холоднее + блик по верх-краю
-        '      vec3 tint = bg*vec3(1.05,1.09,1.16) + 0.02;',
-        '      col = mix(tint, vec3(1.0), edge*0.5);',             // блик
-        '      alpha = clamp(water*0.72 + edge*0.25, 0.0, 0.92);',
+        // Модель Heartfelt (BigWIngs, Shadertoy ltffzl): нормаль маски капель
+        // смещает UV сэмпла фона. n уже в координатах, нормированных по высоте,
+        // переводим в текстурные UV делением на aspect по X.
+        '      float aspect = iResolution.x / iResolution.y;',
+        '      vec2 nrm = vec2(n.x/aspect, -n.y);',
+        // ФОН под стеклом размыт (мокрое стекло, не в фокусе)
+        '      vec3 bgBlur = blurTex(screen, 2.5);',
+        // ВНУТРИ капли — чёткий сэмпл со смещением по нормали (рефракция)
+        '      vec2 ref = screen - nrm * 0.18;',                // 0.18 ~ heartfelt .3*масштаб
+        '      ref = clamp(ref, 0.001, 0.999);',
+        '      vec3 bgSharp = texture2D(iTex, ref).rgb;',
+        // в теле капли показываем чёткое преломление, по краям/трейлу — размытый фон
+        '      float focus = clamp(drop*1.4, 0.0, 1.0);',
+        '      vec3 bg = mix(bgBlur, bgSharp, focus);',
+        // капля как линза: фон чуть ярче и холоднее + блик по верх-краю
+        '      vec3 tint = bg*vec3(1.04,1.08,1.14) + 0.015;',
+        '      col = mix(tint, vec3(1.0), edge*0.45);',           // блик
+        '      alpha = clamp(water*0.78 + edge*0.22, 0.0, 0.94);',
         '    } else {',
         // запасной вид без текстуры (как раньше)
         '      vec3 glass = vec3(0.58,0.68,0.86);',
