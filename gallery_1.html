@@ -1493,30 +1493,44 @@
         '  vec3 col = vec3(0.0); float alpha = 0.0;',
         '  if (drop>0.001 || trail>0.001){',
         '    float water = clamp(drop+trail*0.6, 0.0, 1.0);',
+        '    float nlen = length(n);',
+        // Тонкий контур — пик на краю маски, где nlen максимален.
+        // Делаем его деликатным: rim 0..0.3, не ярко-белый.
+        '    float rim = smoothstep(0.0,0.4,nlen*14.0)*smoothstep(1.0,0.5,nlen*7.0);',
+        '    rim += trail * smoothstep(1.0,0.0,trail*2.5) * 0.25;',
         '    if (iHasTex > 0.5){',
-        // Модель Heartfelt (BigWIngs, Shadertoy ltffzl): нормаль маски капель
-        // смещает UV сэмпла фона. n уже в координатах, нормированных по высоте,
-        // переводим в текстурные UV делением на aspect по X.
         '      float aspect = iResolution.x / iResolution.y;',
-        '      vec2 nrm = vec2(n.x/aspect, -n.y);',
-        // ФОН под стеклом размыт (мокрое стекло, не в фокусе)
-        '      vec3 bgBlur = blurTex(screen, 2.5);',
-        // ВНУТРИ капли — чёткий сэмпл со смещением по нормали (рефракция)
-        '      vec2 ref = screen - nrm * 0.18;',                // 0.18 ~ heartfelt .3*масштаб
-        '      ref = clamp(ref, 0.001, 0.999);',
-        '      vec3 bgSharp = texture2D(iTex, ref).rgb;',
-        // в теле капли показываем чёткое преломление, по краям/трейлу — размытый фон
-        '      float focus = clamp(drop*1.4, 0.0, 1.0);',
-        '      vec3 bg = mix(bgBlur, bgSharp, focus);',
-        // капля как линза: фон чуть ярче и холоднее + блик по верх-краю
-        '      vec3 tint = bg*vec3(1.04,1.08,1.14) + 0.015;',
-        '      col = mix(tint, vec3(1.0), edge*0.45);',           // блик
-        '      alpha = clamp(water*0.78 + edge*0.22, 0.0, 0.94);',
+        // 3D нормаль поверхности капли
+        '      vec2 nxy = vec2(n.x/aspect, -n.y) * 3.0;',
+        '      float nlenXY = length(nxy);',
+        '      float nz = sqrt(max(0.001, 1.0 - min(1.0, nlenXY*nlenXY)));',
+        '      vec3 N = normalize(vec3(nxy, nz));',
+        '      float cosI = clamp(N.z, 0.0, 1.0);',
+        // Fresnel (Schlick), IOR воды 1.333
+        '      float fresnel = 0.02 + 0.98*pow(1.0-cosI, 5.0);',
+        // Снелл: смещение UV пропорционально разнице углов
+        '      float sinI = sqrt(max(0.0, 1.0-cosI*cosI));',
+        '      float sinT = sinI/1.333;',
+        '      float refrAmt = sinI - sinT;',
+        '      vec2 refDir = nlenXY>0.001 ? nxy/nlenXY : vec2(0.0);',
+        '      vec2 refUV = screen - refDir * refrAmt * 0.10;',
+        '      refUV = clamp(refUV, 0.001, 0.999);',
+        // Фон: размытый снаружи, чёткий внутри тела капли
+        '      vec3 bgBlur  = blurTex(screen, 1.8);',
+        '      vec3 bgSharp = texture2D(iTex, refUV).rgb;',
+        '      vec3 bg = mix(bgBlur, bgSharp, clamp(drop*2.0,0.0,1.0));',
+        // Цвет: преломлённый фон, чуть холоднее — как вода
+        '      vec3 tint = bg * vec3(1.015, 1.03, 1.07);',
+        // Fresnel: очень слабый белёсый блик по краям (не засвечиваем)
+        '      vec3 frCol = vec3(0.88,0.94,1.0) * fresnel * 0.12;',
+        // Контур: тонкий холодный ободок, деликатный
+        '      vec3 rimCol = vec3(0.75,0.88,1.0) * rim * 0.28;',
+        '      col = tint + frCol + rimCol;',
+        // Прозрачность: центр почти прозрачный, ободок и Fresnel-край дают стекло
+        '      alpha = clamp(drop*0.42 + trail*0.18 + fresnel*drop*0.30 + rim*0.45, 0.0, 0.90);',
         '    } else {',
-        // запасной вид без текстуры (как раньше)
-        '      vec3 glass = vec3(0.58,0.68,0.86);',
-        '      col = mix(glass, vec3(0.95,0.98,1.0), edge);',
-        '      alpha = clamp(drop*0.10 + trail*0.05 + edge*0.24, 0.0, 0.4);',
+        '      col = vec3(0.75,0.88,1.0);',
+        '      alpha = clamp(drop*0.10 + trail*0.05 + rim*0.20, 0.0, 0.45);',
         '    }',
         '  }',
         '  gl_FragColor = vec4(col*alpha, alpha);',   // premultiplied
