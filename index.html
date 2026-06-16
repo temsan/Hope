@@ -1570,7 +1570,18 @@
         const prevA = rb ? rb.style.display : '', prevB = rc ? rc.style.display : '';
         if (rb) rb.style.display = 'none';
         if (rc) rc.style.display = 'none';
-        html2canvas(document.body, {backgroundColor:'#0a0e1a', scale:0.4, logging:false, useCORS:true})
+        // снимаем ТОЛЬКО видимую область окна (вьюпорт), а не весь body —
+        // иначе текстура содержит всю страницу, а шейдер сэмплит по координатам
+        // окна → образец смещён. С учётом скролла = эффект liquid glass.
+        const sx = window.pageXOffset || 0;
+        const sy = window.pageYOffset || 0;
+        html2canvas(document.body, {
+          backgroundColor:'#0a0e1a', scale:0.4, logging:false, useCORS:true,
+          x: sx, y: sy,
+          width: window.innerWidth, height: window.innerHeight,
+          scrollX: -sx, scrollY: -sy,
+          windowWidth: window.innerWidth, windowHeight: window.innerHeight
+        })
           .then(snap => {
             if (rb) rb.style.display = prevA;
             if (rc) rc.style.display = prevB;
@@ -1586,7 +1597,10 @@
       setTimeout(captureBackground, 400);
       let capT;
       window.addEventListener('resize', () => { clearTimeout(capT); capT = setTimeout(captureBackground, 300); });
-      // повторный снимок при открытии/закрытии модалки и скролле
+      // liquid glass: пересъёмка фона при скролле, чтобы под каплями был
+      // актуальный кадр. Дебаунс — снимок после остановки прокрутки.
+      window.addEventListener('scroll', () => { clearTimeout(capT); capT = setTimeout(captureBackground, 120); }, {passive:true});
+      // повторный снимок при открытии/закрытии модалки
       window.__recaptureRainBg = () => { clearTimeout(capT); capT = setTimeout(captureBackground, 250); };
 
       function resize(){
