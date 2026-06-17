@@ -1500,37 +1500,57 @@
         '    rim += trail * smoothstep(1.0,0.0,trail*2.5) * 0.25;',
         '    if (iHasTex > 0.5){',
         '      float aspect = iResolution.x / iResolution.y;',
-        // 3D нормаль поверхности капли
-        '      vec2 nxy = vec2(n.x/aspect, -n.y) * 3.0;',
+        // 3D нормаль поверхности капли (сфера: nxy — тангенциальные компоненты)
+        '      vec2 nxy = vec2(n.x/aspect, -n.y) * 3.5;',
         '      float nlenXY = length(nxy);',
         '      float nz = sqrt(max(0.001, 1.0 - min(1.0, nlenXY*nlenXY)));',
         '      vec3 N = normalize(vec3(nxy, nz));',
         '      float cosI = clamp(N.z, 0.0, 1.0);',
         // Fresnel (Schlick), IOR воды 1.333
         '      float fresnel = 0.02 + 0.98*pow(1.0-cosI, 5.0);',
-        // Снелл: смещение UV пропорционально разнице углов
+        // Snell: смещение UV пропорционально разнице углов
         '      float sinI = sqrt(max(0.0, 1.0-cosI*cosI));',
         '      float sinT = sinI/1.333;',
         '      float refrAmt = sinI - sinT;',
         '      vec2 refDir = nlenXY>0.001 ? nxy/nlenXY : vec2(0.0);',
-        '      vec2 refUV = screen - refDir * refrAmt * 0.10;',
-        '      refUV = clamp(refUV, 0.001, 0.999);',
-        // Фон: размытый снаружи, чёткий внутри тела капли
-        '      vec3 bgBlur  = blurTex(screen, 1.8);',
-        '      vec3 bgSharp = texture2D(iTex, refUV).rgb;',
-        '      vec3 bg = mix(bgBlur, bgSharp, clamp(drop*2.0,0.0,1.0));',
-        // Цвет: преломлённый фон, чуть холоднее — как вода
-        '      vec3 tint = bg * vec3(1.015, 1.03, 1.07);',
-        // Fresnel: очень слабый белёсый блик по краям (не засвечиваем)
-        '      vec3 frCol = vec3(0.88,0.94,1.0) * fresnel * 0.12;',
-        // Контур: тонкий холодный ободок, деликатный
-        '      vec3 rimCol = vec3(0.75,0.88,1.0) * rim * 0.28;',
-        '      col = tint + frCol + rimCol;',
-        // Прозрачность: центр почти прозрачный, ободок и Fresnel-край дают стекло
-        '      alpha = clamp(drop*0.42 + trail*0.18 + fresnel*drop*0.30 + rim*0.45, 0.0, 0.90);',
+        // Сильная рефракция — капля как настоящая линза
+        '      float lensStr = 0.22;',
+        '      vec2 refUV = screen - refDir * refrAmt * lensStr;',
+        // Chromatic aberration: RGB на разных UV (призматическое разложение)
+        '      float ca = refrAmt * lensStr * 0.012;',
+        '      vec2 caOff = refDir * ca;',
+        '      vec2 uvR = clamp(refUV + caOff,       0.001, 0.999);',
+        '      vec2 uvG = clamp(refUV,               0.001, 0.999);',
+        '      vec2 uvB = clamp(refUV - caOff,       0.001, 0.999);',
+        // Lens magnification: центр капли слегка увеличивает (как лупа)
+        '      vec2 lensCenter = screen;',
+        '      float magnify = 1.0 + drop * 0.08;',
+        '      uvR = clamp(lensCenter + (uvR - lensCenter)/magnify, 0.001, 0.999);',
+        '      uvG = clamp(lensCenter + (uvG - lensCenter)/magnify, 0.001, 0.999);',
+        '      uvB = clamp(lensCenter + (uvB - lensCenter)/magnify, 0.001, 0.999);',
+        // Фон: размытый снаружи капли, чёткий+цветоразделённый внутри
+        '      vec3 bgBlur = blurTex(screen, 2.2);',
+        '      float inDrop = clamp(drop*2.5, 0.0, 1.0);',
+        '      float bgR = mix(bgBlur.r, texture2D(iTex, uvR).r, inDrop);',
+        '      float bgG = mix(bgBlur.g, texture2D(iTex, uvG).g, inDrop);',
+        '      float bgB = mix(bgBlur.b, texture2D(iTex, uvB).b, inDrop);',
+        '      vec3 bg = vec3(bgR, bgG, bgB);',
+        // Лёгкий холодный тинт воды
+        '      vec3 tint = bg * vec3(1.01, 1.025, 1.06);',
+        // Specular highlight: имитация точечного источника сверху-слева
+        '      vec3 L = normalize(vec3(-0.4, -0.7, 0.6));',
+        '      float spec = pow(max(0.0, dot(N, L)), 32.0);',
+        '      vec3 specCol = vec3(1.0, 1.0, 1.0) * spec * 0.55;',
+        // Fresnel: яркий блик по краям
+        '      vec3 frCol = vec3(0.9, 0.95, 1.0) * fresnel * 0.18;',
+        // Rim: выраженный контур стеклянного шарика
+        '      vec3 rimCol = vec3(0.8, 0.92, 1.0) * rim * 0.55;',
+        '      col = tint + specCol + frCol + rimCol;',
+        // Прозрачность: центр виден как линза, края непрозрачнее (Fresnel + rim)
+        '      alpha = clamp(drop*0.50 + trail*0.20 + fresnel*drop*0.35 + spec*0.40 + rim*0.55, 0.0, 0.95);',
         '    } else {',
         '      col = vec3(0.75,0.88,1.0);',
-        '      alpha = clamp(drop*0.10 + trail*0.05 + rim*0.20, 0.0, 0.45);',
+        '      alpha = clamp(drop*0.12 + trail*0.06 + rim*0.25, 0.0, 0.50);',
         '    }',
         '  }',
         '  gl_FragColor = vec4(col*alpha, alpha);',   // premultiplied
