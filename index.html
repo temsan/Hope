@@ -1475,6 +1475,23 @@
         '  s += texture2D(iTex, uv+vec2(-px.x*0.7, -px.y*0.7)).rgb;',
         '  return s / 9.0;',
         '}',
+        // Процедурный космос-фон для преломления: градиент ночного неба + звёзды.
+        // Используется как fallback там где snapshot тёмный → капля всегда искажает
+        // что-то осмысленное, а не чёрноту. uvN — нормализованные экранные UV.
+        'vec3 cosmosBG(vec2 uvN){',
+        '  vec3 top = vec3(0.04,0.06,0.13);',          // тёмно-синий верх
+        '  vec3 bot = vec3(0.10,0.08,0.18);',          // фиолетовый низ
+        '  vec3 sky = mix(bot, top, uvN.y);',
+        // звёзды: хеш-сетка, редкие яркие точки
+        '  vec2 g = uvN * vec2(iResolution.x/iResolution.y, 1.0) * 90.0;',
+        '  vec2 id = floor(g);',
+        '  vec2 f = fract(g) - 0.5;',
+        '  vec3 h = N13(id.x*51.7 + id.y*1237.3);',
+        '  float star = step(0.93, h.x) * smoothstep(0.18, 0.0, length(f));',
+        '  float tw = 0.6 + 0.4*sin(iTime*2.0 + h.z*30.0);',  // мерцание
+        '  sky += vec3(0.9,0.95,1.0) * star * tw;',
+        '  return sky;',
+        '}',
         'void main(){',
         '  vec2 fc = gl_FragCoord.xy;',
         '  fc.y = iResolution.y - fc.y;',          // Y вниз → капли стекают вниз
@@ -1494,9 +1511,6 @@
         '  vec3 col = vec3(0.0); float alpha = 0.0;',
         '  if (drop>0.001 || trail>0.001){',
         '    float nlen = length(n);',
-        // Капля — прозрачное оптическое стекло. НЕ заливаем фоном (snapshot
-        // ненадёжен над космосом → чёрные дыры). Только блики: specular, rim,
-        // fresnel-кайма. Сквозь каплю всегда видна страница.
         '    float aspect = iResolution.x / iResolution.y;',
         // 3D нормаль сферической поверхности капли
         '    vec2 nxy = vec2(n.x/aspect, -n.y) * 4.0;',
@@ -1504,22 +1518,62 @@
         '    float nz = sqrt(max(0.001, 1.0 - min(1.0, nlenXY*nlenXY)));',
         '    vec3 N = normalize(vec3(nxy, nz));',
         '    float cosI = clamp(N.z, 0.0, 1.0);',
-        // Fresnel (Schlick) — ярче по краям, где стекло смотрится вскользь
+        // Fresnel (Schlick)
         '    float fresnel = 0.02 + 0.98*pow(1.0-cosI, 5.0);',
-        // Тонкий ободок — самый край капли (пик градиента)
+        // Тонкий ободок по краю
         '    float rim = smoothstep(0.0,0.3,nlen*15.0)*smoothstep(1.0,0.55,nlen*8.5);',
         '    rim += trail * smoothstep(1.0,0.0,trail*3.0) * 0.10;',
-        // Полностью прозрачная капля: тело НЕ заливаем (alpha тела = 0).
-        // Видна только как тончайшее искажение света по контуру — как чистое
-        // стекло. Один маленький острый блик-точка (без него капля совсем
-        // невидима). Никакой заливки фоном, никакого цветного пятна.
+        // ── НАСТОЯЩАЯ ЛИНЗА: преломление фона по закону Снелла ──
+        // Snell: смещение UV пропорционально (sinI - sinT)
+        '    float sinI = sqrt(max(0.0, 1.0-cosI*cosI));',
+        '    float sinT = sinI/1.333;',
+        '    float refrAmt = (sinI - sinT) * 0.35;',     // сила линзы
+        '    vec2 refDir = nlenXY>0.001 ? nxy/nlenXY : vec2(0.0);',
+        '    vec2 baseUV = screen - refDir*refrAmt;',
+        // Chromatic aberration — призматическое разложение по краям линзы
+        '    float ca = refrAmt * 0.04;',
+        '    vec2 uvR = clamp(baseUV - refDir*ca, 0.001, 0.999);',
+        '    vec2 uvG = clamp(baseUV,             0.001, 0.999);',
+        '    vec2 uvB = clamp(baseUV + refDir*ca, 0.001, 0.999);',
+        // Фон под каплей: snapshot (реальный контент). Где его нет/тёмный —
+        // подмешиваем процедурный космос, чтобы линза всегда искажала что-то.
+        '    vec3 cosmosR = cosmosBG(uvR);',
+        '    vec3 cosmosG = cosmosBG(uvG);',
+        '    vec3 cosmosB = cosmosBG(uvB);',
+        '    vec3 refr3;',
+        '    if (iHasTex > 0.5){',
+        '      vec3 snapC = vec3(texture2D(iTex,uvR).r, texture2D(iTex,uvG).g, texture2D(iTex,uvB).b);',
+        '      vec3 cosmosC = vec3(cosmosR.r, cosmosG.g, cosmosB.b);',
+        // где snapshot почти чёрный (космос-зоны) → берём процедурный космос
+        '      float lum = dot(snapC, vec3(0.299,0.587,0.114));',
+        '      float useSnap = smoothstep(0.04, 0.12, lum);',
+        '      refr3 = mix(cosmosC, snapC, useSnap);',
+        '    } else {',
+        '      refr3 = vec3(cosmosR.r, cosmosG.g, cosmosB.b);',
+        '    }',
+        // Прямой (непреломлённый) фон в той же точке — для смешивания по краю капли
+        '    vec3 straight;',
+        '    if (iHasTex > 0.5){',
+        '      vec3 sn = texture2D(iTex, screen).rgb;',
+        '      float lum0 = dot(sn, vec3(0.299,0.587,0.114));',
+        '      straight = mix(cosmosBG(screen), sn, smoothstep(0.04,0.12,lum0));',
+        '    } else { straight = cosmosBG(screen); }',
+        // Внутри тела капли — преломлённый фон; на самом краю плавно к прямому
+        '    float body = smoothstep(0.0, 0.25, drop);',
+        '    vec3 lens = mix(straight, refr3, body);',
+        // Холодный тинт воды + лёгкое затемнение центра (толщина стекла)
+        '    lens *= vec3(0.97,0.99,1.04);',
+        // Specular — острый блик
         '    vec3 L = normalize(vec3(-0.5, -0.6, 0.6));',
-        '    float spec = pow(max(0.0, dot(N, L)), 90.0) * drop;',  // очень острый, точка
-        // Цвет — только белый блик и едва заметная светлая кайма по краю
-        '    col = vec3(1.0,1.0,1.0) * spec * 0.9',
-        '        + vec3(0.85,0.93,1.0) * rim * 0.35;',
-        // Альфа: тело ПОЛНОСТЬЮ прозрачно. Видны лишь блик-точка и тонкий контур.
-        '    alpha = clamp(spec*0.85 + rim*0.30 + fresnel*drop*0.10, 0.0, 0.70);',
+        '    float spec = pow(max(0.0, dot(N, L)), 80.0) * drop;',
+        // Финал: линза показывает искажённый фон + блик + контур + fresnel-кайма
+        '    col = lens',
+        '        + vec3(1.0,1.0,1.0) * spec * 0.9',
+        '        + vec3(0.85,0.93,1.0) * rim * 0.4',
+        '        + vec3(0.85,0.93,1.0) * fresnel * drop * 0.12;',
+        // Альфа: тело капли непрозрачно (показывает искажённый фон = линза),
+        // плавно к 0 на краю + блики. trail — тонкий мокрый след.
+        '    alpha = clamp(body*0.92 + spec*0.6 + rim*0.4 + trail*0.14, 0.0, 0.96);',
         '  }',
         '  gl_FragColor = vec4(col*alpha, alpha);',   // premultiplied
         '}'
@@ -1578,7 +1632,7 @@
         const sx = window.pageXOffset || 0;
         const sy = window.pageYOffset || 0;
         html2canvas(document.body, {
-          backgroundColor:'#0a0e1a', scale:0.4, logging:false, useCORS:true,
+          backgroundColor:'#0a0e1a', scale:0.5, logging:false, useCORS:true,
           x: sx, y: sy,
           width: window.innerWidth, height: window.innerHeight,
           scrollX: -sx, scrollY: -sy,
@@ -1595,10 +1649,18 @@
           })
           .catch(() => { if (rb) rb.style.display = prevA; if (rc) rc.style.display = prevB; });
       }
-      // Капли теперь чисто оптические (без snapshot-заливки) — html2canvas
-      // больше не нужен. captureBackground оставлен в коде, но не вызывается.
-      void captureBackground;
-      window.__recaptureRainBg = () => {};
+      // Настоящая линза: snapshot нужен для преломления реального контента.
+      // В lightMode не снимаем (телефон) — там процедурный космос-fallback в шейдере.
+      let capT;
+      if (!lightMode) {
+        setTimeout(captureBackground, 500);
+        window.addEventListener('resize', () => { clearTimeout(capT); capT = setTimeout(captureBackground, 300); });
+        // пересъёмка после остановки скролла (liquid glass) и при открытии модалки
+        window.addEventListener('scroll', () => { clearTimeout(capT); capT = setTimeout(captureBackground, 160); }, {passive:true});
+        window.__recaptureRainBg = () => { clearTimeout(capT); capT = setTimeout(captureBackground, 250); };
+      } else {
+        window.__recaptureRainBg = () => {};
+      }
 
       function resize(){
         const w = Math.floor(window.innerWidth*DPR);
