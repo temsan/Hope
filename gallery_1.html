@@ -1497,12 +1497,12 @@
         '    float nlen = length(n);',
         // Тонкий контур — пик на краю маски, где nlen максимален.
         // Делаем его деликатным: rim 0..0.3, не ярко-белый.
-        // Тонкий ободок только по самому краю капли (peak nlen)
-        '    float rim = smoothstep(0.0,0.3,nlen*16.0)*smoothstep(1.0,0.6,nlen*9.0);',
-        '    rim += trail * smoothstep(1.0,0.0,trail*2.5) * 0.15;',
+        // Ободок на самом краю капли (пик градиента нормали)
+        '    float rim = smoothstep(0.0,0.35,nlen*14.0)*smoothstep(1.0,0.55,nlen*8.0);',
+        '    rim += trail * smoothstep(1.0,0.0,trail*2.5) * 0.12;',
         '    if (iHasTex > 0.5){',
         '      float aspect = iResolution.x / iResolution.y;',
-        // 3D нормаль поверхности капли (сфера)
+        // 3D нормаль поверхности капли
         '      vec2 nxy = vec2(n.x/aspect, -n.y) * 3.5;',
         '      float nlenXY = length(nxy);',
         '      float nz = sqrt(max(0.001, 1.0 - min(1.0, nlenXY*nlenXY)));',
@@ -1510,48 +1510,41 @@
         '      float cosI = clamp(N.z, 0.0, 1.0);',
         // Fresnel (Schlick), IOR воды 1.333
         '      float fresnel = 0.02 + 0.98*pow(1.0-cosI, 5.0);',
-        // Snell: смещение UV
+        // Snell: UV-смещение
         '      float sinI = sqrt(max(0.0, 1.0-cosI*cosI));',
         '      float sinT = sinI/1.333;',
         '      float refrAmt = sinI - sinT;',
         '      vec2 refDir = nlenXY>0.001 ? nxy/nlenXY : vec2(0.0);',
-        // Линза: сильное смещение фона
-        '      float lensStr = 0.22;',
-        '      vec2 refUV = screen - refDir * refrAmt * lensStr;',
-        // Chromatic aberration: тонкое, по краям сильнее
-        '      float ca = refrAmt * lensStr * 0.008;',
-        '      vec2 caOff = refDir * ca;',
-        '      vec2 uvR = clamp(refUV + caOff, 0.001, 0.999);',
-        '      vec2 uvG = clamp(refUV,         0.001, 0.999);',
-        '      vec2 uvB = clamp(refUV - caOff, 0.001, 0.999);',
-        // Лупа: лёгкое увеличение в центре
-        '      float magnify = 1.0 + drop * 0.07;',
-        '      uvR = clamp(screen + (uvR-screen)/magnify, 0.001, 0.999);',
-        '      uvG = clamp(screen + (uvG-screen)/magnify, 0.001, 0.999);',
-        '      uvB = clamp(screen + (uvB-screen)/magnify, 0.001, 0.999);',
-        // Фон: чёткий внутри (линза), размытый снаружи
-        '      vec3 bgBlur = blurTex(screen, 2.0);',
-        '      float inDrop = clamp(drop*3.0, 0.0, 1.0);',
-        '      float bgR = mix(bgBlur.r, texture2D(iTex, uvR).r, inDrop);',
-        '      float bgG = mix(bgBlur.g, texture2D(iTex, uvG).g, inDrop);',
-        '      float bgB = mix(bgBlur.b, texture2D(iTex, uvB).b, inDrop);',
-        '      vec3 bg = vec3(bgR, bgG, bgB);',
-        // Холодный тинт воды
-        '      vec3 tint = bg * vec3(1.01, 1.02, 1.05);',
-        // Маленький аккуратный specular — блик, не пятно
+        '      vec2 refUV = clamp(screen - refDir*refrAmt*0.20, 0.001, 0.999);',
+        // Рефракция заметна только там где есть реальное смещение (по краям линзы).
+        // Сравниваем сэмпл смещённого UV с исходным — разница = "линзовый эффект".
+        // Центр: смещение мало → delta≈0 → cap прозрачен → сквозь него видна страница.
+        '      vec3 bgAt    = texture2D(iTex, refUV).rgb;',
+        '      vec3 bgOrig  = texture2D(iTex, screen).rgb;',
+        '      vec3 refDiff = bgAt - bgOrig;',
+        // Chromatic aberration на смещение (не на итоговый цвет)
+        '      float ca = refrAmt * 0.20 * 0.010;',
+        '      float caR = texture2D(iTex, clamp(screen-(refDir+vec2(ca,0.))*refrAmt*0.20,0.001,0.999)).r - bgOrig.r;',
+        '      float caB = texture2D(iTex, clamp(screen-(refDir-vec2(ca,0.))*refrAmt*0.20,0.001,0.999)).b - bgOrig.b;',
+        '      refDiff.r = caR; refDiff.b = caB;',
+        // Strength рефракции: сильна по краю линзы (refrAmt большой), слаба в центре
+        '      float refStr = clamp(refrAmt * 4.0, 0.0, 1.0);',
+        // Specular: точечный блик сверху-слева, острый
         '      vec3 L = normalize(vec3(-0.5, -0.7, 0.5));',
-        '      float spec = pow(max(0.0, dot(N, L)), 48.0);',
-        '      vec3 specCol = vec3(1.0, 1.0, 1.0) * spec * 0.35;',
-        // Fresnel: тонкое по краям (не бублик)
-        '      vec3 frCol = vec3(0.9, 0.95, 1.0) * fresnel * 0.10;',
-        // Rim: тонкий контур, не белый
-        '      vec3 rimCol = vec3(0.7, 0.85, 1.0) * rim * 0.30;',
-        '      col = tint + specCol + frCol + rimCol;',
-        // Альфа: центр плотный (видна линза!), края чуть прозрачнее
-        '      alpha = clamp(drop*0.70 + trail*0.22 + spec*0.25 + rim*0.20, 0.0, 0.92);',
+        '      float spec = pow(max(0.0, dot(N, L)), 56.0);',
+        // Финальный цвет: ТОЛЬКО блики. Canvas прозрачен — страница видна сквозь.
+        // refDiff смещает цвет фона (рефракция), не закрашивает его.
+        '      vec3 specCol = vec3(1.0,1.0,1.0) * spec * 0.60;',
+        '      vec3 rimCol  = vec3(0.75,0.90,1.0) * rim * 0.50;',
+        '      vec3 frCol   = vec3(0.85,0.95,1.0) * fresnel * 0.12;',
+        '      col = refDiff * refStr + specCol + rimCol + frCol;',
+        // Альфа: только там где есть видимые блики или рефракция.
+        // Центр капли почти полностью прозрачен → страница видна насквозь.
+        '      float refA = clamp(length(refDiff)*refStr*3.0, 0.0, 0.60);',
+        '      alpha = clamp(refA + spec*0.55 + rim*0.45 + trail*0.12, 0.0, 0.88);',
         '    } else {',
         '      col = vec3(0.75,0.88,1.0);',
-        '      alpha = clamp(drop*0.12 + trail*0.06 + rim*0.20, 0.0, 0.45);',
+        '      alpha = clamp(drop*0.10 + trail*0.05 + rim*0.20, 0.0, 0.40);',
         '    }',
         '  }',
         '  gl_FragColor = vec4(col*alpha, alpha);',   // premultiplied
