@@ -1493,50 +1493,37 @@
         '  float edge = clamp(abs(refr)*2.0,0.0,1.0);',
         '  vec3 col = vec3(0.0); float alpha = 0.0;',
         '  if (drop>0.001 || trail>0.001){',
-        '    float water = clamp(drop+trail*0.6, 0.0, 1.0);',
         '    float nlen = length(n);',
-        // Тонкий контур — пик на краю маски, где nlen максимален.
-        // Делаем его деликатным: rim 0..0.3, не ярко-белый.
-        // Тонкий ободок — только самый край капли
+        // Капля — прозрачное оптическое стекло. НЕ заливаем фоном (snapshot
+        // ненадёжен над космосом → чёрные дыры). Только блики: specular, rim,
+        // fresnel-кайма. Сквозь каплю всегда видна страница.
+        '    float aspect = iResolution.x / iResolution.y;',
+        // 3D нормаль сферической поверхности капли
+        '    vec2 nxy = vec2(n.x/aspect, -n.y) * 4.0;',
+        '    float nlenXY = length(nxy);',
+        '    float nz = sqrt(max(0.001, 1.0 - min(1.0, nlenXY*nlenXY)));',
+        '    vec3 N = normalize(vec3(nxy, nz));',
+        '    float cosI = clamp(N.z, 0.0, 1.0);',
+        // Fresnel (Schlick) — ярче по краям, где стекло смотрится вскользь
+        '    float fresnel = 0.02 + 0.98*pow(1.0-cosI, 5.0);',
+        // Тонкий ободок — самый край капли (пик градиента)
         '    float rim = smoothstep(0.0,0.3,nlen*15.0)*smoothstep(1.0,0.55,nlen*8.5);',
         '    rim += trail * smoothstep(1.0,0.0,trail*3.0) * 0.10;',
-        '    if (iHasTex > 0.5){',
-        '      float aspect = iResolution.x / iResolution.y;',
-        // Нормаль сферической линзы
-        '      vec2 nxy = vec2(n.x/aspect, -n.y) * 4.0;',
-        '      float nlenXY = length(nxy);',
-        '      float nz = sqrt(max(0.001, 1.0 - min(1.0, nlenXY*nlenXY)));',
-        '      vec3 N = normalize(vec3(nxy, nz));',
-        '      float cosI = clamp(N.z, 0.0, 1.0);',
-        // Fresnel (Schlick)
-        '      float fresnel = 0.02 + 0.98*pow(1.0-cosI, 5.0);',
-        // Snell — смещение UV
-        '      float sinI = sqrt(max(0.0, 1.0-cosI*cosI));',
-        '      float sinT = sinI/1.333;',
-        '      float refrAmt = (sinI - sinT) * 0.22;',
-        '      vec2 refDir = nlenXY>0.001 ? nxy/nlenXY : vec2(0.0);',
-        // Chromatic aberration: R и B чуть разнесены
-        '      float ca = refrAmt * 0.06;',
-        '      float bgR = texture2D(iTex, clamp(screen - (refDir+vec2(ca, 0.0))*refrAmt, 0.001,0.999)).r;',
-        '      float bgG = texture2D(iTex, clamp(screen - refDir*refrAmt,                 0.001,0.999)).g;',
-        '      float bgB = texture2D(iTex, clamp(screen - (refDir-vec2(ca, 0.0))*refrAmt, 0.001,0.999)).b;',
-        '      vec3 bg = vec3(bgR, bgG, bgB);',
-        // Линза показывает смещённый фон напрямую — без tint, без mix
-        // Specular: маленький острый блик
-        '      vec3 L = normalize(vec3(-0.5, -0.6, 0.6));',
-        '      float spec = pow(max(0.0, dot(N, L)), 64.0) * drop;',
-        '      col = bg',
-        '          + vec3(1.0,1.0,1.0)      * spec  * 0.70',
-        '          + vec3(0.80,0.92,1.0)    * rim   * 0.55',
-        '          + vec3(0.85,0.95,1.0)    * fresnel * drop * 0.15;',
-        // Альфа: внутри капли = snapshot (непрозрачно, но это смещённый фон).
-        // По краю — rim добавляет контур. Trail — тонкий след.
-        '      alpha = clamp(drop*0.96 + spec*0.30 + rim*0.50 + trail*0.15, 0.0, 0.97);',
-        '    } else {',
-        // Нет snapshot — просто голубоватое стекло
-        '      col = vec3(0.78,0.91,1.0);',
-        '      alpha = clamp(drop*0.15 + trail*0.07 + rim*0.25, 0.0, 0.45);',
-        '    }',
+        // Specular: острый точечный блик от источника сверху-слева
+        '    vec3 L = normalize(vec3(-0.5, -0.6, 0.6));',
+        '    float spec = pow(max(0.0, dot(N, L)), 64.0) * drop;',
+        // Second softer highlight снизу-справа (отражённый свет)
+        '    vec3 L2 = normalize(vec3(0.4, 0.5, 0.7));',
+        '    float spec2 = pow(max(0.0, dot(N, L2)), 24.0) * drop * 0.4;',
+        // Цвет: холодноватое стекло. Блики белые, тело — лёгкий голубой оттенок.
+        // Светлеет к краю за счёт fresnel — как реальная капля на стекле.
+        '    vec3 glass = vec3(0.80, 0.90, 1.0);',
+        '    col = glass * (spec + spec2 + fresnel*drop*0.25)',
+        '        + vec3(1.0,1.0,1.0) * spec * 0.5',
+        '        + vec3(0.78,0.90,1.0) * rim * 0.6;',
+        // Альфа: тело капли едва заметно (0.08), блики и края — плотнее.
+        // Сквозь центр всегда видна страница → никаких чёрных дыр.
+        '    alpha = clamp(drop*0.08 + fresnel*drop*0.35 + spec*0.7 + spec2*0.5 + rim*0.55 + trail*0.10, 0.0, 0.85);',
         '  }',
         '  gl_FragColor = vec4(col*alpha, alpha);',   // premultiplied
         '}'
@@ -1612,17 +1599,10 @@
           })
           .catch(() => { if (rb) rb.style.display = prevA; if (rc) rc.style.display = prevB; });
       }
-      // В lightMode html2canvas не грузим совсем — iHasTex остаётся 0 навсегда
-      if (!lightMode) {
-        // первый снимок чуть позже загрузки
-        setTimeout(captureBackground, 400);
-        let capT;
-        // обновляем фон только при resize — при скролле НЕ пересоздаём:
-        // пересъёмка при скролле смещает UV-сэмпл и капли "прыгают"
-        window.addEventListener('resize', () => { clearTimeout(capT); capT = setTimeout(captureBackground, 300); });
-        // повторный снимок при открытии/закрытии модалки
-        window.__recaptureRainBg = () => { clearTimeout(capT); capT = setTimeout(captureBackground, 250); };
-      }
+      // Капли теперь чисто оптические (без snapshot-заливки) — html2canvas
+      // больше не нужен. captureBackground оставлен в коде, но не вызывается.
+      void captureBackground;
+      window.__recaptureRainBg = () => {};
 
       function resize(){
         const w = Math.floor(window.innerWidth*DPR);
