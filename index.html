@@ -1355,14 +1355,15 @@
       requestAnimationFrame(step);
     }
 
-    function __startRain(){
+    function __startRain(lightMode){
       if (window.__rainRunning) return;
       const cv = document.getElementById('rainCanvas');
       const gl = cv.getContext('webgl', {alpha:true, premultipliedAlpha:true})
               || cv.getContext('experimental-webgl', {alpha:true, premultipliedAlpha:true});
       if (!gl){ return; } // нет WebGL — фон остаётся чистым
       window.__rainRunning = true;
-      const DPR = Math.min(window.devicePixelRatio || 1, 1.5);
+      // lightMode (средний телефон): DPR=1, нет html2canvas, нет рефракции
+      const DPR = lightMode ? 1.0 : Math.min(window.devicePixelRatio || 1, 1.5);
 
       const VS = 'attribute vec2 p; void main(){ gl_Position = vec4(p,0.0,1.0); }';
 
@@ -1627,15 +1628,17 @@
           })
           .catch(() => { if (rb) rb.style.display = prevA; if (rc) rc.style.display = prevB; });
       }
-      // первый снимок чуть позже загрузки, и обновление при ресайзе
-      setTimeout(captureBackground, 400);
-      let capT;
-      window.addEventListener('resize', () => { clearTimeout(capT); capT = setTimeout(captureBackground, 300); });
-      // liquid glass: пересъёмка фона при скролле, чтобы под каплями был
-      // актуальный кадр. Дебаунс — снимок после остановки прокрутки.
-      window.addEventListener('scroll', () => { clearTimeout(capT); capT = setTimeout(captureBackground, 120); }, {passive:true});
-      // повторный снимок при открытии/закрытии модалки
-      window.__recaptureRainBg = () => { clearTimeout(capT); capT = setTimeout(captureBackground, 250); };
+      // В lightMode html2canvas не грузим совсем — iHasTex остаётся 0 навсегда
+      if (!lightMode) {
+        // первый снимок чуть позже загрузки
+        setTimeout(captureBackground, 400);
+        let capT;
+        // обновляем фон только при resize — при скролле НЕ пересоздаём:
+        // пересъёмка при скролле смещает UV-сэмпл и капли "прыгают"
+        window.addEventListener('resize', () => { clearTimeout(capT); capT = setTimeout(captureBackground, 300); });
+        // повторный снимок при открытии/закрытии модалки
+        window.__recaptureRainBg = () => { clearTimeout(capT); capT = setTimeout(captureBackground, 250); };
+      }
 
       function resize(){
         const w = Math.floor(window.innerWidth*DPR);
@@ -1659,10 +1662,29 @@
       }
       requestAnimationFrame(frame);
     }
+    // Определяем уровень производительности устройства:
+    // 0 = слабый телефон (дождь отключён), 1 = средний (капли без рефракции фона),
+    // 2 = десктоп/мощный (полный эффект с chromatic aberration и html2canvas).
+    function __perfTier(){
+      const touch = window.matchMedia('(pointer: coarse)').matches;
+      const mem = navigator.deviceMemory || 4;          // GB, Chrome-only (Safari → 4)
+      const cores = navigator.hardwareConcurrency || 4;
+      const dpr = window.devicePixelRatio || 1;
+      // Совсем слабый: touch + мало памяти или мало ядер
+      if (touch && (mem <= 2 || cores <= 2)) return 0;
+      // Средний: touch-устройство (смартфон/планшет)
+      if (touch) return 1;
+      // Мощный: десктоп / ноут
+      return 2;
+    }
+
     // Запуск после полной загрузки — не блокирует первичный рендер
     function __startAll(){
+      const tier = __perfTier();
+      if (tier === 0) return; // слабый телефон — без дождя
       requestAnimationFrame(__startRainBg);
-      requestAnimationFrame(__startRain);
+      // tier=1 → lightMode: нет html2canvas, нет рефракции фона (iHasTex=0 навсегда)
+      requestAnimationFrame(() => __startRain(tier < 2));
     }
     if (document.readyState === 'complete') {
       __startAll();
