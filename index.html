@@ -2431,50 +2431,52 @@
             });
         }
 
-        // Равномерное размещение слотов по всей площади палитры.
-        // Перебираем регулярную сетку внутри тела-эллипса, исключаем отверстие,
-        // затем змейкой по рядам — чтобы соседи лежали рядом и перетекали градиентом.
+        // Равномерное размещение слотов по телу палитры.
+        // Гексагональная упаковка: ряды смещены на полшага — максимально равномерно
+        // заполняет произвольную форму без пустых зон по углам.
         function buildPaletteSlots(count) {
-            // Тело палитры (по svg-path): эллипс центр Cx,Cy, полуоси Rx,Ry
             const Cx = 160, Cy = 108, Rx = 116, Ry = 80;
-            // Отверстие для пальца (обходим с запасом)
-            const Hx = 224, Hy = 132, Hr = 36;
+            const Hx = 224, Hy = 132, Hr = 40; // отверстие с запасом
             const inBody = (x, y) => {
-                // ниже центра тело сужается сильнее → строже порог снизу
-                const ry = y > Cy ? Ry * 0.74 : Ry;
-                const dx = (x - Cx) / Rx, dy = (y - Cy) / ry;
-                return dx*dx + dy*dy <= 0.82;                 // внутрь края, без свисания
+                const dx = (x - Cx) / Rx, dy = (y - Cy) / Ry;
+                return dx*dx + dy*dy <= 0.90; // чуть ближе к краю
             };
             const inHole = (x, y) => Math.hypot(x - Hx, y - Hy) < Hr;
+            const valid  = (x, y) => inBody(x, y) && !inHole(x, y);
 
-            // Сетку делаем плотнее нужного, потом равномерно прореживаем.
-            // Подбираем число столбцов так, чтобы валидных ячеек было >= count.
-            for (let cols = 4; cols <= 9; cols++) {
-                const rows = Math.max(3, Math.round(cols * (Ry / Rx) * 1.4));
+            // Подбираем шаг гексагональной сетки: уменьшаем пока не наберём >= count точек.
+            // Начинаем с крупного шага, сжимаем.
+            for (let step = 38; step >= 14; step -= 2) {
+                const hStep = step;               // горизонтальный шаг
+                const vStep = step * 0.866;       // вертикальный шаг (sqrt(3)/2)
                 const cells = [];
-                for (let r = 0; r < rows; r++) {
-                    const fy = (r + 0.5) / rows;
-                    const y = Cy - Ry + fy * 2 * Ry;
-                    const rowCells = [];
-                    for (let c = 0; c < cols; c++) {
-                        const fx = (c + 0.5) / cols;
-                        const x = Cx - Rx + fx * 2 * Rx;
-                        if (inBody(x, y) && !inHole(x, y)) rowCells.push([x, y]);
+                const yMin = Cy - Ry, yMax = Cy + Ry;
+                let row = 0;
+                for (let y = yMin + vStep * 0.5; y <= yMax; y += vStep, row++) {
+                    const xOff = (row % 2) * hStep * 0.5; // гексагональный сдвиг
+                    const xMin = Cx - Rx, xMax = Cx + Rx;
+                    for (let x = xMin + hStep * 0.5 + xOff; x <= xMax; x += hStep) {
+                        if (valid(x, y)) cells.push([x, y]);
                     }
-                    // змейка: чётные ряды слева-направо, нечётные наоборот
-                    if (r % 2) rowCells.reverse();
-                    cells.push(...rowCells);
                 }
                 if (cells.length >= count) {
-                    // равномерно выбрать count из cells
                     if (cells.length === count) return cells;
+                    // Равномерно прореживаем по пространству через k-d выборку:
+                    // сортируем по строкам (y), потом зигзагом по x — соседи рядом.
+                    cells.sort((a, b) => {
+                        const rowA = Math.round(a[1] / vStep);
+                        const rowB = Math.round(b[1] / vStep);
+                        if (rowA !== rowB) return rowA - rowB;
+                        return (rowA % 2 === 0) ? a[0] - b[0] : b[0] - a[0];
+                    });
+                    // Равномерно прореживаем через дробный шаг
                     const out = [];
                     const stepF = cells.length / count;
-                    for (let i = 0; i < count; i++) out.push(cells[Math.floor(i * stepF)]);
+                    for (let i = 0; i < count; i++) out.push(cells[Math.round(i * stepF)]);
                     return out;
                 }
             }
-            // запасной вариант — кольцо
+            // Запасной вариант — кольцо (не должен достигаться)
             const out = [];
             for (let i = 0; i < count; i++) {
                 const a = (i / count) * Math.PI * 2;
