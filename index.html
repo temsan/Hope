@@ -1480,8 +1480,8 @@
         '  fc.y = iResolution.y - fc.y;',          // Y вниз → капли стекают вниз
         '  vec2 uv = (fc-0.5*iResolution.xy)/iResolution.y;',
         '  vec2 screen = gl_FragCoord.xy / iResolution.xy;', // экранные UV для текстуры
-        '  float t = iTime*0.2;',
-        '  float staticD=0.30, l1=0.55, l2=0.0;',  // меньше капель, без второго слоя
+        '  float t = iTime*0.32;',                  // быстрее стекают
+        '  float staticD=0.42, l1=0.85, l2=0.45;',  // плотнее капли + второй слой
         '  vec2 c = Drops(uv,t,staticD,l1,l2);',
         '  vec2 e = vec2(0.0015,0.0);',
         '  float cx = Drops(uv+e.xy,t,staticD,l1,l2).x;',
