@@ -1973,9 +1973,9 @@
                     v.className = 'art trans';
                     v.muted = true;
                     v.playsInline = true;
-                    v.preload = i < 2 ? 'auto' : 'none';
+                    v.preload = 'auto';
                     v.setAttribute('aria-hidden', 'true');
-                    v.src = `assets/transitions/t${pad(i + 1)}.mp4`;
+                    v.dataset.src = `assets/transitions/t${pad(i + 1)}.mp4`;  // src — когда дойдёт очередь (warm)
                     v.addEventListener('loadeddata', () => schedule());
                     portal.append(v);
                     return v;
@@ -2013,23 +2013,34 @@
             // Середина «покоя» картины i: она уже на экране, следующая ещё не проявилась.
             const restOf = i => (i + .15) / STEPS;
 
-            // В стопке видна одна картина: index, а когда клип перевалил за середину (past) — уже следующая, под
-            // концом клипа. После последней картины следующей нет: под концом влёта — комната галереи.
+            // В стопке картина index, а поверх неё проявляется следующая (next от 0 до 1): с клипом — сразу целиком,
+            // когда клип перевалил за середину (под его концом), без клипа — растворением. После последней картины
+            // следующей нет: она сама гаснет, под ней — комната галереи.
             // Картины не масштабируются: всё движение — только в клипе перехода.
-            function placeArts(index, past) {
+            function placeArts(index, next) {
                 arts.forEach((img, i) => {
-                    const op = i === (past ? index + 1 : index) ? 1 : 0;
+                    const op = i === index ? (index < N - 1 ? 1 : 1 - next) : i === index + 1 ? next : 0;
                     if (img.style.opacity !== String(op)) img.style.opacity = op;
                 });
             }
 
-            // Клипы тяжёлые (1080×1440): грузим текущий и следующий, остальные — по мере пути.
+            // Клипы грузятся по очереди — ближайший к показу первым. С сайта каждый скачивается целиком в память:
+            // перемотка прокруткой не ждёт сети (по частям клип подгружался бы прямо на ходу перехода).
+            // Из файла fetch не работает — там src напрямую, локальный файл и так мгновенный.
+            const fromFile = location.protocol === 'file:';
+            let fetching = false;
             function warm(index) {
-                clips.forEach((v, i) => {
-                    if (i < index || i > index + 1 || v.preload === 'auto') return;
-                    v.preload = 'auto';
-                    if (v.readyState === 0) v.load();
-                });
+                if (fromFile) {
+                    clips.forEach((v, i) => { if (i >= index && i <= index + 1 && !v.src) v.src = v.dataset.src; });
+                    return;
+                }
+                const v = clips.map((_, k) => clips[(index + k) % clips.length]).find(c => !c.src);
+                if (fetching || !v) return;
+                fetching = true;
+                fetch(v.dataset.src)
+                    .then(r => r.ok ? r.blob() : Promise.reject())
+                    .then(b => { v.src = URL.createObjectURL(b); }, () => { v.src = v.dataset.src; })
+                    .finally(() => { fetching = false; warm(Math.max(0, shown)); });
             }
 
             const ss = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t) };
@@ -2042,7 +2053,10 @@
             // подряд, без пропусков (щелчок колеса — ~20 кадров за доли секунды). Отставание больше LAG шагов
             // (рывок ползунком, «пройти ещё раз») проскакивается сразу.
             const HOLD = 8, LAG = 160;
-            const span = i => clips[i] && clips[i].duration > 0 ? framesOf(clips[i]) - 1 : 150;
+            // Переход, начавшийся без клипа (ещё скачивается), идёт растворением картин на DISSOLVE шагов ленты.
+            const DISSOLVE = 24;
+            let dissolve = -1;
+            const span = i => clips[i] && clips[i].duration > 0 && dissolve !== i ? framesOf(clips[i]) - 1 : DISSOLVE;
             function toTape(travel) {
                 const i = Math.min(N - 1, Math.floor(travel)), local = travel - i;
                 let u = 0;
@@ -2091,11 +2105,15 @@
                     clipReady = clip && clip.readyState >= 1 && clip.duration > 0,
                     t = (local - CLIP_FROM) / (1 - CLIP_FROM);
                 setVar(bar, '--p', raw);
+                // Будет ли переход клипом, решается, когда он начинается: клип, не успевший скачаться к началу,
+                // в этот раз не показываем — переход уже идёт растворением, и видео посреди него было бы рывком.
+                if (t <= 0) dissolve = -1;
+                else if (dissolve !== index && !clipReady) dissolve = index;
+                const useClip = clipReady && dissolve !== index;
                 // До клипа картина стоит; клип начинается с неё же и заканчивается следующей.
                 // Под концом клипа уже лежит следующая картина: видео растворяется прямо в неё.
-                placeArts(index, t > .5);
-                // Переход — только кадры клипа: пока клип не загрузился, стоит картина, без растворений.
-                showClip(clipReady && t > 0 ? clip : null, Math.min(1, t));
+                placeArts(index, useClip ? (t > .5 ? 1 : 0) : ss(.2, .8, t));
+                showClip(useClip && t > 0 ? clip : null, Math.min(1, t));
                 if (index !== shown) {
                     shown = index;
                     warm(index);
