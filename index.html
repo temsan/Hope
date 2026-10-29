@@ -1,15 +1,21 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Надежда Жди</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="theme-color" content="#050608">
+    <meta name="description" content="Непрерывный пролёт сквозь девять полотен Надежды Терёшкиной.">
+    <title>Надежда Терёшкина — Надежда Жди</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
+        href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600&family=Spectral:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap"
+        rel="stylesheet">
+    <link
         href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap"
         rel="stylesheet">
+    <!-- Галерея Надежды (прежняя версия сайта) — идёт под пролётом -->
     <style>
         /* Fluid Art — краска на воде */
         :root {
@@ -32,7 +38,8 @@
             --text-secondary: rgba(245, 230, 211, 0.7);
         }
 
-        * {
+        .nadezhda,
+        .nadezhda * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
@@ -42,11 +49,9 @@
             outline: none;
         }
 
-        body {
+        .nadezhda {
             font-family: 'Cormorant Garamond', serif;
-            background: var(--ink-dark);
-            min-height: 100vh;
-            overflow-x: hidden;
+            position: relative;
             color: var(--text-primary);
         }
 
@@ -298,8 +303,10 @@
             /* маска формой палитры: мазки не вылезают за край и не закрывают отверстие */
             -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 220'%3E%3Cpath fill='%23000' fill-rule='evenodd' d='M 41,108 C 41,57 91,21 166,21 C 225,21 279,42 297,74 C 302,85 296,92 283,91 C 263,90 251,101 257,114 C 264,127 280,137 280,155 C 280,188 233,211 160,211 C 86,211 41,174 41,108 Z M 258,132 C 258,147 243,159 224,159 C 205,159 190,147 190,132 C 190,117 205,105 224,105 C 243,105 258,117 258,132 Z'/%3E%3C/svg%3E");
             mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 220'%3E%3Cpath fill='%23000' fill-rule='evenodd' d='M 41,108 C 41,57 91,21 166,21 C 225,21 279,42 297,74 C 302,85 296,92 283,91 C 263,90 251,101 257,114 C 264,127 280,137 280,155 C 280,188 233,211 160,211 C 86,211 41,174 41,108 Z M 258,132 C 258,147 243,159 224,159 C 205,159 190,147 190,132 C 190,117 205,105 224,105 C 243,105 258,117 258,132 Z'/%3E%3C/svg%3E");
-            -webkit-mask-size: 100% 100%;
-            mask-size: 100% 100%;
+            -webkit-mask-size: contain;
+            mask-size: contain;
+            -webkit-mask-position: center;
+            mask-position: center;
             -webkit-mask-repeat: no-repeat;
             mask-repeat: no-repeat;
         }
@@ -683,10 +690,10 @@
             filter: saturate(1.12) contrast(1.06) brightness(1.03);
         }
 
-        /* растушёванный край: мазки перетекают друг в друга, как сырая краска */
+        /* мягкий край, как у сырой краски; мазки не внахлёст, поэтому плотная середина — почти до края */
         .thumb-item {
-            -webkit-mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 46%, rgba(0,0,0,.55) 68%, transparent 96%);
-            mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 46%, rgba(0,0,0,.55) 68%, transparent 96%);
+            -webkit-mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 58%, rgba(0,0,0,.65) 78%, transparent 98%);
+            mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 58%, rgba(0,0,0,.65) 78%, transparent 98%);
         }
 
         .thumb-item:hover,
@@ -1125,689 +1132,562 @@
         }
 
 
+        /* Галерея под пролётом: открытая картина с палитрой, без рамок и подписей */
+        .flight .stage {
+            position: absolute;
+            inset: 0;
+            z-index: 1;
+            overflow: hidden;
+            opacity: var(--room, 0)
+        }
+
+        .flight .modal {
+            position: absolute;
+            inset: 0;
+            z-index: 1;
+            background: none;
+            backdrop-filter: none
+        }
+
+        .flight .palette-wrap {
+            position: absolute;
+            z-index: 2
+        }
+
+        /* Влёт в галерею: картина уходит внутрь, а комната проступает из-за неё */
+        .flight .portal {
+            z-index: 2;
+            pointer-events: none
+        }
+
+        /* в комнате картина светит своими цветами */
+        .flight .modal-content {
+            box-shadow: 0 0 10vh 2vh rgb(var(--room-glow, 8 6 5) / .45)
+        }
+
+        .flight .title {
+            pointer-events: none
+        }
+
+        .flight .progress {
+            opacity: calc(1 - var(--reveal, 0))
+        }
+
+        .flight .arrival {
+            inset: auto;
+            top: 1.6rem;
+            left: 2rem;
+            padding: 0;
+            background: none;
+            align-content: start;
+            justify-items: start;
+            text-align: left
+        }
+    </style>
+    <style>
+        :root {
+            --ink: #050608;
+            --paper: #efe7d8;
+            --muted: #efe7d89e;
+            --gold: #d6b775;
+            --p: 0
+        }
+
+        * {
+            box-sizing: border-box
+        }
+
+        html {
+            background: var(--ink)
+        }
+
+        body {
+            margin: 0;
+            color: var(--paper);
+            background: var(--ink);
+            font-family: Manrope, sans-serif;
+            overflow-x: clip
+        }
+
+        button {
+            color: inherit;
+            font: inherit
+        }
+
+        .journey {
+            height: 1100vh;
+            position: relative;
+            z-index: 100 /* поверх неба, дождя и луны галереи — они проступают, когда сцена растворяется */
+        }
+
+        /* Пока идёт пролёт, сцена галереи под ним не видна: не рисуем её (in-flight) и не крутим её анимации
+           (scenery-still). К влёту она уже нарисована под кадром, а оживает к середине его клипа. */
+        .in-flight #nadezhda {
+            visibility: hidden
+        }
+
+        .scenery-still #nadezhda * {
+            animation-play-state: paused !important
+        }
+
+        /* Липкая сцена: держится, пока идёт пролёт, затем уступает место коллекции. */
+        .flight {
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            height: 100svh;
+            overflow: hidden;
+            isolation: isolate
+        }
+
+        /* Затухающие слои влёта — каждый свой слой на видеокарте: прозрачность меняется без перерисовки.
+           Иначе каждый кадр влёта заново рисовал бы всю сцену с комнатой, палитрой и их тенями. */
+        .flight:before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            z-index: -10;
+            background: rgb(5 6 8);
+            opacity: calc(1 - var(--reveal, 0))
+        }
+
+        .flight:before,
+        .flight:after,
+        .flight .void,
+        .flight .grain,
+        .flight .stage {
+            will-change: opacity
+        }
+
+        /* В финале фон сцены растворяется: за текстом уже ночное небо галереи. */
+        /* За кадром — стена цвета картины: проступает, когда картина растворяется при влёте в галерею. */
+        .flight .void {
+            background: radial-gradient(ellipse at 50% 50%, rgb(var(--amb-m, 26 28 35) / .95) 0%, rgb(var(--amb-m, 26 28 35) / .75) 55%, rgb(var(--amb-m, 26 28 35) / .6) 100%);
+            opacity: calc(1 - var(--reveal, 0))
+        }
+
+        .flight .grain {
+            opacity: calc(.18 * var(--grain, 1))
+        }
+
+        .void {
+            position: absolute;
+            inset: -10%;
+            background: radial-gradient(ellipse at 50% 50%, #1a1c23 0%, #050608 58%);
+            z-index: -5
+        }
+
+        .grain {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            opacity: .18;
+            z-index: 50;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E");
+            mix-blend-mode: soft-light
+        }
+
+        .portal {
+            position: absolute;
+            /* Кадр клипа (16:9) заполняет окно целиком, без полей: что не влезает, срезается по краям —
+               в окне шире 16:9 чуть сверху и снизу, в более узком по бокам (там размытое поле). */
+            inset: 0;
+            display: grid;
+            grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+            place-items: center
+        }
+
+        /* Без рамки: только мягкое затемнение к краям экрана, чтобы читались подписи. */
+        .flight:after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            z-index: 2;
+            background: radial-gradient(ellipse 75% 70% at 50% 48%, transparent 55%, #0000006b), linear-gradient(to top, #00000080, transparent 22%);
+            opacity: calc(1 - var(--reveal, 0));
+            pointer-events: none
+        }
+
+        .art {
+            grid-area: 1/1;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            background: transparent;
+            will-change: transform, opacity
+        }
+
+        .art:not(:first-child) {
+            opacity: 0
+        }
+
+        /* Переходы-клипы: tKK.mp4 — линза от полотна K к K+1, скрабится скроллом. */
+        .trans {
+            opacity: 0;
+            pointer-events: none
+        }
+
+        .title {
+            position: absolute;
+            z-index: 5;
+            top: clamp(1.4rem, 4vw, 4rem);
+            left: clamp(1.4rem, 4vw, 4rem);
+            max-width: 25rem;
+            mix-blend-mode: screen;
+            transition: opacity .2s linear
+        }
+
+        .eyebrow,
+        .counter,
+        .hint,
+        .year {
+            text-transform: uppercase;
+            letter-spacing: .19em;
+            font-size: 10px;
+            font-weight: 600
+        }
+
+        h1 {
+            margin: .65rem 0 0;
+            font: 400 clamp(2.5rem, 6vw, 6.8rem)/.86 Spectral, serif;
+            letter-spacing: -.055em
+        }
+
+        h1 em {
+            display: block;
+            font-style: italic;
+            color: var(--gold)
+        }
+
+        .route {
+            position: absolute;
+            z-index: 6;
+            right: clamp(1.4rem, 4vw, 4rem);
+            top: clamp(1.5rem, 4vw, 4rem);
+            text-align: right
+        }
+
+        .route b {
+            display: block;
+            margin-top: .35rem;
+            font: 400 1.1rem/1 Spectral, serif;
+            letter-spacing: .03em
+        }
+
+        .counter {
+            position: absolute;
+            z-index: 7;
+            bottom: clamp(1.5rem, 4vw, 3.2rem);
+            right: clamp(1.4rem, 4vw, 4rem);
+            color: var(--muted)
+        }
+
+        .counter strong {
+            color: var(--paper);
+            font-size: 1.9rem;
+            font-weight: 400;
+            letter-spacing: -.06em
+        }
+
+        /* Обход пролёта: прыжок в конец пути, остаток — влёт в комнату — доигрывается сам */
+        .skip {
+            position: absolute;
+            z-index: 8;
+            top: clamp(1.4rem, 4vw, 4rem);
+            right: clamp(1.45rem, 4vw, 4.05rem);
+            padding: .5rem 0;
+            border: 0;
+            background: none;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: .19em;
+            font-size: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: color .2s
+        }
+
+        .skip:hover,
+        .skip:focus-visible {
+            color: var(--paper)
+        }
+
+        .progress {
+            position: absolute;
+            z-index: 7;
+            width: 1px;
+            height: clamp(80px, 14vh, 150px);
+            right: clamp(1.45rem, 4vw, 4.05rem);
+            bottom: clamp(4.5rem, 9vw, 6.7rem);
+            background: #efe7d847
+        }
+
+        .progress span {
+            display: block;
+            width: 100%;
+            height: 100%;
+            background: #e5c78d;
+            transform: scaleY(var(--p));
+            transform-origin: top;
+            will-change: transform
+        }
+
+        .hint {
+            position: absolute;
+            z-index: 8;
+            bottom: clamp(1.4rem, 4vw, 3.2rem);
+            left: clamp(1.4rem, 4vw, 4rem);
+            border: 0;
+            padding: 0;
+            background: none;
+            cursor: pointer;
+            text-align: left;
+            transition: opacity .3s
+        }
+
+        .hint.gone {
+            opacity: 0;
+            pointer-events: none
+        }
+
+        .hint:after {
+            content: '↓';
+            display: inline-block;
+            margin-left: .7rem;
+            color: var(--gold);
+            animation: nudge 1.4s ease-in-out infinite
+        }
+
+        @keyframes nudge {
+            50% {
+                transform: translateY(5px)
+            }
+        }
+
+        .caption {
+            position: absolute;
+            z-index: 8;
+            left: 50%;
+            bottom: clamp(1.4rem, 4vw, 3.2rem);
+            transform: translateX(-50%);
+            text-align: center;
+            width: 16rem;
+            text-shadow: 0 1px 14px #000c;
+            transition: opacity .2s linear
+        }
+
+        .caption .year {
+            display: block;
+            color: #d6b775;
+            margin-bottom: .38rem
+        }
+
+        .caption h2 {
+            margin: 0;
+            font: 400 1.45rem/1 Spectral, serif
+        }
+
+        .arrival {
+            position: absolute;
+            inset: 0;
+            z-index: 10;
+            display: grid;
+            align-content: center;
+            justify-items: center;
+            text-align: center;
+            padding: 2rem 2rem calc(var(--palette-w) * .733 + 4vh);
+            /* подложка без краёв: тает вместе со сценой, у текста остаётся мягкая тень */
+            background: radial-gradient(ellipse 60% 55% at 50% 42%, #05060880, transparent 75%), rgb(5 6 8 / calc(.66 * (1 - var(--reveal, 0))));
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .35s
+        }
+
+        .arrival.visible {
+            opacity: 1;
+            pointer-events: auto
+        }
+
+        .arrival h2 {
+            margin: 0;
+            max-width: 13ch;
+            font: 400 clamp(3rem, 10vw, 9rem)/.82 Spectral, serif;
+            letter-spacing: -.065em
+        }
+
+        .arrival h2 em {
+            color: var(--gold)
+        }
+
+        .arrival p {
+            max-width: 31rem;
+            margin: 1.4rem 0 1.8rem;
+            color: var(--muted);
+            line-height: 1.7;
+            font-size: .86rem
+        }
+
+        .arrival .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .7rem;
+            justify-content: center
+        }
+
+        .arrival button {
+            padding: .85rem 1.15rem;
+            background: transparent;
+            border: 1px solid #efe7d8a6;
+            cursor: pointer;
+            transition: background .2s, color .2s
+        }
+
+        .arrival button:hover {
+            background: var(--paper);
+            color: var(--ink)
+        }
+
+        /* ── Палитра художника: работы — мазки краски на стеклянной палитре ── */
+        :root {
+            --palette-w: min(440px, 88vw, 44vh)
+        }
+
+        .works {
+            position: absolute;
+            z-index: 11;
+            left: 50%;
+            bottom: clamp(.6rem, 3vh, 2.4rem);
+            width: var(--palette-w);
+            aspect-ratio: 300 / 220;
+            opacity: 0;
+            pointer-events: none;
+            transform: translate3d(-50%, 10px, 0) scale(.985);
+            transition: opacity .4s ease, transform .55s cubic-bezier(.2, .9, .2, 1)
+        }
+
+        .works.visible {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translate3d(-50%, 0, 0) scale(1)
+        }
+
+        .route-shape {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            filter: drop-shadow(0 18px 34px rgba(16, 10, 6, .2)) drop-shadow(0 4px 16px rgba(255, 201, 134, .08))
+        }
+
+        .route-dots {
+            position: absolute;
+            inset: 0;
+            /* маска формой палитры: мазки не вылезают за край и не закрывают отверстие */
+            -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 220'%3E%3Cpath fill='%23000' fill-rule='evenodd' d='M 41,108 C 41,57 91,21 166,21 C 225,21 279,42 297,74 C 302,85 296,92 283,91 C 263,90 251,101 257,114 C 264,127 280,137 280,155 C 280,188 233,211 160,211 C 86,211 41,174 41,108 Z M 258,132 C 258,147 243,159 224,159 C 205,159 190,147 190,132 C 190,117 205,105 224,105 C 243,105 258,117 258,132 Z'/%3E%3C/svg%3E") 0 0 / 100% 100% no-repeat;
+            mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 220'%3E%3Cpath fill='%23000' fill-rule='evenodd' d='M 41,108 C 41,57 91,21 166,21 C 225,21 279,42 297,74 C 302,85 296,92 283,91 C 263,90 251,101 257,114 C 264,127 280,137 280,155 C 280,188 233,211 160,211 C 86,211 41,174 41,108 Z M 258,132 C 258,147 243,159 224,159 C 205,159 190,147 190,132 C 190,117 205,105 224,105 C 243,105 258,117 258,132 Z'/%3E%3C/svg%3E") 0 0 / 100% 100% no-repeat
+        }
+
+        /* Каждая работа — ляпка акрила: неровная форма, растушёванный край */
+        .work {
+            position: absolute;
+            padding: 0;
+            border: 0;
+            overflow: hidden;
+            cursor: pointer;
+            opacity: .97;
+            -webkit-tap-highlight-color: transparent;
+            transform: translate(-50%, -50%) rotate(var(--blob-rotate, 0deg)) scale(var(--blob-scale, 1));
+            transition: opacity .35s ease, filter .35s ease, transform .45s cubic-bezier(.2, .9, .2, 1);
+            background: radial-gradient(circle at 26% 18%, rgba(255, 244, 221, .34) 0%, rgba(255, 233, 205, .12) 18%, transparent 50%), radial-gradient(circle at 72% 78%, rgba(84, 48, 24, .18) 0%, transparent 46%);
+            -webkit-mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 46%, rgba(0, 0, 0, .55) 68%, transparent 96%);
+            mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 46%, rgba(0, 0, 0, .55) 68%, transparent 96%)
+        }
+
+        .work img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            pointer-events: none;
+            border-radius: inherit;
+            filter: saturate(1.12) contrast(1.06) brightness(1.03)
+        }
+
+        .work::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            pointer-events: none;
+            background: radial-gradient(ellipse at 24% 18%, rgba(255, 248, 240, .44) 0%, rgba(255, 236, 214, .16) 18%, rgba(255, 255, 255, .02) 34%, transparent 56%), radial-gradient(ellipse at 74% 72%, rgba(72, 40, 20, .14) 0%, transparent 40%), linear-gradient(180deg, rgba(255, 247, 236, .05) 0%, rgba(255, 255, 255, 0) 40%, rgba(70, 38, 20, .1) 100%)
+        }
+
+        .work:hover,
+        .work:focus-visible,
+        .work.active {
+            opacity: 1;
+            z-index: 10;
+            -webkit-mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 62%, rgba(0, 0, 0, .7) 80%, transparent 99%);
+            mask-image: radial-gradient(ellipse 50% 50% at 50% 50%, #000 62%, rgba(0, 0, 0, .7) 80%, transparent 99%)
+        }
+
+        .work:hover,
+        .work:focus-visible {
+            outline: none;
+            filter: saturate(1.16) brightness(1.09);
+            --blob-scale: 1.08
+        }
+
+        .work.active {
+            filter: saturate(1.18) brightness(1.1);
+            --blob-scale: 1.03
+        }
+
+        @media(max-width:650px) {
+            .route {
+                display: none
+            }
+
+            .caption {
+                bottom: 4.8rem
+            }
+
+
+            .title {
+                max-width: 17rem
+            }
+        }
+
+        @media(prefers-reduced-motion:reduce) {
+
+            *,
+            *:before,
+            *:after {
+                animation: none !important;
+                transition: none !important;
+                scroll-behavior: auto !important
+            }
+        }
     </style>
 </head>
 
 <body>
-    <div class="atmosphere"></div>
-
-    <!-- Canvas: живые вихри краски -->
-    <canvas id="fluidCanvas" style="
-        position:fixed; inset:0; width:100%; height:100%;
-        z-index:0; pointer-events:none; opacity:0.55;
-        mix-blend-mode: screen;
-    "></canvas>
-
-    <!-- Млечный путь -->
-    <div class="milky-way" id="milkyWay">
-        <img id="milkyWayImg"
-            src="https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1800&q=80&auto=format&fit=crop" alt=""
-            crossorigin="anonymous" />
-    </div>
-
-    <!-- Луна — реальное фото -->
-    <div class="moon-glow" id="moonGlow">
-    <div class="moon" id="moonEl">
-        <img src="https://images.unsplash.com/photo-1532693322450-2cb5c511067d?w=400&q=85&auto=format&fit=crop"
-            alt="Moon" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;" />
-        <canvas id="moonCanvas" style="position:absolute;inset:0;width:100%;height:100%;border-radius:50%;pointer-events:none;"></canvas>
-        <script>
-        (function(){
-          if (window.__moonRunning) return;
-          window.__moonRunning = true;
-          const cv = document.getElementById('moonCanvas');
-          const PERIOD = 30000;
-          const TILT = 0.087;
-
-          // Физика: солнце всегда справа. Луна обходит Землю.
-          // После новолуния серп появляется СПРАВА и растёт.
-          // После полнолуния убывает — тень наползает СЛЕВА.
-          // Тень ВСЕГДА слева от терминатора. Терминатор движется справа налево (растущая)
-          // и обратно слева направо (убывающая). Переключение только в новолуние — вся тёмная.
-          //
-          // Параметр p = cos(2πf):
-          //   f=0:    p=+1  → терминатор у правого края  → вся тень (новолуние)
-          //   f=0.25: p=0   → терминатор по центру       → тень слева, серп справа
-          //   f=0.5:  p=-1  → терминатор у левого края   → нет тени (полнолуние)
-          //   f=0.75: p=0   → терминатор по центру       → тень справа, серп слева
-          //
-          // Тень = область левее терминатора ∩ диск.
-          // Терминатор-эллипс центрирован в (cx, cy), rx=R·|p|, ry=R.
-          // p>0: тень = левый полукруг МИНУС правый клин эллипса  (серп справа)
-          // p<0: тень = левый полукруг ПЛЮС  левый клин эллипса   (серп слева)
-          // p=±1: новолуние/полнолуние — trx=R, переключение скрыто в полной тьме/свете.
-          // Переключение знака p при f=0 (новолуние, вся тёмная) и f=0.5 (полнолуние, вся светлая).
-
-          function draw(f) {
-            const S = cv.offsetWidth * (window.devicePixelRatio || 1);
-            if (cv.width !== S) { cv.width = S; cv.height = S; }
-            const ctx = cv.getContext('2d');
-            const R = S / 2, cx = R, cy = R;
-            ctx.clearRect(0, 0, S, S);
-
-            const cosF = Math.cos(f * Math.PI * 2);
-            const trx = Math.abs(cosF) * R;
-            const waxing = f < 0.5;
-            const illum = (1 - Math.cos(f * Math.PI * 2)) / 2;
-
-            // ── Тень: чёткая форма + мягкий только терминатор ─────────────
-            // Идея: рисуем НЕразмытую тень (доходит до края диска точно),
-            // отдельно поверх — размытую копию ТОЛЬКО вдоль терминатора,
-            // чтобы внешний край диска оставался чётким, а граница свет/тень мягкой.
-            const soft = Math.max(4, R * 0.08);
-            const Rover = R + Math.ceil(soft) + 2; // запас за край под blur
-
-            // offscreen: строим размытую тень
-            const off = document.createElement('canvas');
-            off.width = S; off.height = S;
-            const oc = off.getContext('2d');
-            oc.filter = `blur(${soft}px)`;
-            oc.fillStyle = 'rgba(4,8,20,0.94)';
-            oc.beginPath();
-            if (waxing) {
-              oc.arc(cx, cy, Rover, -Math.PI/2, Math.PI/2, true);
-              oc.ellipse(cx, cy, trx, Rover, TILT, Math.PI/2, -Math.PI/2, cosF > 0);
-            } else {
-              oc.arc(cx, cy, Rover, -Math.PI/2, Math.PI/2, false);
-              oc.ellipse(cx, cy, trx, Rover, TILT, Math.PI/2, -Math.PI/2, cosF < 0);
-            }
-            oc.closePath();
-            oc.fill();
-            oc.filter = 'none';
-            // обрезаем тень строго по диску — blur за краем отсекается,
-            // но форма строилась за Rover, так что у края тень полной плотности
-            oc.globalCompositeOperation = 'destination-in';
-            oc.beginPath(); oc.arc(cx, cy, R, 0, Math.PI*2); oc.fill();
-
-            ctx.save();
-            ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI*2); ctx.clip();
-            ctx.drawImage(off, 0, 0);
-
-            // ── Edge-vignette: убирает светлую кромку, мягкий и узкий ──────
-            const vig = ctx.createRadialGradient(cx, cy, R * 0.94, cx, cy, R);
-            vig.addColorStop(0, 'rgba(4,8,20,0)');
-            vig.addColorStop(1, 'rgba(4,8,20,0.28)');
-            ctx.fillStyle = vig;
-            ctx.fillRect(0, 0, S, S);
-            ctx.restore();
-
-            // ── Свечение ───────────────────────────────────────────────────
-            const sinF = Math.sin(f * Math.PI * 2);
-            const shiftMag = sinF * 18;
-            const ox = Math.round(shiftMag * Math.cos(TILT));
-            const oy = Math.round(-shiftMag * Math.sin(TILT));
-            const a0 = (0.06 + illum * 0.22).toFixed(2);
-            const a1 = (0.03 + illum * 0.14).toFixed(2);
-            const a2 = (0.01 + illum * 0.08).toFixed(2);
-            const r0 = Math.round(20 + illum * 35);
-            const r1 = Math.round(50 + illum * 80);
-            const r2 = Math.round(100 + illum * 160);
-            cv.parentElement.parentElement.style.boxShadow =
-              `${ox}px ${oy}px ${r0}px rgba(210,225,255,${a0}), ` +
-              `${ox}px ${oy}px ${r1}px rgba(190,210,255,${a1}), ` +
-              `${ox}px ${oy}px ${r2}px rgba(160,190,235,${a2})`;
-          }
-
-          let start = null;
-          function tick(ts) {
-            if (!start) start = ts;
-            // старт с полнолуния: f=0.5 → p=-1 → trx=R, но тень=0 (полнолуние)
-            draw((0.5 + ((ts - start) % PERIOD) / PERIOD) % 1);
-            requestAnimationFrame(tick);
-          }
-          requestAnimationFrame(tick);
-        })();
-        </script>
-    </div>
-    </div>
-
-    <!-- Свечи -->
-    <div class="candles-container">
-        <div class="candle" style="left:5%">
-            <div class="candle-body" style="height:70px">
-                <div class="flame"></div>
-            </div>
-        </div>
-        <div class="candle" style="left:9%">
-            <div class="candle-body" style="height:95px">
-                <div class="flame"></div>
-            </div>
-        </div>
-        <div class="candle" style="right:7%">
-            <div class="candle-body" style="height:80px">
-                <div class="flame"></div>
-            </div>
-        </div>
-        <div class="candle" style="right:11%">
-            <div class="candle-body" style="height:58px">
-                <div class="flame"></div>
-            </div>
-        </div>
-    </div>
-
-    <div class="mist"></div>
-
-    <div class="stars" id="stars"></div>
-
-    <!-- html2canvas: снимок фона для преломления в каплях -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <!-- Дождь за окном (тонкие линии, дальний план) -->
-    <canvas id="rainBgCanvas" style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:1;pointer-events:none;"></canvas>
-    <!-- Капли на стекле (поверх картин) -->
-    <canvas id="rainCanvas" style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:50;pointer-events:none;"></canvas>
-    <script>
-    // Дождь за окном: тонкие падающие линии-частицы (Canvas 2D, плавно, без мелькания).
-    function __startRainBg(){
-      if (window.__rainBgRunning) return;
-      const cv = document.getElementById('rainBgCanvas');
-      const ctx = cv.getContext('2d');
-      if (!ctx){ return; }
-      window.__rainBgRunning = true;
-      const DPR = Math.min(window.devicePixelRatio || 1, 2);
-      const rnd = (a,b) => a + (b-a)*Math.random();
-      let W, H, lines = [];
-
-      function makeLine(){
-        // три плана глубины: дальний тоньше/бледнее/медленнее
-        const depth = Math.random();              // 0 дальний … 1 ближний
-        const len   = rnd(14, 40) * (0.5 + depth); // длина штриха
-        return {
-          x: rnd(-40, W+40),
-          y: rnd(-H, 0),
-          len,
-          vy: rnd(7, 12) * (0.5 + depth),          // скорость падения
-          slant: rnd(0.12, 0.22),                  // наклон (ветер)
-          w: 0.6 + depth*0.9,                       // толщина
-          a: 0.06 + depth*0.16                      // прозрачность
-        };
-      }
-
-      function resize(){
-        W = window.innerWidth; H = window.innerHeight;
-        cv.width = W*DPR; cv.height = H*DPR;
-        ctx.setTransform(DPR,0,0,DPR,0,0);
-        const count = Math.round(W / 14);           // плотность дождя
-        lines = []; for (let i=0;i<count;i++){ const l=makeLine(); l.y=rnd(0,H); lines.push(l); }
-      }
-
-      function step(){
-        ctx.clearRect(0,0,W,H);
-        ctx.lineCap = 'round';
-        for (let i=0;i<lines.length;i++){
-          const l = lines[i];
-          l.y += l.vy;
-          l.x += l.vy * l.slant;
-          ctx.beginPath();
-          ctx.moveTo(l.x, l.y);
-          ctx.lineTo(l.x - l.len*l.slant, l.y - l.len);  // штрих вдоль направления падения
-          ctx.lineWidth = l.w;
-          ctx.strokeStyle = 'rgba(180,205,255,'+l.a+')';
-          ctx.stroke();
-          if (l.y - l.len > H + 10){                 // ушла за низ — респавн сверху
-            Object.assign(l, makeLine());
-            l.y = rnd(-40, -5);
-          }
-        }
-        requestAnimationFrame(step);
-      }
-      window.addEventListener('resize', resize);
-      resize();
-      requestAnimationFrame(step);
-    }
-
-    function __startRain(lightMode){
-      if (window.__rainRunning) return;
-      const cv = document.getElementById('rainCanvas');
-      const gl = cv.getContext('webgl', {alpha:true, premultipliedAlpha:true})
-              || cv.getContext('experimental-webgl', {alpha:true, premultipliedAlpha:true});
-      if (!gl){ return; } // нет WebGL — фон остаётся чистым
-      window.__rainRunning = true;
-      // lightMode (средний телефон): DPR=1, нет html2canvas, нет рефракции
-      const DPR = lightMode ? 1.0 : Math.min(window.devicePixelRatio || 1, 1.5);
-
-      const VS = 'attribute vec2 p; void main(){ gl_Position = vec4(p,0.0,1.0); }';
-
-      // Техника rain-on-glass (по мотивам Heartfelt, Martijn Steinrucken, CC-BY).
-      // Капли стекают, оставляют следы, преломляют фон. Фон — прозрачный,
-      // капли видны как искажение + бликовка над космосом сайта.
-      const FS = [
-        'precision highp float;',
-        'uniform vec2 iResolution;',
-        'uniform float iTime;',
-        '',
-        'vec3 N13(float p){',
-        '  vec3 p3 = fract(vec3(p)*vec3(.1031,.11369,.13787));',
-        '  p3 += dot(p3, p3.yzx+19.19);',
-        '  return fract(vec3((p3.x+p3.y)*p3.z,(p3.x+p3.z)*p3.y,(p3.y+p3.z)*p3.x));',
-        '}',
-        'float N(float t){ return fract(sin(t*12345.564)*7658.76); }',
-        'float Saw(float b, float t){ return smoothstep(0.,b,t)*smoothstep(1.,b,t); }',
-        '',
-        'vec2 DropLayer2(vec2 uv, float t){',
-        '  vec2 UV = uv;',
-        '  uv.y += t*0.75;',
-        '  vec2 a = vec2(3.0,0.5);',
-        '  vec2 grid = a*2.0;',
-        '  vec2 id = floor(uv*grid);',
-        '  float colShift = N(id.x);',
-        '  uv.y += colShift;',
-        '  id = floor(uv*grid);',
-        '  vec3 n = N13(id.x*35.2+id.y*2376.1);',
-        '  vec2 st = fract(uv*grid)-vec2(0.5,0.0);',
-        '  float x = n.x-0.5;',
-        '  float y = UV.y*20.0;',
-        '  float wiggle = sin(y+sin(y));',
-        '  x += wiggle*(0.5-abs(x))*(n.z-0.5);',
-        '  x *= 0.7;',
-        '  float ti = fract(t+n.z);',
-        '  y = (ti-0.5)*0.9+0.5;',           // монотонно вниз, без хода назад
-        '  vec2 p2 = vec2(x,y);',
-        '  float d = length((st-p2)*a.yx);',
-        '  float mainDrop = smoothstep(0.4,0.0,d);',
-        '  float r = sqrt(smoothstep(1.0,y,st.y));',
-        '  float cd = abs(st.x-x);',
-        '  float trail = smoothstep(0.23*r,0.15*r*r,cd);',
-        '  float trailFront = smoothstep(-0.02,0.02,st.y-y);',
-        '  trail *= trailFront*r*r;',
-        '  y = UV.y;',
-        '  float trail2 = smoothstep(0.2*r,0.0,cd);',
-        '  float droplets = max(0.0,(sin(y*(1.0-y)*120.0)-st.y))*trail2*trailFront*n.z;',
-        '  y = fract(y*10.0)+(st.y-0.5);',
-        '  float dd = length(st-vec2(x,y));',
-        '  droplets = smoothstep(0.3,0.0,dd);',
-        '  float m = mainDrop+droplets*r*trailFront;',
-        '  return vec2(m, trail);',
-        '}',
-        '',
-        'float StaticDrops(vec2 uv, float t){',
-        '  uv *= 20.0;',
-        '  vec2 id = floor(uv);',
-        '  uv = fract(uv)-0.5;',
-        '  vec3 n = N13(id.x*107.45+id.y*3543.654);',
-        '  vec2 p2 = (n.xy-0.5)*0.7;',
-        '  float d = length(uv-p2);',
-        '  float fade = Saw(0.025, fract(t+n.z));',
-        '  float c = smoothstep(0.3,0.0,d)*fract(n.z*10.0)*fade;',
-        '  return c;',
-        '}',
-        '',
-        'vec2 Drops(vec2 uv, float t, float l0, float l1, float l2){',
-        '  uv *= 1.5;',                                // мельче капли (плотнее сетка)
-        '  float s = StaticDrops(uv,t)*l0;',
-        '  vec2 m1 = DropLayer2(uv,t)*l1;',
-        '  vec2 m2 = DropLayer2(uv*1.4,t)*l2;',
-        '  float c = s+m1.x+m2.x;',
-        '  c = smoothstep(0.3,1.0,c);',
-        '  return vec2(c, max(m1.y*l0, m2.y*l1));',
-        '}',
-        '',
-        '// Дальний дождь: тонкие падающие штрихи перед космосом',
-        'float RainStreaks(vec2 uv, float t){',
-        '  float acc = 0.0;',
-        '  uv.x *= 1.3;',
-        '  vec2 gv = vec2(uv.x*90.0, uv.y);',     // частые колонки
-        '  float col = floor(gv.x);',
-        '  float rx = N(col);',
-        '  if (rx < 0.62) return 0.0;',            // редкие колонки
-        '  float speed = 6.0 + rx*5.0;',
-        '  float yy = fract(uv.y*1.5 + t*speed + rx*7.0);',
-        '  // короткий штрих сверху-длинный хвост',
-        '  float streak = smoothstep(0.0,0.06,yy)*smoothstep(0.5,0.06,yy);',
-        '  float lineX = abs(fract(gv.x)-0.5);',
-        '  float thin = smoothstep(0.5,0.42,lineX);', // тонкая линия в центре колонки
-        '  acc = streak*thin*(0.4+rx*0.5);',
-        '  return acc;',
-        '}',
-        '',
-        'uniform sampler2D iTex;',                   // снимок фона+картин
-        'uniform float iHasTex;',                     // 1.0 если текстура готова
-        // мягкое размытие фона: стекло мокрое, фон НЕ в фокусе, чёткое — в каплях.
-        // WebGL1 без textureLod -> размываем вручную 9 сэмплами по кругу.
-        'vec3 blurTex(vec2 uv, float rad){',
-        '  vec3 s = texture2D(iTex, uv).rgb;',
-        '  vec2 px = vec2(rad) / iResolution.xy;',
-        '  s += texture2D(iTex, uv+vec2( px.x, 0.0)).rgb;',
-        '  s += texture2D(iTex, uv+vec2(-px.x, 0.0)).rgb;',
-        '  s += texture2D(iTex, uv+vec2(0.0,  px.y)).rgb;',
-        '  s += texture2D(iTex, uv+vec2(0.0, -px.y)).rgb;',
-        '  s += texture2D(iTex, uv+vec2( px.x*0.7,  px.y*0.7)).rgb;',
-        '  s += texture2D(iTex, uv+vec2(-px.x*0.7,  px.y*0.7)).rgb;',
-        '  s += texture2D(iTex, uv+vec2( px.x*0.7, -px.y*0.7)).rgb;',
-        '  s += texture2D(iTex, uv+vec2(-px.x*0.7, -px.y*0.7)).rgb;',
-        '  return s / 9.0;',
-        '}',
-        // Процедурный космос-фон для преломления: градиент ночного неба + звёзды.
-        // Используется как fallback там где snapshot тёмный → капля всегда искажает
-        // что-то осмысленное, а не чёрноту. uvN — нормализованные экранные UV.
-        'vec3 cosmosBG(vec2 uvN){',
-        '  vec3 top = vec3(0.04,0.06,0.13);',          // тёмно-синий верх
-        '  vec3 bot = vec3(0.10,0.08,0.18);',          // фиолетовый низ
-        '  vec3 sky = mix(bot, top, uvN.y);',
-        // звёзды: хеш-сетка, редкие яркие точки
-        '  vec2 g = uvN * vec2(iResolution.x/iResolution.y, 1.0) * 90.0;',
-        '  vec2 id = floor(g);',
-        '  vec2 f = fract(g) - 0.5;',
-        '  vec3 h = N13(id.x*51.7 + id.y*1237.3);',
-        '  float star = step(0.93, h.x) * smoothstep(0.18, 0.0, length(f));',
-        '  float tw = 0.6 + 0.4*sin(iTime*2.0 + h.z*30.0);',  // мерцание
-        '  sky += vec3(0.9,0.95,1.0) * star * tw;',
-        '  return sky;',
-        '}',
-        'void main(){',
-        '  vec2 fc = gl_FragCoord.xy;',
-        '  fc.y = iResolution.y - fc.y;',          // Y вниз → капли стекают вниз
-        '  vec2 uv = (fc-0.5*iResolution.xy)/iResolution.y;',
-        '  vec2 screen = gl_FragCoord.xy / iResolution.xy;', // экранные UV для текстуры
-        '  float t = iTime*0.32;',                  // быстрее стекают
-        '  float staticD=0.12, l1=0.30, l2=0.0;',   // ещё меньше капель
-        '  vec2 c = Drops(uv,t,staticD,l1,l2);',
-        '  vec2 e = vec2(0.0015,0.0);',
-        '  float cx = Drops(uv+e.xy,t,staticD,l1,l2).x;',
-        '  float cy = Drops(uv+e.yx,t,staticD,l1,l2).x;',
-        '  vec2 n = vec2(cx-c.x, cy-c.x);',          // градиент маски = нормаль линзы
-        '  float refr = (n.x+n.y)*7.0;',
-        '  float drop = c.x;',
-        '  float trail = c.y;',
-        '  float edge = clamp(abs(refr)*2.0,0.0,1.0);',
-        '  vec3 col = vec3(0.0); float alpha = 0.0;',
-        '  if (drop>0.001 || trail>0.001){',
-        '    float nlen = length(n);',
-        '    float aspect = iResolution.x / iResolution.y;',
-        // 3D нормаль сферической поверхности капли
-        '    vec2 nxy = vec2(n.x/aspect, -n.y) * 4.0;',
-        '    float nlenXY = length(nxy);',
-        '    float nz = sqrt(max(0.001, 1.0 - min(1.0, nlenXY*nlenXY)));',
-        '    vec3 N = normalize(vec3(nxy, nz));',
-        '    float cosI = clamp(N.z, 0.0, 1.0);',
-        // Fresnel (Schlick)
-        '    float fresnel = 0.02 + 0.98*pow(1.0-cosI, 5.0);',
-        // Тонкий ободок по краю
-        '    float rim = smoothstep(0.0,0.3,nlen*15.0)*smoothstep(1.0,0.55,nlen*8.5);',
-        '    rim += trail * smoothstep(1.0,0.0,trail*3.0) * 0.10;',
-        // ── НАСТОЯЩАЯ ЛИНЗА: преломление фона по закону Снелла ──
-        // Snell: смещение UV пропорционально (sinI - sinT)
-        '    float sinI = sqrt(max(0.0, 1.0-cosI*cosI));',
-        '    float sinT = sinI/1.333;',
-        '    float refrAmt = (sinI - sinT) * 0.35;',     // сила линзы
-        '    vec2 refDir = nlenXY>0.001 ? nxy/nlenXY : vec2(0.0);',
-        '    vec2 baseUV = screen - refDir*refrAmt;',
-        // Chromatic aberration — призматическое разложение по краям линзы
-        '    float ca = refrAmt * 0.04;',
-        '    vec2 uvR = clamp(baseUV - refDir*ca, 0.001, 0.999);',
-        '    vec2 uvG = clamp(baseUV,             0.001, 0.999);',
-        '    vec2 uvB = clamp(baseUV + refDir*ca, 0.001, 0.999);',
-        // Фон под каплей: snapshot (реальный контент). Где его нет/тёмный —
-        // подмешиваем процедурный космос, чтобы линза всегда искажала что-то.
-        '    vec3 cosmosR = cosmosBG(uvR);',
-        '    vec3 cosmosG = cosmosBG(uvG);',
-        '    vec3 cosmosB = cosmosBG(uvB);',
-        '    vec3 refr3;',
-        '    if (iHasTex > 0.5){',
-        '      vec3 snapC = vec3(texture2D(iTex,uvR).r, texture2D(iTex,uvG).g, texture2D(iTex,uvB).b);',
-        '      vec3 cosmosC = vec3(cosmosR.r, cosmosG.g, cosmosB.b);',
-        // где snapshot почти чёрный (космос-зоны) → берём процедурный космос
-        '      float lum = dot(snapC, vec3(0.299,0.587,0.114));',
-        '      float useSnap = smoothstep(0.04, 0.12, lum);',
-        '      refr3 = mix(cosmosC, snapC, useSnap);',
-        '    } else {',
-        '      refr3 = vec3(cosmosR.r, cosmosG.g, cosmosB.b);',
-        '    }',
-        // Прямой (непреломлённый) фон в той же точке — для смешивания по краю капли
-        '    vec3 straight;',
-        '    if (iHasTex > 0.5){',
-        '      vec3 sn = texture2D(iTex, screen).rgb;',
-        '      float lum0 = dot(sn, vec3(0.299,0.587,0.114));',
-        '      straight = mix(cosmosBG(screen), sn, smoothstep(0.04,0.12,lum0));',
-        '    } else { straight = cosmosBG(screen); }',
-        // Внутри тела капли — преломлённый фон; на самом краю плавно к прямому
-        '    float body = smoothstep(0.0, 0.25, drop);',
-        '    vec3 lens = mix(straight, refr3, body);',
-        // Холодный тинт воды + лёгкое затемнение центра (толщина стекла)
-        '    lens *= vec3(0.97,0.99,1.04);',
-        // Specular — острый блик
-        '    vec3 L = normalize(vec3(-0.5, -0.6, 0.6));',
-        '    float spec = pow(max(0.0, dot(N, L)), 80.0) * drop;',
-        // Финал: линза показывает искажённый фон + блик + контур + fresnel-кайма
-        '    col = lens',
-        '        + vec3(1.0,1.0,1.0) * spec * 0.9',
-        '        + vec3(0.85,0.93,1.0) * rim * 0.4',
-        '        + vec3(0.85,0.93,1.0) * fresnel * drop * 0.12;',
-        // Альфа: тело капли непрозрачно (показывает искажённый фон = линза),
-        // плавно к 0 на краю + блики. trail — тонкий мокрый след.
-        '    alpha = clamp(body*0.92 + spec*0.6 + rim*0.4 + trail*0.14, 0.0, 0.96);',
-        '  }',
-        '  gl_FragColor = vec4(col*alpha, alpha);',   // premultiplied
-        '}'
-      ].join('\n');
-
-      function compile(type, src){
-        const s = gl.createShader(type);
-        gl.shaderSource(s, src); gl.compileShader(s);
-        if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)){
-          console.warn('rain shader:', gl.getShaderInfoLog(s)); return null;
-        }
-        return s;
-      }
-      const vs = compile(gl.VERTEX_SHADER, VS);
-      const fs = compile(gl.FRAGMENT_SHADER, FS);
-      if (!vs || !fs){ window.__rainRunning=false; return; }
-      const prog = gl.createProgram();
-      gl.attachShader(prog, vs); gl.attachShader(prog, fs); gl.linkProgram(prog);
-      gl.useProgram(prog);
-
-      const b = gl.createBuffer();
-      gl.bindBuffer(gl.ARRAY_BUFFER, b);
-      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1,1,-1,-1,1,1,1]), gl.STATIC_DRAW);
-      const loc = gl.getAttribLocation(prog,'p');
-      gl.enableVertexAttribArray(loc);
-      gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);
-
-      const uRes = gl.getUniformLocation(prog,'iResolution');
-      const uTime = gl.getUniformLocation(prog,'iTime');
-      const uTex = gl.getUniformLocation(prog,'iTex');
-      const uHasTex = gl.getUniformLocation(prog,'iHasTex');
-      gl.enable(gl.BLEND);
-      gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-
-      // Текстура снимка фона (космос + картины) для настоящего преломления.
-      const bgTex = gl.createTexture();
-      gl.bindTexture(gl.TEXTURE_2D, bgTex);
-      gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array([0,0,0,0]));
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-      let hasTex = 0;
-
-      // Снимок страницы (без canvas капель/дождя) в текстуру через html2canvas.
-      function captureBackground(){
-        if (typeof html2canvas !== 'function') return;
-        const rb = document.getElementById('rainBgCanvas');
-        const rc = document.getElementById('rainCanvas');
-        const prevA = rb ? rb.style.display : '', prevB = rc ? rc.style.display : '';
-        if (rb) rb.style.display = 'none';
-        if (rc) rc.style.display = 'none';
-        // снимаем ТОЛЬКО видимую область окна (вьюпорт), а не весь body —
-        // иначе текстура содержит всю страницу, а шейдер сэмплит по координатам
-        // окна → образец смещён. С учётом скролла = эффект liquid glass.
-        const sx = window.pageXOffset || 0;
-        const sy = window.pageYOffset || 0;
-        html2canvas(document.body, {
-          backgroundColor:'#0a0e1a', scale:0.5, logging:false, useCORS:true,
-          x: sx, y: sy,
-          width: window.innerWidth, height: window.innerHeight,
-          scrollX: -sx, scrollY: -sy,
-          windowWidth: window.innerWidth, windowHeight: window.innerHeight
-        })
-          .then(snap => {
-            if (rb) rb.style.display = prevA;
-            if (rc) rc.style.display = prevB;
-            gl.bindTexture(gl.TEXTURE_2D, bgTex);
-            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);  // привести к экранным UV (Y вверх)
-            gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,snap);
-            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
-            hasTex = 1;
-          })
-          .catch(() => { if (rb) rb.style.display = prevA; if (rc) rc.style.display = prevB; });
-      }
-      // Настоящая линза: snapshot нужен для преломления реального контента.
-      // В lightMode не снимаем (телефон) — там процедурный космос-fallback в шейдере.
-      let capT;
-      if (!lightMode) {
-        setTimeout(captureBackground, 500);
-        window.addEventListener('resize', () => { clearTimeout(capT); capT = setTimeout(captureBackground, 300); });
-        // пересъёмка после остановки скролла (liquid glass) и при открытии модалки
-        window.addEventListener('scroll', () => { clearTimeout(capT); capT = setTimeout(captureBackground, 160); }, {passive:true});
-        window.__recaptureRainBg = () => { clearTimeout(capT); capT = setTimeout(captureBackground, 250); };
-      } else {
-        window.__recaptureRainBg = () => {};
-      }
-
-      function resize(){
-        const w = Math.floor(window.innerWidth*DPR);
-        const h = Math.floor(window.innerHeight*DPR);
-        if (cv.width!==w || cv.height!==h){ cv.width=w; cv.height=h; }
-        gl.viewport(0,0,w,h);
-      }
-      window.addEventListener('resize', resize);
-      resize();
-      const t0 = performance.now();
-      function frame(){
-        resize();
-        gl.uniform2f(uRes, cv.width, cv.height);
-        gl.uniform1f(uTime, (performance.now()-t0)/1000);
-        gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, bgTex);
-        gl.uniform1i(uTex, 0);
-        gl.uniform1f(uHasTex, hasTex);
-        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-        requestAnimationFrame(frame);
-      }
-      requestAnimationFrame(frame);
-    }
-    // Определяем уровень производительности устройства:
-    // 0 = слабый телефон (дождь отключён), 1 = средний (капли без рефракции фона),
-    // 2 = десктоп/мощный (полный эффект с chromatic aberration и html2canvas).
-    function __perfTier(){
-      const touch = window.matchMedia('(pointer: coarse)').matches;
-      const mem = navigator.deviceMemory || 4;          // GB, Chrome-only (Safari → 4)
-      const cores = navigator.hardwareConcurrency || 4;
-      const dpr = window.devicePixelRatio || 1;
-      // Совсем слабый: touch + мало памяти или мало ядер
-      if (touch && (mem <= 2 || cores <= 2)) return 0;
-      // Средний: touch-устройство (смартфон/планшет)
-      if (touch) return 1;
-      // Мощный: десктоп / ноут
-      return 2;
-    }
-
-    // Запуск после полной загрузки — не блокирует первичный рендер
-    function __startAll(){
-      const tier = __perfTier();
-      if (tier === 0) return; // слабый телефон — без дождя
-      requestAnimationFrame(__startRainBg);
-      // tier=1 → lightMode: нет html2canvas, нет рефракции фона (iHasTex=0 навсегда)
-      requestAnimationFrame(() => __startRain(tier < 2));
-    }
-    if (document.readyState === 'complete') {
-      __startAll();
-    } else {
-      window.addEventListener('load', __startAll);
-    }
-    </script>
-
-    <header class="header">
-        <div class="header-content">
-            <h1>Надежда Жди</h1>
-            <p class="subtitle">fluid art</p>
-        </div>
-    </header>
-
-
-
-
-    <div class="fluid-divider">
-        <svg viewBox="0 0 700 30" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-                <linearGradient id="divGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stop-color="rgba(255,248,220,0)" />
-                    <stop offset="25%" stop-color="rgba(180,120,220,0.5)" />
-                    <stop offset="50%" stop-color="rgba(255,248,220,0.7)" />
-                    <stop offset="75%" stop-color="rgba(80,160,220,0.5)" />
-                    <stop offset="100%" stop-color="rgba(255,248,220,0)" />
-                </linearGradient>
-            </defs>
-            <path d="M0,15 Q70,8 140,15 Q210,22 280,13 Q350,4 420,15 Q490,26 560,14 Q630,6 700,15"
-                stroke="url(#divGrad)" stroke-width="1" fill="none" opacity="0.6" />
-        </svg>
-    </div>
-
-    <div class="container">
-        <div id="gallery" class="gallery"></div>
-    </div>
-
-    <div id="modal" class="modal">
-        <span class="close">
-          <svg viewBox="0 0 44 44" width="44" height="44" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <!-- градиент каждого луча: яркий центр → прозрачный конец -->
-              <linearGradient id="ray0" x1="22" y1="22" x2="22" y2="3" gradientUnits="userSpaceOnUse">
-                <stop offset="0" stop-color="currentColor" stop-opacity="0.9"/>
-                <stop offset="1" stop-color="currentColor" stop-opacity="0"/>
-              </linearGradient>
-              <linearGradient id="ray1" x1="22" y1="22" x2="22" y2="41" gradientUnits="userSpaceOnUse">
-                <stop offset="0" stop-color="currentColor" stop-opacity="0.9"/>
-                <stop offset="1" stop-color="currentColor" stop-opacity="0"/>
-              </linearGradient>
-              <linearGradient id="ray2" x1="22" y1="22" x2="3" y2="22" gradientUnits="userSpaceOnUse">
-                <stop offset="0" stop-color="currentColor" stop-opacity="0.9"/>
-                <stop offset="1" stop-color="currentColor" stop-opacity="0"/>
-              </linearGradient>
-              <linearGradient id="ray3" x1="22" y1="22" x2="41" y2="22" gradientUnits="userSpaceOnUse">
-                <stop offset="0" stop-color="currentColor" stop-opacity="0.9"/>
-                <stop offset="1" stop-color="currentColor" stop-opacity="0"/>
-              </linearGradient>
-              <linearGradient id="ray4" x1="22" y1="22" x2="8" y2="8" gradientUnits="userSpaceOnUse">
-                <stop offset="0" stop-color="currentColor" stop-opacity="0.7"/>
-                <stop offset="1" stop-color="currentColor" stop-opacity="0"/>
-              </linearGradient>
-              <linearGradient id="ray5" x1="22" y1="22" x2="36" y2="36" gradientUnits="userSpaceOnUse">
-                <stop offset="0" stop-color="currentColor" stop-opacity="0.7"/>
-                <stop offset="1" stop-color="currentColor" stop-opacity="0"/>
-              </linearGradient>
-              <linearGradient id="ray6" x1="22" y1="22" x2="36" y2="8" gradientUnits="userSpaceOnUse">
-                <stop offset="0" stop-color="currentColor" stop-opacity="0.7"/>
-                <stop offset="1" stop-color="currentColor" stop-opacity="0"/>
-              </linearGradient>
-              <linearGradient id="ray7" x1="22" y1="22" x2="8" y2="36" gradientUnits="userSpaceOnUse">
-                <stop offset="0" stop-color="currentColor" stop-opacity="0.7"/>
-                <stop offset="1" stop-color="currentColor" stop-opacity="0"/>
-              </linearGradient>
-            </defs>
-            <!-- 4 длинных главных луча -->
-            <line x1="22" y1="22" x2="22" y2="3"  stroke="url(#ray0)" stroke-width="1.1" stroke-linecap="round"/>
-            <line x1="22" y1="22" x2="22" y2="41" stroke="url(#ray1)" stroke-width="1.1" stroke-linecap="round"/>
-            <line x1="22" y1="22" x2="3"  y2="22" stroke="url(#ray2)" stroke-width="1.1" stroke-linecap="round"/>
-            <line x1="22" y1="22" x2="41" y2="22" stroke="url(#ray3)" stroke-width="1.1" stroke-linecap="round"/>
-            <!-- 4 коротких диагональных луча -->
-            <line x1="22" y1="22" x2="8"  y2="8"  stroke="url(#ray4)" stroke-width="0.8" stroke-linecap="round"/>
-            <line x1="22" y1="22" x2="36" y2="36" stroke="url(#ray5)" stroke-width="0.8" stroke-linecap="round"/>
-            <line x1="22" y1="22" x2="36" y2="8"  stroke="url(#ray6)" stroke-width="0.8" stroke-linecap="round"/>
-            <line x1="22" y1="22" x2="8"  y2="36" stroke="url(#ray7)" stroke-width="0.8" stroke-linecap="round"/>
-            <!-- яркая точка в центре -->
-            <circle cx="22" cy="22" r="1.5" fill="currentColor" opacity="0.95"/>
-          </svg>
-        </span>
+    <main class="journey" aria-label="Непрерывная выставка работ Надежды Терёшкиной">
+        <section class="flight" id="flight">
+            <div class="void"></div>
+            <div class="grain"></div>
+            <section class="stage" id="stage" aria-label="Галерея: открытая картина с палитрой">
+    <div id="modal" class="modal open">
         <img class="modal-content" id="modalImg">
-        <div class="image-info" id="imageInfo"></div>
         <div class="nav-buttons">
             <button id="prevBtn" class="nav-btn" title="Предыдущая">&#10094;</button>
             <button id="nextBtn" class="nav-btn" title="Следующая">&#10095;</button>
         </div>
     </div>
 
-    <!-- Палитра — правый нижний угол, поверх всего -->
-    <div class="palette-wrap" id="paletteWrap">
+    <!-- Палитра листает картины: стоит у открытой картины -->
+    <div class="palette-wrap visible" id="paletteWrap">
         <!-- 🎨 Классическая палитра с мазками-миниатюрами -->
         <svg class="palette-shape" viewBox="0 0 300 220" xmlns="http://www.w3.org/2000/svg">
             <defs>
@@ -2042,21 +1922,513 @@
         <!-- Превьюшки расставляются JS-ом -->
         <div class="palette-dots" id="thumbnailsTrack"></div>
     </div>
+    </section>
+            <div class="portal" aria-live="polite"><img class="art" src="assets/stills/img_05.jpg"
+                    alt="Работа 1 Надежды Терёшкиной">
+            </div>
+            <header class="title" id="title">
+                <h1>Надежда<br><em>Жди</em></h1>
+            </header>
+            <div class="progress" aria-hidden="true"><span></span></div>
+            <button class="skip" id="skip" type="button">сразу в галерею</button>
+            <section class="arrival" id="arrival" aria-label="Конец экспозиции">
+                <div class="actions"><button id="restart" type="button">пройти ещё раз</button></div>
+            </section>
+        </section>
+    </main>
+    <script src="assets/stills/edges.js"></script>
+    <script>
+        window.ROUTE = [5, 8, 9, 7, 6, 4, 3, 2, 1];
+        (function () {
+            const ORDER = window.ROUTE, // порядок пролёта; тот же в gen_transitions.py
+                N = ORDER.length,
+                STEPS = N, // на каждой картине сегмент: покой, затем клип; клип последней — влёт в галерею
+                CLIP_FROM = .25, // доля сегмента, после которой играет клип перехода
+                pad = n => String(n).padStart(2, '0'),
+                images = ORDER.map(n => `assets/stills/img_${pad(n)}.jpg`),
+                $ = s => document.querySelector(s),
+                journey = $('.journey'), flight = $('#flight'), bar = $('.progress'), wall = $('.flight .void'),
+                grain = $('.flight .grain'),
+                title = $('#title'),
+                arrival = $('#arrival'), skip = $('#skip'),
+                reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches,
+                behavior = reduceMotion ? 'auto' : 'smooth';
+            let shown = -1, ticking = false;
 
-    <!-- Кошка Пуля -->
-    <footer class="footer">
-        <p>Надежда Жди</p>
-    </footer>
+            // Каждая картина — свой <img> в стопке: на стыках src не меняется и ничего не перекодируется,
+            // поэтому смена картины не даёт ни кадра задержки.
+            const portal = $('.portal'),
+                arts = images.map((src, i) => {
+                    const img = i ? new Image() : portal.querySelector('.art');
+                    img.className = 'art';
+                    img.src = src;
+                    img.alt = i ? '' : img.alt;
+                    img.decoding = 'sync';
+                    if (i) portal.append(img);
+                    return img;
+                }),
+                // tKK.mp4 — переход от картины K к K+1; последний, t09, — влёт из последней картины в комнату
+                clips = images.map((_, i) => {
+                    const v = document.createElement('video');
+                    v.className = 'art trans';
+                    v.muted = true;
+                    v.playsInline = true;
+                    v.preload = i < 2 ? 'auto' : 'none';
+                    v.setAttribute('aria-hidden', 'true');
+                    v.src = `assets/transitions/t${pad(i + 1)}.mp4`;
+                    v.addEventListener('loadeddata', () => schedule());
+                    portal.append(v);
+                    return v;
+                });
+            let activeClip = null;
+
+            const SEAM = .03; // доля клипа на растворение картина ↔ видео с каждого конца
+            // Влёт — камера уходит вглубь картины, а сквозь вторую половину клипа проступает живая галерея:
+            // снимка галереи в клипе нет.
+            const SEAM_ROOM = .5;
+
+            const FPS = 24; // все клипы — 24 кадра в секунду
+            const framesOf = clip => Math.max(2, Math.round(clip.duration * FPS));
+
+            function showClip(clip, t) {
+                if (activeClip && activeClip !== clip) activeClip.style.opacity = 0;
+                activeClip = clip;
+                if (!clip) return;
+                // Встаём в середину нужного кадра клипа: каждый кадр — своя точка, между ними видео не дёргаем.
+                const time = (Math.round(t * (framesOf(clip) - 1)) + .5) / FPS;
+                // Скрытое видео показываем, только когда на нём уже кадр рядом с нужным, — иначе мелькнёт
+                // старый кадр; показанное держим и во время поиска: оно стоит на прошлом кадре.
+                const show = +clip.style.opacity > 0 ||
+                    (!clip.seeking && clip.readyState >= 2 && Math.abs(clip.currentTime - time) < .5);
+                // Следующий кадр просим, только когда прошлый досчитан: иначе каждый поиск обрывает предыдущий.
+                if (!clip.seeking && Math.abs(clip.currentTime - time) > .5 / FPS) clip.currentTime = time;
+                clip.style.opacity = show ? Math.min(1, t / SEAM, (1 - t) / (clip === clips[N - 1] ? SEAM_ROOM : SEAM)) : 0;
+            }
+
+            clips.forEach(v => v.addEventListener('seeked', () => schedule()));
+
+            const range = () => Math.max(1, journey.offsetHeight - innerHeight);
+            const progress = () => Math.min(1, Math.max(0, (scrollY - journey.offsetTop) / range()));
+            const goTo = raw => scrollTo({ top: journey.offsetTop + raw * range(), behavior });
+            // Середина «покоя» картины i: она уже на экране, следующая ещё не проявилась.
+            const restOf = i => (i + .15) / STEPS;
+
+            // В стопке видна одна картина: index, а когда клип перевалил за середину (past) — уже следующая, под
+            // концом клипа. После последней картины следующей нет: под концом влёта — комната галереи.
+            // Картины не масштабируются: всё движение — только в клипе перехода.
+            function placeArts(index, past) {
+                arts.forEach((img, i) => {
+                    const op = i === (past ? index + 1 : index) ? 1 : 0;
+                    if (img.style.opacity !== String(op)) img.style.opacity = op;
+                });
+            }
+
+            // Клипы тяжёлые (1080×1440): грузим текущий и следующий, остальные — по мере пути.
+            function warm(index) {
+                clips.forEach((v, i) => {
+                    if (i < index || i > index + 1 || v.preload === 'auto') return;
+                    v.preload = 'auto';
+                    if (v.readyState === 0) v.load();
+                });
+            }
+
+            const ss = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t) };
+
+            // Средние цвета картин (assets/stills/edges.js): ими окрашена стена за кадром
+            const edges = window.paintingEdges;
+
+            // Пролёт — лента кадров: в каждом переходе все кадры клипа, на каждой картине HOLD шагов покоя.
+            // Показанное положение догоняет скролл не быстрее шага ленты за кадр экрана: клип проигрывается
+            // подряд, без пропусков (щелчок колеса — ~20 кадров за доли секунды). Отставание больше LAG шагов
+            // (рывок ползунком, «пройти ещё раз») проскакивается сразу.
+            const HOLD = 8, LAG = 160;
+            const span = i => clips[i] && clips[i].duration > 0 ? framesOf(clips[i]) - 1 : 150;
+            function toTape(travel) {
+                const i = Math.min(N - 1, Math.floor(travel)), local = travel - i;
+                let u = 0;
+                for (let j = 0; j < i; j++) u += HOLD + span(j);
+                return local < CLIP_FROM ? u + local / CLIP_FROM * HOLD
+                    : u + HOLD + (local - CLIP_FROM) / (1 - CLIP_FROM) * span(i);
+            }
+            function fromTape(u) {
+                for (let i = 0; i < N; i++) {
+                    if (u < HOLD) return i + Math.max(0, u) / HOLD * CLIP_FROM;
+                    if (u < HOLD + span(i)) return i + CLIP_FROM + (u - HOLD) / span(i) * (1 - CLIP_FROM);
+                    u -= HOLD + span(i);
+                }
+                return N;
+            }
+            let travel = progress() * STEPS; // показанное положение, в шагах пролёта
+            // Переменную пишем только на тот элемент, где она нужна, и только если она изменилась:
+            // каждая запись заново пересчитывает стили всего поддерева.
+            const setVar = (el, name, v) => {
+                v = String(v);
+                if (el.style.getPropertyValue(name) !== v) el.style.setProperty(name, v);
+            };
+
+            let lastFrame = performance.now();
+            function render() {
+                const goal = progress() * STEPS, now = performance.now(), dt = Math.min(100, now - lastFrame);
+                lastFrame = now;
+                if (reduceMotion) travel = goal;
+                else {
+                    const to = toTape(goal), at = Math.min(N - 1, Math.floor(travel));
+                    // в клипе — не больше кадра клипа за кадр экрана; на неподвижной картине шаг по времени:
+                    // если экран пропустил кадр, лента не замедляется
+                    const cap = travel - at >= CLIP_FROM ? 1 : Math.max(1, dt / 16.7);
+                    let u = toTape(travel);
+                    if (Math.abs(to - u) > LAG) u = to - Math.sign(to - u) * LAG;
+                    // пока клип ищет кадр, следующий не просим — иначе кадры пропускались бы
+                    else if (!(activeClip && activeClip.seeking)) u += Math.max(-cap, Math.min(cap, (to - u) * .25));
+                    travel = Math.abs(to - u) < .02 ? goal : fromTape(u);
+                }
+                const raw = travel / STEPS,
+                    index = Math.min(N - 1, Math.floor(travel)),
+                    local = Math.min(1, travel - index),
+                    clip = clips[index],
+                    // Пока ищется кадр, readyState падает до 1, но видео держит прошлый кадр — прятать его
+                    // нельзя: из-под него мелькали бы картины, и переход шёл бы двумя анимациями сразу.
+                    clipReady = clip && clip.readyState >= 1 && clip.duration > 0,
+                    t = (local - CLIP_FROM) / (1 - CLIP_FROM);
+                setVar(bar, '--p', raw);
+                // До клипа картина стоит; клип начинается с неё же и заканчивается следующей.
+                // Под концом клипа уже лежит следующая картина: видео растворяется прямо в неё.
+                placeArts(index, t > .5);
+                // Переход — только кадры клипа: пока клип не загрузился, стоит картина, без растворений.
+                showClip(clipReady && t > 0 ? clip : null, Math.min(1, t));
+                if (index !== shown) {
+                    shown = index;
+                    warm(index);
+                    arts.forEach((img, i) => { img.alt = i === index ? `Работа ${index + 1} Надежды Терёшкиной` : '' });
+                    const k = edges[ORDER[index]];
+                    if (k) wall.style.setProperty('--amb-m', k.m.join(' '));
+                }
+                title.style.opacity = Math.max(0, 1 - raw * 7);
+                // невидимый заголовок убираем совсем: его смешивание screen заставляет сводить весь пролёт
+                // через копию фона — лишний полноэкранный проход на каждом кадре
+                title.style.display = raw * 7 < 1 ? '' : 'none';
+                // Влёт — клип последнего сегмента: камера уходит вглубь картины. Комната и сцена (небо, луна,
+                // свечи, дождь) лежат под кадром с начала сегмента: рисуются, пока на экране неподвижная картина,
+                // а не посреди движения. До середины клипа тёмный фон пролёта под видео уходит, и со второй
+                // половины клип растворяется прямо в живую комнату.
+                const last = index === N - 1, end = last ? t : 0;
+                arrival.classList.toggle('visible', end > .97);
+                skip.hidden = last && t > 0;  // влёт уже идёт — обходить нечего
+                // Под непрозрачным кадром Chrome комнату и небо не рисует — впервые они рисовались бы в начале
+                // растворения клипа, рывком. Пока перед клипом стоит неподвижная картина, кадр и фон на 0,1 %
+                // прозрачны: всё под ними прорисовывается сейчас, незаметно для глаза.
+                const warmUp = last && t <= 0;
+                if (warmUp) arts[N - 1].style.opacity = .999;
+                setVar(flight, '--reveal', warmUp ? .001 : ss(.2, .45, end));
+                setVar(flight, '--room', last ? 1 : 0);
+                // Зерно (soft-light, через копию фона) гаснет во второй половине предпоследнего клипа: без него
+                // непрозрачный кадр закрывает сцену под собой, и видеокарта её не рисует.
+                const g = index < N - 2 ? 1 : index === N - 2 ? 1 - ss(.5, 1, t) : 0;
+                setVar(grain, '--grain', g.toFixed(3));
+                grain.style.display = g > 0 ? '' : 'none';
+                // Пока идёт пролёт, сцена скрыта и стоит — ничто не отнимает кадры у клипа. Проявляется и оживает
+                // сразу целиком в начале последнего сегмента: её первая прорисовка (небо, свечение луны, вихри)
+                // приходится на неподвижную картину, а не на клип.
+                const root = document.documentElement, still = !last;
+                if (root.classList.contains('in-flight') === last) root.classList.toggle('in-flight', !last);
+                if (still !== window.__sceneryPaused) {
+                    window.__sceneryPaused = still;
+                    root.classList.toggle('scenery-still', still);
+                }
+                window.__inGallery = travel >= N;  // влёт доигран — галерея на экране
+                ticking = travel !== goal;  // ещё не догнали скролл — следующий кадр
+                if (ticking) requestAnimationFrame(render);
+            }
+
+            const schedule = () => { if (!ticking) { requestAnimationFrame(render); ticking = true } };
+            addEventListener('scroll', schedule, { passive: true });
+            addEventListener('resize', schedule);
+            render();
+
+            $('#restart').onclick = () => goTo(0);
+            // Сразу в конец пути: показ встаёт на последнюю картину, а дальше лента доигрывает влёт в галерею.
+            skip.onclick = () => {
+                travel = Math.max(travel, N - 1);
+                scrollTo({ top: journey.offsetTop + range() });
+            };
+
+
+            // Клавиши листают по одной картине, пока идёт пролёт; дальше — обычная прокрутка.
+            addEventListener('keydown', e => {
+                if (e.target.closest('input, textarea') || e.altKey || e.ctrlKey || e.metaKey) return;
+                const raw = progress(), inside = scrollY < journey.offsetTop + range();
+                if (!inside) return;
+                const at = Math.min(N, Math.round(raw * STEPS - .15));
+                if (e.key === 'ArrowDown' || e.key === 'PageDown' || (e.key === ' ' && !e.shiftKey)) {
+                    e.preventDefault();
+                    goTo(at >= N - 1 ? 1 : restOf(at + 1));
+                } else if (e.key === 'ArrowUp' || e.key === 'PageUp' || (e.key === ' ' && e.shiftKey)) {
+                    e.preventDefault();
+                    goTo(at <= 0 ? 0 : restOf(Math.min(at - 1, N - 1)));
+                }
+            });
+        })();
+    </script>
+
+    <div class="nadezhda" id="nadezhda">
+    <div class="atmosphere"></div>
+
+    <!-- Canvas: живые вихри краски -->
+    <canvas id="fluidCanvas" style="
+        position:fixed; inset:0; width:100%; height:100%;
+        z-index:0; pointer-events:none; opacity:0.55;
+    "></canvas>
+
+    <!-- Млечный путь -->
+    <div class="milky-way" id="milkyWay">
+        <img id="milkyWayImg"
+            src="https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1800&q=80&auto=format&fit=crop" alt=""
+            crossorigin="anonymous" />
+    </div>
+
+    <!-- Луна — реальное фото -->
+    <div class="moon-glow" id="moonGlow">
+    <div class="moon" id="moonEl">
+        <img src="https://images.unsplash.com/photo-1532693322450-2cb5c511067d?w=400&q=85&auto=format&fit=crop"
+            alt="Moon" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;" />
+        <canvas id="moonCanvas" style="position:absolute;inset:0;width:100%;height:100%;border-radius:50%;pointer-events:none;"></canvas>
+        <script>
+        (function(){
+          if (window.__moonRunning) return;
+          window.__moonRunning = true;
+          const cv = document.getElementById('moonCanvas');
+          const PERIOD = 30000;
+          const TILT = 0.087;
+
+          // Физика: солнце всегда справа. Луна обходит Землю.
+          // После новолуния серп появляется СПРАВА и растёт.
+          // После полнолуния убывает — тень наползает СЛЕВА.
+          // Тень ВСЕГДА слева от терминатора. Терминатор движется справа налево (растущая)
+          // и обратно слева направо (убывающая). Переключение только в новолуние — вся тёмная.
+          //
+          // Параметр p = cos(2πf):
+          //   f=0:    p=+1  → терминатор у правого края  → вся тень (новолуние)
+          //   f=0.25: p=0   → терминатор по центру       → тень слева, серп справа
+          //   f=0.5:  p=-1  → терминатор у левого края   → нет тени (полнолуние)
+          //   f=0.75: p=0   → терминатор по центру       → тень справа, серп слева
+          //
+          // Тень = область левее терминатора ∩ диск.
+          // Терминатор-эллипс центрирован в (cx, cy), rx=R·|p|, ry=R.
+          // p>0: тень = левый полукруг МИНУС правый клин эллипса  (серп справа)
+          // p<0: тень = левый полукруг ПЛЮС  левый клин эллипса   (серп слева)
+          // p=±1: новолуние/полнолуние — trx=R, переключение скрыто в полной тьме/свете.
+          // Переключение знака p при f=0 (новолуние, вся тёмная) и f=0.5 (полнолуние, вся светлая).
+
+          function draw(f) {
+            const S = cv.offsetWidth * (window.devicePixelRatio || 1);
+            if (cv.width !== S) { cv.width = S; cv.height = S; }
+            const ctx = cv.getContext('2d');
+            const R = S / 2, cx = R, cy = R;
+            ctx.clearRect(0, 0, S, S);
+
+            const cosF = Math.cos(f * Math.PI * 2);
+            const trx = Math.abs(cosF) * R;
+            const waxing = f < 0.5;
+            const illum = (1 - Math.cos(f * Math.PI * 2)) / 2;
+
+            // ── Тень: чёткая форма + мягкий только терминатор ─────────────
+            // Идея: рисуем НЕразмытую тень (доходит до края диска точно),
+            // отдельно поверх — размытую копию ТОЛЬКО вдоль терминатора,
+            // чтобы внешний край диска оставался чётким, а граница свет/тень мягкой.
+            const soft = Math.max(4, R * 0.08);
+            const Rover = R + Math.ceil(soft) + 2; // запас за край под blur
+
+            // offscreen: строим размытую тень
+            const off = document.createElement('canvas');
+            off.width = S; off.height = S;
+            const oc = off.getContext('2d');
+            oc.filter = `blur(${soft}px)`;
+            oc.fillStyle = 'rgba(4,8,20,0.94)';
+            oc.beginPath();
+            if (waxing) {
+              oc.arc(cx, cy, Rover, -Math.PI/2, Math.PI/2, true);
+              oc.ellipse(cx, cy, trx, Rover, TILT, Math.PI/2, -Math.PI/2, cosF > 0);
+            } else {
+              oc.arc(cx, cy, Rover, -Math.PI/2, Math.PI/2, false);
+              oc.ellipse(cx, cy, trx, Rover, TILT, Math.PI/2, -Math.PI/2, cosF < 0);
+            }
+            oc.closePath();
+            oc.fill();
+            oc.filter = 'none';
+            // обрезаем тень строго по диску — blur за краем отсекается,
+            // но форма строилась за Rover, так что у края тень полной плотности
+            oc.globalCompositeOperation = 'destination-in';
+            oc.beginPath(); oc.arc(cx, cy, R, 0, Math.PI*2); oc.fill();
+
+            ctx.save();
+            ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI*2); ctx.clip();
+            ctx.drawImage(off, 0, 0);
+
+            // ── Edge-vignette: убирает светлую кромку, мягкий и узкий ──────
+            const vig = ctx.createRadialGradient(cx, cy, R * 0.94, cx, cy, R);
+            vig.addColorStop(0, 'rgba(4,8,20,0)');
+            vig.addColorStop(1, 'rgba(4,8,20,0.28)');
+            ctx.fillStyle = vig;
+            ctx.fillRect(0, 0, S, S);
+            ctx.restore();
+
+            // ── Свечение ───────────────────────────────────────────────────
+            const sinF = Math.sin(f * Math.PI * 2);
+            const shiftMag = sinF * 18;
+            const ox = Math.round(shiftMag * Math.cos(TILT));
+            const oy = Math.round(-shiftMag * Math.sin(TILT));
+            const a0 = (0.06 + illum * 0.22).toFixed(2);
+            const a1 = (0.03 + illum * 0.14).toFixed(2);
+            const a2 = (0.01 + illum * 0.08).toFixed(2);
+            const r0 = Math.round(20 + illum * 35);
+            const r1 = Math.round(50 + illum * 80);
+            const r2 = Math.round(100 + illum * 160);
+            cv.parentElement.parentElement.style.boxShadow =
+              `${ox}px ${oy}px ${r0}px rgba(210,225,255,${a0}), ` +
+              `${ox}px ${oy}px ${r1}px rgba(190,210,255,${a1}), ` +
+              `${ox}px ${oy}px ${r2}px rgba(160,190,235,${a2})`;
+          }
+
+          let start = null, drawn = -1e9;
+          function tick(ts) {
+            if (window.__sceneryPaused) { requestAnimationFrame(tick); return; }  // под пролётом не видна
+            if (!start) start = ts;
+            // старт с полнолуния: f=0.5 → p=-1 → trx=R, но тень=0 (полнолуние)
+            // фаза за кадр почти не меняется: тень с размытием и свечение перерисовываем 15 раз в секунду
+            if (ts - drawn >= 66) { drawn = ts; draw((0.5 + ((ts - start) % PERIOD) / PERIOD) % 1); }
+            requestAnimationFrame(tick);
+          }
+          requestAnimationFrame(tick);
+        })();
+        </script>
+    </div>
+    </div>
+
+    <!-- Свечи -->
+    <div class="candles-container">
+        <div class="candle" style="left:5%">
+            <div class="candle-body" style="height:70px">
+                <div class="flame"></div>
+            </div>
+        </div>
+        <div class="candle" style="left:9%">
+            <div class="candle-body" style="height:95px">
+                <div class="flame"></div>
+            </div>
+        </div>
+        <div class="candle" style="right:7%">
+            <div class="candle-body" style="height:80px">
+                <div class="flame"></div>
+            </div>
+        </div>
+        <div class="candle" style="right:11%">
+            <div class="candle-body" style="height:58px">
+                <div class="flame"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mist"></div>
+
+    <div class="stars" id="stars"></div>
+
+    <!-- Дождь за окном (тонкие линии, дальний план) -->
+    <canvas id="rainBgCanvas" style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:1;pointer-events:none;"></canvas>
+    <script>
+    // Дождь за окном: тонкие падающие линии-частицы (Canvas 2D, плавно, без мелькания).
+    function __startRainBg(){
+      if (window.__rainBgRunning) return;
+      const cv = document.getElementById('rainBgCanvas');
+      const ctx = cv.getContext('2d');
+      if (!ctx){ return; }
+      window.__rainBgRunning = true;
+      const DPR = Math.min(window.devicePixelRatio || 1, 2);
+      const rnd = (a,b) => a + (b-a)*Math.random();
+      let W, H, lines = [];
+
+      function makeLine(){
+        // три плана глубины: дальний тоньше/бледнее/медленнее
+        const depth = Math.random();              // 0 дальний … 1 ближний
+        const len   = rnd(14, 40) * (0.5 + depth); // длина штриха
+        return {
+          x: rnd(-40, W+40),
+          y: rnd(-H, 0),
+          len,
+          vy: rnd(7, 12) * (0.5 + depth),          // скорость падения
+          slant: rnd(0.12, 0.22),                  // наклон (ветер)
+          w: 0.6 + depth*0.9,                       // толщина
+          a: 0.06 + depth*0.16                      // прозрачность
+        };
+      }
+
+      function resize(){
+        W = window.innerWidth; H = window.innerHeight;
+        cv.width = W*DPR; cv.height = H*DPR;
+        ctx.setTransform(DPR,0,0,DPR,0,0);
+        const count = Math.round(W / 14);           // плотность дождя
+        lines = []; for (let i=0;i<count;i++){ const l=makeLine(); l.y=rnd(0,H); lines.push(l); }
+      }
+
+      function step(){
+        if (window.__sceneryPaused){ requestAnimationFrame(step); return; }  // под пролётом не виден
+        ctx.clearRect(0,0,W,H);
+        ctx.lineCap = 'round';
+        for (let i=0;i<lines.length;i++){
+          const l = lines[i];
+          l.y += l.vy;
+          l.x += l.vy * l.slant;
+          ctx.beginPath();
+          ctx.moveTo(l.x, l.y);
+          ctx.lineTo(l.x - l.len*l.slant, l.y - l.len);  // штрих вдоль направления падения
+          ctx.lineWidth = l.w;
+          ctx.strokeStyle = 'rgba(180,205,255,'+l.a+')';
+          ctx.stroke();
+          if (l.y - l.len > H + 10){                 // ушла за низ — респавн сверху
+            Object.assign(l, makeLine());
+            l.y = rnd(-40, -5);
+          }
+        }
+        requestAnimationFrame(step);
+      }
+      window.addEventListener('resize', resize);
+      resize();
+      requestAnimationFrame(step);
+    }
+
+    // Определяем уровень производительности устройства:
+    // 0 = слабый телефон (дождь отключён), 1 = телефон или планшет, 2 = десктоп или ноутбук.
+    function __perfTier(){
+      const touch = window.matchMedia('(pointer: coarse)').matches;
+      const mem = navigator.deviceMemory || 4;          // GB, Chrome-only (Safari → 4)
+      const cores = navigator.hardwareConcurrency || 4;
+      const dpr = window.devicePixelRatio || 1;
+      // Совсем слабый: touch + мало памяти или мало ядер
+      if (touch && (mem <= 2 || cores <= 2)) return 0;
+      // Средний: touch-устройство (смартфон/планшет)
+      if (touch) return 1;
+      // Мощный: десктоп / ноут
+      return 2;
+    }
+
+    // Запуск после полной загрузки — не блокирует первичный рендер
+    function __startAll(){
+      const tier = __perfTier();
+      if (tier === 0) return; // слабый телефон — без дождя
+      requestAnimationFrame(__startRainBg);
+    }
+    if (document.readyState === 'complete') {
+      __startAll();
+    } else {
+      window.addEventListener('load', __startAll);
+    }
+    </script>
 
     <script>
         function initApp(imagesData) {
         let currentIndex = 0;
 
-        const gallery = document.getElementById('gallery');
         const modal = document.getElementById('modal');
         const modalImg = document.getElementById('modalImg');
-        const imageInfo = document.getElementById('imageInfo');
-        const closeBtn = document.querySelector('.close');
         const prevBtn = document.getElementById('prevBtn');
         const nextBtn = document.getElementById('nextBtn');
         const thumbnailsTrack = document.getElementById('thumbnailsTrack');
@@ -2164,9 +2536,9 @@
             showImage((currentIndex + 1) % imagesData.length);
         }
 
-        function navigateCarouselByDelta(delta) {
+        function navigateCarouselByDelta(delta, evenZoomed = false) {
             if (!modal.classList.contains('open')) return;
-            if (modalZoomLevel > 1.01) return;
+            if (modalZoomLevel > 1.01 && !evenZoomed) return;
             if (Math.abs(delta) < CAROUSEL_WHEEL_THRESHOLD) return;
 
             const now = Date.now();
@@ -2212,31 +2584,29 @@
             }, { passive: true });
         }
 
+        // Колесо листает картины, когда пролёт долетел до галереи: над палитрой и вокруг картины (над самой картиной
+        // приближает её); у первой и последней картины отпускает страницу.
+        const journeyEnd = () => {
+            const j = document.querySelector('.journey');
+            return j.offsetTop + j.offsetHeight - innerHeight;
+        };
+        // Галерея на экране — когда влёт доигран (window.__inGallery ставит пролёт), а не когда страница
+        // докручена: клип влёта ещё играет, а лишние щелчки колеса листали бы картины под ним.
+        function isStageInView() {
+            return scrollY >= journeyEnd() - 2 && window.__inGallery === true;
+        }
+
         function setupModalWheelCarousel() {
-            const onWheel = (e) => {
-                if (!modal.classList.contains('open')) return;
-                if (e.target === modalImg) return;
-                if (e.target.closest('.nav-buttons, .close')) return;
+            document.getElementById('flight').addEventListener('wheel', (e) => {
                 if (Math.abs(e.deltaX) === 0 && Math.abs(e.deltaY) === 0) return;
+                if (e.target === modalImg) return; // над картиной колесо приближает её (setupModalWheelZoom)
+                const delta = Math.abs(e.deltaX) >= Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+                const atEdge = (delta < 0 && currentIndex === 0) || (delta > 0 && currentIndex === imagesData.length - 1);
+                if (!isStageInView() || atEdge) return;
 
                 e.preventDefault();
-                const dominantDelta = Math.abs(e.deltaX) >= Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
-                navigateCarouselByDelta(dominantDelta);
-            };
-            modal.addEventListener('wheel', onWheel, { passive: false });
-
-            // палитра — всегда листает, даже при зуме картины
-            document.getElementById('paletteWrap').addEventListener('wheel', (e) => {
-                if (!modal.classList.contains('open')) return;
-                if (Math.abs(e.deltaX) === 0 && Math.abs(e.deltaY) === 0) return;
-                e.preventDefault();
-                e.stopPropagation();
-                const dominantDelta = Math.abs(e.deltaX) >= Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
-                if (Math.abs(dominantDelta) < CAROUSEL_WHEEL_THRESHOLD) return;
-                const now = Date.now();
-                if (now - lastCarouselNavAt < CAROUSEL_NAV_COOLDOWN_MS) return;
-                lastCarouselNavAt = now;
-                if (dominantDelta > 0) showNextImage(); else showPrevImage();
+                // палитра листает всегда, даже когда картина приближена
+                navigateCarouselByDelta(delta, Boolean(e.target.closest('#paletteWrap')));
             }, { passive: false });
         }
 
@@ -2246,7 +2616,8 @@
             });
 
             modalImg.addEventListener('wheel', (e) => {
-                if (!modal.classList.contains('open')) return;
+                // над картиной колесо приближает её, как в прежней галерее; пока идёт пролёт — крутит страницу
+                if (!modal.classList.contains('open') || !isStageInView()) return;
                 e.preventDefault();
                 e.stopPropagation();
 
@@ -2400,7 +2771,8 @@
                 getFullSrc(snapIndex).then(src => {
                     if (currentIndex !== snapIndex) return;
                     const tmp = new Image();
-                    tmp.onload = () => {
+                    tmp.onload = async () => {
+                        await tmp.decode().catch(() => {});  // распакована заранее — подмена без рывка
                         if (currentIndex !== snapIndex) return;
                         modalImg.classList.remove('loaded');
                         requestAnimationFrame(() => {
@@ -2418,7 +2790,7 @@
             enqueuePreload((currentIndex - 1 + n) % n);
 
             // Update info and thumbnails
-            updateImageInfo();
+            markActiveThumb();
             requestAnimationFrame(recalculateModalMaxZoom);
         }
 
@@ -2454,58 +2826,157 @@
             });
         }
 
-        // Равномерное размещение слотов по телу палитры.
-        // Гексагональная упаковка: ряды смещены на полшага — максимально равномерно
-        // заполняет произвольную форму без пустых зон по углам.
-        function buildPaletteSlots(count) {
-            const Cx = 160, Cy = 108, Rx = 116, Ry = 80;
-            const Hx = 224, Hy = 132, Hr = 40; // отверстие с запасом
-            const inBody = (x, y) => {
-                const dx = (x - Cx) / Rx, dy = (y - Cy) / Ry;
-                return dx*dx + dy*dy <= 0.90; // чуть ближе к краю
-            };
-            const inHole = (x, y) => Math.hypot(x - Hx, y - Hy) < Hr;
-            const valid  = (x, y) => inBody(x, y) && !inHole(x, y);
+        // Мазки на палитре — в единицах viewBox: зазор между ними и запас до края палитры и до отверстия.
+        // Мазок под курсором крупнее (--blob-scale 1.06) — не внахлёст и тогда.
+        const PALETTE_GAP = 4, PALETTE_EDGE = 6, BLOB_HOVER = 1.06;
 
-            // Подбираем шаг гексагональной сетки: уменьшаем пока не наберём >= count точек.
-            // Начинаем с крупного шага, сжимаем.
-            for (let step = 38; step >= 14; step -= 2) {
-                const hStep = step;               // горизонтальный шаг
-                const vStep = step * 0.866;       // вертикальный шаг (sqrt(3)/2)
-                const cells = [];
-                const yMin = Cy - Ry, yMax = Cy + Ry;
-                let row = 0;
-                for (let y = yMin + vStep * 0.5; y <= yMax; y += vStep, row++) {
-                    const xOff = (row % 2) * hStep * 0.5; // гексагональный сдвиг
-                    const xMin = Cx - Rx, xMax = Cx + Rx;
-                    for (let x = xMin + hStep * 0.5 + xOff; x <= xMax; x += hStep) {
-                        if (valid(x, y)) cells.push([x, y]);
+        // Контур палитры (внешний край и отверстие) точками по кривым Безье пути #paletteBodyPath
+        // и проверка «внутри палитры» через Path2D: отверстие — дырка (evenodd).
+        let paletteGeo = null;
+        function paletteGeometry() {
+            if (paletteGeo) return paletteGeo;
+            const d = document.getElementById('paletteBodyPath').getAttribute('d'), edge = [];
+            let cur = [0, 0], start = [0, 0];
+            for (const [, cmd, args] of d.matchAll(/([MCZ])([^MCZ]*)/g)) {
+                const v = (args.match(/-?\d*\.?\d+/g) || []).map(Number);
+                if (cmd === 'M') cur = start = [v[0], v[1]];
+                for (let i = 0; cmd === 'C' && i + 5 < v.length; i += 6) {
+                    const [x0, y0] = cur, [x1, y1, x2, y2, x, y] = v.slice(i, i + 6);
+                    for (let k = 1; k <= 24; k++) {
+                        const t = k / 24, u = 1 - t;
+                        edge.push([u * u * u * x0 + 3 * u * u * t * x1 + 3 * u * t * t * x2 + t * t * t * x,
+                            u * u * u * y0 + 3 * u * u * t * y1 + 3 * u * t * t * y2 + t * t * t * y]);
+                    }
+                    cur = [x, y];
+                }
+                if (cmd === 'Z') {
+                    for (let k = 1; k <= 8; k++) edge.push([cur[0] + (start[0] - cur[0]) * k / 8, cur[1] + (start[1] - cur[1]) * k / 8]);
+                    cur = start;
+                }
+            }
+            const shape = new Path2D(d), ctx = document.createElement('canvas').getContext('2d');
+            // расстояние до ближайшей точки контура и сама эта точка
+            const nearestEdge = (x, y) => {
+                let m = Infinity, e = edge[0];
+                for (const q of edge) {
+                    const dd = (x - q[0]) ** 2 + (y - q[1]) ** 2;
+                    if (dd < m) { m = dd; e = q; }
+                }
+                return [Math.sqrt(m), e];
+            };
+            paletteGeo = { edge, nearestEdge, inside: (x, y) => ctx.isPointInPath(shape, x, y, 'evenodd') };
+            return paletteGeo;
+        }
+
+        // Старт раскладки — count точек равномерно по палитре не ближе PALETTE_EDGE к краю: центроидная
+        // диаграмма Вороного (итерации Ллойда) по сетке через 3 единицы; первая точка — каждая дальше всех от выбранных.
+        function spreadSlots(count) {
+            const { edge, nearestEdge, inside } = paletteGeometry();
+            const xs = edge.map(q => q[0]), ys = edge.map(q => q[1]), pts = [];
+            for (let y = Math.min(...ys) + 1.5; y < Math.max(...ys); y += 3) {
+                for (let x = Math.min(...xs) + 1.5; x < Math.max(...xs); x += 3) {
+                    if (inside(x, y) && nearestEdge(x, y)[0] >= PALETTE_EDGE) pts.push([x, y]);
+                }
+            }
+            if (pts.length < count) return null;
+            const d2 = (u, x, y) => (u[0] - x) ** 2 + (u[1] - y) ** 2;
+            let mx = 0, my = 0;
+            for (const q of pts) { mx += q[0] / pts.length; my += q[1] / pts.length; }
+            const centers = [pts.reduce((best, q) => (d2(q, mx, my) < d2(best, mx, my) ? q : best))];
+            const far = pts.map(q => d2(q, centers[0][0], centers[0][1]));
+            while (centers.length < count) {
+                let k = 0;
+                for (let i = 1; i < pts.length; i++) if (far[i] > far[k]) k = i;
+                centers.push(pts[k]);
+                for (let i = 0; i < pts.length; i++) far[i] = Math.min(far[i], d2(pts[i], pts[k][0], pts[k][1]));
+            }
+            const owner = new Int32Array(pts.length);
+            for (let it = 0; it < 30; it++) {
+                const sx = new Float64Array(count), sy = new Float64Array(count), n = new Float64Array(count);
+                pts.forEach((q, i) => {
+                    let j = 0, bd = d2(q, centers[0][0], centers[0][1]);
+                    for (let c = 1; c < count; c++) {
+                        const dd = d2(q, centers[c][0], centers[c][1]);
+                        if (dd < bd) { bd = dd; j = c; }
+                    }
+                    owner[i] = j; sx[j] += q[0]; sy[j] += q[1]; n[j]++;
+                });
+                // центр — к середине своей области; палитра вогнутая, поэтому к ближайшей точке этой же области:
+                // области разных центров не пересекаются, и центры не слипаются
+                const best = new Float64Array(count).fill(Infinity);
+                pts.forEach((q, i) => {
+                    const j = owner[i], dd = d2(q, sx[j] / n[j], sy[j] / n[j]);
+                    if (dd < best[j]) { best[j] = dd; centers[j] = q; }
+                });
+            }
+            return centers.map(q => [q[0], q[1]]);
+        }
+
+        // Упаковка мазков от стартовой раскладки: мазки растут, пока помещаются, — соседи раздвигаются
+        // до зазора PALETTE_GAP, край палитры и отверстие выталкивают внутрь до запаса PALETTE_EDGE.
+        // Возвращает раскладку с самыми крупными мазками; R — полудиаметр мазка с половиной зазора.
+        function packSlots(start) {
+            const { nearestEdge, inside } = paletteGeometry();
+            const centers = start.map(c => c.slice()), margin = PALETTE_EDGE - PALETTE_GAP / 2;
+            const fit = () => {
+                let r = Infinity;
+                centers.forEach((c, i) => {
+                    r = Math.min(r, inside(c[0], c[1]) ? nearestEdge(c[0], c[1])[0] - margin : -Infinity);
+                    for (let j = i + 1; j < centers.length; j++) r = Math.min(r, Math.hypot(c[0] - centers[j][0], c[1] - centers[j][1]) / 2);
+                });
+                return r;
+            };
+            let R = fit(), best = centers.map(c => c.slice());
+            for (let it = 0; it < 160 && centers.length > 1; it++) {
+                const target = Math.max(R, 1) * 1.03;
+                for (let pass = 0; pass < 4; pass++) {
+                    centers.forEach((a, i) => centers.slice(i + 1).forEach(b => {
+                        const dx = b[0] - a[0], dy = b[1] - a[1], dist = Math.hypot(dx, dy) || 1e-6;
+                        if (dist >= 2 * target) return;
+                        const push = (2 * target - dist) / 2 / dist;
+                        a[0] -= dx * push; a[1] -= dy * push; b[0] += dx * push; b[1] += dy * push;
+                    }));
+                    for (const c of centers) {
+                        const [dist, e] = nearestEdge(c[0], c[1]), into = inside(c[0], c[1]);
+                        if (into && dist >= target + margin) continue;
+                        // от ближайшей точки края внутрь; вылетевший за край — обратно через край
+                        const dir = into ? 1 : -1, nx = (c[0] - e[0]) * dir, ny = (c[1] - e[1]) * dir;
+                        const len = Math.hypot(nx, ny) || 1e-6, move = target + margin - dist * dir;
+                        c[0] += nx / len * move; c[1] += ny / len * move;
                     }
                 }
-                if (cells.length >= count) {
-                    if (cells.length === count) return cells;
-                    // Равномерно прореживаем по пространству через k-d выборку:
-                    // сортируем по строкам (y), потом зигзагом по x — соседи рядом.
-                    cells.sort((a, b) => {
-                        const rowA = Math.round(a[1] / vStep);
-                        const rowB = Math.round(b[1] / vStep);
-                        if (rowA !== rowB) return rowA - rowB;
-                        return (rowA % 2 === 0) ? a[0] - b[0] : b[0] - a[0];
-                    });
-                    // Равномерно прореживаем через дробный шаг
-                    const out = [];
-                    const stepF = cells.length / count;
-                    for (let i = 0; i < count; i++) out.push(cells[Math.round(i * stepF)]);
-                    return out;
-                }
+                const r = fit();
+                if (r > R) { R = r; best = centers.map(c => c.slice()); }
             }
-            // Запасной вариант — кольцо (не должен достигаться)
-            const out = [];
-            for (let i = 0; i < count; i++) {
-                const a = (i / count) * Math.PI * 2;
-                out.push([Cx + Math.cos(a) * Rx * 0.6, Cy + Math.sin(a) * Ry * 0.6]);
+            return { R, slots: best };
+        }
+
+        // Раскладка мазков: упаковка от равномерного старта и от него же со сдвигами — она находит ближайший
+        // максимум, и из нескольких берётся раскладка с самыми крупными мазками. Обход слотов — от самого
+        // левого к ближайшему: соседние по теплоте мазки лежат рядом.
+        // В единицах viewBox раскладка от окна не зависит — считается один раз.
+        let paletteSlotsCache = null;
+        function buildPaletteSlots(count) {
+            if (paletteSlotsCache && paletteSlotsCache.count === count) return paletteSlotsCache;
+            const start = spreadSlots(count) || [];
+            let seed = 7;
+            const jitter = () => ((seed = seed * 16807 % 2147483647) / 2147483647 - .5) * 30;
+            let packed = packSlots(start);
+            for (let k = 0; k < 6; k++) {
+                const next = packSlots(start.map(([x, y]) => [x + jitter(), y + jitter()]));
+                if (next.R > packed.R) packed = next;
             }
-            return out;
+            const best = packed.slots, R = packed.R;
+            const rest = best.slice(), path = [];
+            let cur = rest.reduce((l, q) => (q[0] < l[0] ? q : l), rest[0]);
+            while (rest.length) {
+                rest.splice(rest.indexOf(cur), 1);
+                path.push(cur);
+                const from = cur;
+                cur = rest.reduce((n, q) => (Math.hypot(q[0] - from[0], q[1] - from[1]) < Math.hypot(n[0] - from[0], n[1] - from[1]) ? q : n), rest[0]);
+            }
+            paletteSlotsCache = { count, size: Math.max(0, 2 * R - PALETTE_GAP) / BLOB_HOVER, slots: path };
+            return paletteSlotsCache;
         }
 
         function layoutPalette() {
@@ -2514,36 +2985,36 @@
             if (!n) return;
             const layoutStart = performance.now();
 
-            const trackRect = thumbnailsTrack.getBoundingClientRect();
-            const wrapRect = paletteWrap.getBoundingClientRect();
+            // Палитра нарисована в SVG без искажения: viewBox вписан в обёртку по центру, в одном масштабе k.
             const wrapW = paletteWrap.clientWidth || 1;
             const wrapH = paletteWrap.clientHeight || 1;
-            const trackLeft = trackRect.left - wrapRect.left;
-            const trackTop = trackRect.top - wrapRect.top;
-            const sx = wrapW / PALETTE_VIEWBOX.w;
-            const sy = wrapH / PALETTE_VIEWBOX.h;
+            const k = Math.min(wrapW / PALETTE_VIEWBOX.w, wrapH / PALETTE_VIEWBOX.h);
+            const ox = (wrapW - PALETTE_VIEWBOX.w * k) / 2, oy = (wrapH - PALETTE_VIEWBOX.h * k) / 2;
+            // мазки лежат в track внутри обёртки; пока обёртка проявляется, она масштабирована — делим на масштаб
+            const trackRect = thumbnailsTrack.getBoundingClientRect();
+            const wrapRect = paletteWrap.getBoundingClientRect();
+            const z = wrapRect.width / wrapW || 1;
+            const trackLeft = (trackRect.left - wrapRect.left) / z;
+            const trackTop = (trackRect.top - wrapRect.top) / z;
 
-            // Равномерные слоты по всему телу палитры, генерируются процедурно
-            // под фактическое число мазков. Тело: эллипс центр (169,116) полуоси (128,95).
-            // Отверстие для пальца: эллипс центр (224,132) полуоси (30,24) — обходим.
-            const SLOTS = buildPaletteSlots(n);
+            const { size, slots } = buildPaletteSlots(n);
 
-            // от холодных к тёплым — змейкой по слотам (соседи перетекают градиентом)
+            // от холодных к тёплым — по обходу слотов (соседи перетекают градиентом)
             const order = imagesData.map((_, i) => i)
                 .sort((a, b) => (imagesData[a].temperature ?? 0) - (imagesData[b].temperature ?? 0));
 
-            // крупнее обычного — края растушёваны маской и мазки сливаются внахлёст
-            // (track теперь на весь wrap, поэтому базовый множитель меньше прежнего)
-            const scaleBase = Math.min((trackRect.width || 360) / 320, (trackRect.height || 230) / 206) * 1.18;
+            // формы и пропорции мазков — из BLOB_SPECS, самый крупный по большей стороне — ровно size
+            const specMax = Math.max(...BLOB_SPECS.map(spec => Math.max(spec.w, spec.h)));
+            const s = size / specMax * k;
             const bubbles = new Array(n);
-            order.forEach((imgIdx, k) => {
-                const [sxPos, syPos] = SLOTS[k % SLOTS.length];
+            order.forEach((imgIdx, j) => {
+                const [x, y] = slots[j % slots.length];
                 const spec = BLOB_SPECS[imgIdx % BLOB_SPECS.length];
                 bubbles[imgIdx] = {
-                    w: Math.round(spec.w * scaleBase),
-                    h: Math.round(spec.h * scaleBase),
-                    x: sxPos * sx - trackLeft,
-                    y: syPos * sy - trackTop,
+                    w: Math.round(spec.w * s),
+                    h: Math.round(spec.h * s),
+                    x: ox + x * k - trackLeft,
+                    y: oy + y * k - trackTop,
                 };
             });
 
@@ -2599,62 +3070,10 @@
             }
         }
 
-        // Initialize gallery
-        let revealObserver;
-
+        // Звёзды и прогрев полных картин — один раз на загрузке
         function initGallery() {
             createStars();
-
-            imagesData.forEach((imageData, index) => {
-                createGalleryItem(imageData, index);
-            });
-
-            setupRevealObserver();
             preloadFullImages();
-        }
-
-        function createGalleryItem(imageData, index) {
-            const item = document.createElement('div');
-            item.className = 'gallery-item';
-            item.style.order = index; /* Сохраняем порядок сортировки */
-
-            const img = document.createElement('img');
-            img.src = imageData.thumbnail;
-            img.alt = '';
-            img.loading = 'lazy';
-
-            item.appendChild(img);
-            item.addEventListener('click', () => openModal(index));
-            gallery.appendChild(item);
-
-            setTimeout(() => {
-                item.classList.add('loaded');
-            }, index * 100);
-        }
-
-        // Shadow reveal effect using Intersection Observer
-        function setupRevealObserver() {
-            const options = {
-                root: null,
-                rootMargin: '-5% 0px -5% 0px',
-                threshold: [0, 0.1, 0.25, 0.5, 0.75, 1]
-            };
-
-            revealObserver = new IntersectionObserver((entries) => {
-                entries.forEach(entry => {
-                    const ratio = entry.intersectionRatio;
-
-                    if (ratio > 0.25) {
-                        entry.target.classList.add('revealed');
-                    } else {
-                        entry.target.classList.remove('revealed');
-                    }
-                });
-            }, options);
-
-            document.querySelectorAll('.gallery-item').forEach(item => {
-                revealObserver.observe(item);
-            });
         }
 
         // Кэш полных картин: index -> base64 data URL
@@ -2699,43 +3118,15 @@
             getFullSrc(index);
         }
 
-        let scrollPosition = 0;
-
         const paletteWrap = document.getElementById('paletteWrap');
 
-        function openModal(index) {
-            scrollPosition = window.pageYOffset || document.documentElement.scrollTop;
-            modal.classList.add('open');
-            document.body.style.overflow = 'hidden';
-            if (paletteWrap) paletteWrap.classList.add('visible');
-            generateThumbnails(false);
-            showImage(index);
-        }
-
-        function updateImageInfo() {
-            const currentImage = imagesData[currentIndex];
-            let tempBar = '';
-            if (currentImage.temperature !== undefined) {
-                const temp = Math.max(-0.3, Math.min(0.3, currentImage.temperature));
-                const percent = ((temp + 0.3) / 0.6) * 100;
-                tempBar = ` <span class="temp-bar"><span class="temp-marker" style="left:${percent}%"></span></span>`;
-            }
-            imageInfo.innerHTML = `${currentIndex + 1} / ${imagesData.length}${tempBar}`;
+        function markActiveThumb() {
             document.querySelectorAll('.thumb-item').forEach((thumb, idx) => {
                 thumb.classList.toggle('active', idx === currentIndex);
             });
+            const g = window.paintingEdges && window.paintingEdges[currentIndex + 1];
+            if (g) document.getElementById('stage').style.setProperty('--room-glow', g.m.join(' '));
         }
-
-        function closeModal() {
-            modal.classList.remove('open');
-            document.body.style.overflow = '';
-            resetModalZoom();
-            if (paletteWrap) paletteWrap.classList.remove('visible');
-            window.scrollTo(0, scrollPosition);
-        }
-
-        closeBtn.addEventListener('click', closeModal);
-
         modalImg.addEventListener('click', (e) => {
             e.stopPropagation();
             if (modalPanMoved) {
@@ -2743,10 +3134,6 @@
                 return;
             }
             zoomModalIn();
-        });
-
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) closeModal();
         });
 
         prevBtn.addEventListener('click', (e) => {
@@ -2760,11 +3147,9 @@
         });
 
         document.addEventListener('keydown', (e) => {
-            if (modal.classList.contains('open')) {
-                if (e.key === 'ArrowLeft') showPrevImage();
-                if (e.key === 'ArrowRight') showNextImage();
-                if (e.key === 'Escape') closeModal();
-            }
+            if (!isStageInView()) return;
+            if (e.key === 'ArrowLeft') showPrevImage();
+            if (e.key === 'ArrowRight') showNextImage();
         });
 
         window.addEventListener('resize', () => {
@@ -2782,7 +3167,10 @@
             if (mwImg.complete && mwImg.naturalWidth > 0) {
                 mwImg.classList.add('loaded');
             } else {
-                mwImg.addEventListener('load', () => mwImg.classList.add('loaded'));
+                mwImg.addEventListener('load', () => {
+                    mwImg.classList.add('loaded');
+                    mwImg.decode().catch(() => {});  // распакована заранее, а не при входе в галерею
+                });
                 mwImg.addEventListener('error', () => {
                     document.getElementById('milkyWay').style.display = 'none';
                 });
@@ -2794,9 +3182,15 @@
             const canvas = document.getElementById('fluidCanvas');
             const ctx = canvas.getContext('2d');
 
+            // Пятна мягкие: в половинном разрешении на глаз не отличить, а заливать вчетверо меньше
+            const SCALE = .5;
+            let W, H;
             function resize() {
-                canvas.width = window.innerWidth;
-                canvas.height = window.innerHeight;
+                W = window.innerWidth;
+                H = window.innerHeight;
+                canvas.width = Math.ceil(W * SCALE);
+                canvas.height = Math.ceil(H * SCALE);
+                ctx.setTransform(SCALE, 0, 0, SCALE, 0, 0);
             }
             resize();
             window.addEventListener('resize', resize);
@@ -2853,20 +3247,27 @@
                 ctx.restore();
             }
 
-            function tick() {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            // Пятна плывут медленно: 30 перерисовок в секунду на глаз не отличить от частоты экрана.
+            // Шаг — по времени (как при 60 кадрах в секунду): скорость не зависит от частоты экрана.
+            let last = 0;
+            function tick(ts = 0) {
+                // под пролётом не видны
+                if (window.__sceneryPaused || ts - last < 32) { requestAnimationFrame(tick); return; }
+                const k = last ? Math.min(4, (ts - last) / 16.7) : 1;
+                last = ts;
+                ctx.clearRect(0, 0, W, H);
 
                 for (const b of blobs) {
-                    b.x += b.vx;
-                    b.y += b.vy;
-                    b.angle += b.spin;
-                    b.pulse += b.pulseS;
+                    b.x += b.vx * k;
+                    b.y += b.vy * k;
+                    b.angle += b.spin * k;
+                    b.pulse += b.pulseS * k;
 
                     // Мягкий отскок от краёв
-                    if (b.x < -b.r) b.x = canvas.width + b.r;
-                    if (b.x > canvas.width + b.r) b.x = -b.r;
-                    if (b.y < -b.r) b.y = canvas.height + b.r;
-                    if (b.y > canvas.height + b.r) b.y = -b.r;
+                    if (b.x < -b.r) b.x = W + b.r;
+                    if (b.x > W + b.r) b.x = -b.r;
+                    if (b.y < -b.r) b.y = H + b.r;
+                    if (b.y > H + b.r) b.y = -b.r;
 
                     drawBlob(b);
                 }
@@ -2876,10 +3277,16 @@
 
             tick();
         })();
+        // Галерея открыта сразу: первая картина — та же, на которой кончается пролёт
+        generateThumbnails(false);
+        showImage(0);
         } // end initApp
     </script>
     <script src="images-thumbs.js"></script>
     <script>
         initApp(window.imagesThumbsData);
     </script>
+    </div>
 </body>
+
+</html>
