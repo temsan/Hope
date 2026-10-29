@@ -44,3 +44,11 @@ Thumbs.db
 # assets/  # Uncomment if assets are managed via CDN or separate storage
 .playwright-cli
 tests/screenshots
+
+# Исходные видео для клипов (большие, сайту не нужны) и временные кадры import_kling.py
+assets/nine-transitions.mp4
+assets/transitions/_frames*.raw
+
+# Отчёты тестов и случайный файл от перенаправления в nul под Windows
+playwright-report/
+nul
