@@ -15,7 +15,8 @@
 - статичные начало и конец срезаются; на концах геометрия плавно садится на картину (EDGE кадров),
   а кадр за EASE кадров растворяется в точную картину: первый и последний кадры клипа совпадают
   с картинами на сайте, шва нет;
-- кодирует all-intra для скраба скроллом.
+- кодирует для сайта: 1280×720, ключевой кадр каждые 8 кадров — перемотка прокруткой встаёт на любой кадр
+  за миллисекунды, а клип вчетверо легче, чем при каждом ключевом (по сети иначе не успевает).
 """
 import gc
 import os
@@ -97,11 +98,11 @@ def warp_by(f, M):
 
 
 def encode(dst, frames, fps):
-    """Кадры BGR W×H в all-intra mp4: каждый кадр ключевой, чтобы скролл мог встать на любой."""
+    """Кадры BGR W×H в mp4 для сайта: 1280×720, ключевой кадр каждые 8 кадров, без B-кадров."""
     proc = subprocess.Popen([
         'ffmpeg', '-v', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'bgr24', '-s', f'{W}x{H}',
-        '-r', f'{fps:g}', '-i', '-', '-c:v', 'libx264', '-preset', 'slow', '-crf', '24',
-        '-g', '1', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', '-an', str(dst)],
+        '-r', f'{fps:g}', '-i', '-', '-vf', 'scale=1280:720:flags=lanczos', '-c:v', 'libx264', '-preset', 'slow',
+        '-crf', '26', '-g', '8', '-bf', '0', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', '-an', str(dst)],
         stdin=subprocess.PIPE)
     for f in frames:
         proc.stdin.write(np.clip(f, 0, 255).astype(np.uint8).tobytes())

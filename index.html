@@ -1961,9 +1961,13 @@
                 arts = images.map((src, i) => {
                     const img = i ? new Image() : portal.querySelector('.art');
                     img.className = 'art';
-                    img.src = src;
+                    // Сразу — первая, вторая и последняя (на неё ведёт «сразу в галерею»), остальные — по ходу
+                    // пролёта (warm): первому клипу канал раньше.
+                    if (i < 2 || i === images.length - 1) img.src = src;
+                    else img.dataset.src = src;
                     img.alt = i ? '' : img.alt;
                     img.decoding = 'sync';
+                    if (i) img.fetchPriority = 'low';
                     if (i) portal.append(img);
                     return img;
                 }),
@@ -2024,23 +2028,26 @@
                 });
             }
 
-            // Клипы грузятся по очереди — ближайший к показу первым. С сайта каждый скачивается целиком в память:
-            // перемотка прокруткой не ждёт сети (по частям клип подгружался бы прямо на ходу перехода).
-            // Из файла fetch не работает — там src напрямую, локальный файл и так мгновенный.
-            const fromFile = location.protocol === 'file:';
-            let fetching = false;
+            // Загрузка: клипы — по сети, частями и по одному, от текущего перехода вперёд. Следующий начинает
+            // грузиться, когда предыдущий докачан (или браузер сам перестал его качать): канал не делится,
+            // и к своему переходу клип уже хотя бы частично на месте. Стоп-кадры — на три картины вперёд.
+            // __clipsDone — сигнал галерее: клипы скачаны или пролёт дошёл до последней картины, можно грузить её.
+            let clipsDone;
+            window.__clipsDone = new Promise(r => { clipsDone = r; });
+            const loaded = v => v.dataset.done || (v.buffered.length && v.buffered.end(v.buffered.length - 1) >= v.duration - .1);
             function warm(index) {
-                if (fromFile) {
-                    clips.forEach((v, i) => { if (i >= index && i <= index + 1 && !v.src) v.src = v.dataset.src; });
-                    return;
+                arts.forEach((img, i) => { if (i >= index && i <= index + 2 && !img.src) img.src = img.dataset.src; });
+                const again = () => warm(Math.max(0, shown));
+                const next = clips.map((_, k) => clips[(index + k) % clips.length]).find(v => !v.src || !loaded(v));
+                if (!next) return clipsDone();
+                if (!next.src) {
+                    next.src = next.dataset.src;
+                    // браузер дальше не качает или не может открыть клип — очередь идёт дальше
+                    const skip = () => { next.dataset.done = 1; again(); };
+                    next.addEventListener('suspend', skip, { once: true });
+                    next.addEventListener('error', skip, { once: true });
                 }
-                const v = clips.map((_, k) => clips[(index + k) % clips.length]).find(c => !c.src);
-                if (fetching || !v) return;
-                fetching = true;
-                fetch(v.dataset.src)
-                    .then(r => r.ok ? r.blob() : Promise.reject())
-                    .then(b => { v.src = URL.createObjectURL(b); }, () => { v.src = v.dataset.src; })
-                    .finally(() => { fetching = false; warm(Math.max(0, shown)); });
+                next.addEventListener('progress', again, { once: true });
             }
 
             const ss = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t) };
@@ -2053,9 +2060,10 @@
             // подряд, без пропусков (щелчок колеса — ~20 кадров за доли секунды). Отставание больше LAG шагов
             // (рывок ползунком, «пройти ещё раз») проскакивается сразу.
             const HOLD = 8, LAG = 160;
-            // Переход, начавшийся без клипа (ещё скачивается), идёт растворением картин на DISSOLVE шагов ленты.
-            const DISSOLVE = 24;
-            let dissolve = -1;
+            // Переход, клип которого ещё в пути, ждёт его на картине до WAIT мс; не дождался — идёт растворением
+            // картин на DISSOLVE шагов ленты.
+            const DISSOLVE = 24, WAIT = 700;
+            let dissolve = -1, waitFrom = 0;
             const span = i => clips[i] && clips[i].duration > 0 && dissolve !== i ? framesOf(clips[i]) - 1 : DISSOLVE;
             function toTape(travel) {
                 const i = Math.min(N - 1, Math.floor(travel)), local = travel - i;
@@ -2095,6 +2103,10 @@
                     // пока клип ищет кадр, следующий не просим — иначе кадры пропускались бы
                     else if (!(activeClip && activeClip.seeking)) u += Math.max(-cap, Math.min(cap, (to - u) * .25));
                     travel = Math.abs(to - u) < .02 ? goal : fromTape(u);
+                    const i = Math.min(N - 1, Math.floor(travel)), c = clips[i];
+                    const pending = travel - i > CLIP_FROM && dissolve !== i && c.src && !c.error && !(c.readyState >= 1 && c.duration > 0);
+                    if (!pending) waitFrom = 0;
+                    else if ((waitFrom ||= now) && now - waitFrom < WAIT) travel = i + CLIP_FROM;
                 }
                 const raw = travel / STEPS,
                     index = Math.min(N - 1, Math.floor(travel)),
@@ -2117,6 +2129,7 @@
                 if (index !== shown) {
                     shown = index;
                     warm(index);
+                    if (index === N - 1) clipsDone();  // галерея уже близко — ей пора грузить картину
                     arts.forEach((img, i) => { img.alt = i === index ? `Работа ${index + 1} Надежды Терёшкиной` : '' });
                     const k = edges[ORDER[index]];
                     if (k) wall.style.setProperty('--amb-m', k.m.join(' '));
@@ -2786,7 +2799,7 @@
             } else {
                 modalImg.src = imagesData[snapIndex].thumbnail;
                 modalImg.classList.add('loaded');
-                getFullSrc(snapIndex).then(src => {
+                (window.__clipsDone || Promise.resolve()).then(() => getFullSrc(snapIndex)).then(src => {
                     if (currentIndex !== snapIndex) return;
                     const tmp = new Image();
                     tmp.onload = async () => {
