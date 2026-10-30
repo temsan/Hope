@@ -2028,9 +2028,10 @@
                 });
             }
 
-            // Загрузка: клипы — по сети, частями и по одному, от текущего перехода вперёд. Следующий начинает
-            // грузиться, когда предыдущий докачан (или браузер сам перестал его качать): канал не делится,
-            // и к своему переходу клип уже хотя бы частично на месте. Стоп-кадры — на три картины вперёд.
+            // Загрузка: клипы — по сети, частями, по порядку от начала файла и по одному, от текущего перехода
+            // вперёд; следующий начинает грузиться, когда предыдущий докачан (или браузер сам перестал его качать).
+            // Переход идёт, как только пришли первые кадры его клипа, и не обгоняет докачанное (см. render).
+            // Стоп-кадры — на три картины вперёд.
             // __clipsDone — сигнал галерее: клипы скачаны или пролёт дошёл до последней картины, можно грузить её.
             let clipsDone;
             window.__clipsDone = new Promise(r => { clipsDone = r; });
@@ -2060,10 +2061,11 @@
             // подряд, без пропусков (щелчок колеса — ~20 кадров за доли секунды). Отставание больше LAG шагов
             // (рывок ползунком, «пройти ещё раз») проскакивается сразу.
             const HOLD = 8, LAG = 160;
-            // Переход, клип которого ещё в пути, ждёт его на картине до WAIT мс; не дождался — идёт растворением
+            // Переход, клип которого ещё докачивается, не обгоняет докачанное: перемотка за край запросила бы кадры
+            // по сети по одному, и переход полз бы. Если загрузка встала дольше STALL мс, переход идёт растворением
             // картин на DISSOLVE шагов ленты.
-            const DISSOLVE = 24, WAIT = 700;
-            let dissolve = -1, waitFrom = 0;
+            const DISSOLVE = 24, STALL = 1500;
+            let dissolve = -1, stallFrom = 0, lastHave = -1;
             const span = i => clips[i] && clips[i].duration > 0 && dissolve !== i ? framesOf(clips[i]) - 1 : DISSOLVE;
             function toTape(travel) {
                 const i = Math.min(N - 1, Math.floor(travel)), local = travel - i;
@@ -2104,9 +2106,16 @@
                     else if (!(activeClip && activeClip.seeking)) u += Math.max(-cap, Math.min(cap, (to - u) * .25));
                     travel = Math.abs(to - u) < .02 ? goal : fromTape(u);
                     const i = Math.min(N - 1, Math.floor(travel)), c = clips[i];
-                    const pending = travel - i > CLIP_FROM && dissolve !== i && c.src && !c.error && !(c.readyState >= 1 && c.duration > 0);
-                    if (!pending) waitFrom = 0;
-                    else if ((waitFrom ||= now) && now - waitFrom < WAIT) travel = i + CLIP_FROM;
+                    if (travel - i > CLIP_FROM && dissolve !== i && c.src && !c.error && !loaded(c)) {
+                        const have = c.buffered.length ? c.buffered.end(c.buffered.length - 1) : 0;
+                        if (have !== lastHave) { lastHave = have; stallFrom = now; }
+                        const limit = c.duration > 0
+                            ? i + CLIP_FROM + Math.max(0, have * FPS - 1) / (framesOf(c) - 1) * (1 - CLIP_FROM) : i + CLIP_FROM;
+                        if (travel > limit) {
+                            if (now - stallFrom < STALL) travel = limit;
+                            else dissolve = i;
+                        }
+                    }
                 }
                 const raw = travel / STEPS,
                     index = Math.min(N - 1, Math.floor(travel)),
@@ -2212,15 +2221,15 @@
 
     <!-- Млечный путь -->
     <div class="milky-way" id="milkyWay">
-        <img id="milkyWayImg"
-            src="https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1800&q=80&auto=format&fit=crop" alt=""
+        <img id="milkyWayImg" class="after-clips"
+            data-src="https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1800&q=80&auto=format&fit=crop" alt=""
             crossorigin="anonymous" />
     </div>
 
     <!-- Луна — реальное фото -->
     <div class="moon-glow" id="moonGlow">
     <div class="moon" id="moonEl">
-        <img src="https://images.unsplash.com/photo-1532693322450-2cb5c511067d?w=400&q=85&auto=format&fit=crop"
+        <img class="after-clips" data-src="https://images.unsplash.com/photo-1532693322450-2cb5c511067d?w=400&q=85&auto=format&fit=crop"
             alt="Moon" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;" />
         <canvas id="moonCanvas" style="position:absolute;inset:0;width:100%;height:100%;border-radius:50%;pointer-events:none;"></canvas>
         <script>
@@ -3191,6 +3200,10 @@
         });
 
         window.addEventListener('load', initGallery);
+
+        // Фото неба и луны видны только в галерее — грузятся после клипов пролёта, не отнимая у них канал
+        (window.__clipsDone || Promise.resolve()).then(() =>
+            document.querySelectorAll('img.after-clips').forEach(img => { img.src = img.dataset.src; }));
 
         // Млечный путь
         const mwImg = document.getElementById('milkyWayImg');
