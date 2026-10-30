@@ -1141,6 +1141,11 @@
             opacity: var(--room, 0)
         }
 
+        /* пока идёт пролёт, галерея inert (см. пролёт); то же для браузеров, где inert ещё нет */
+        .flight .stage[inert] * {
+            pointer-events: none !important
+        }
+
         .flight .modal {
             position: absolute;
             inset: 0;
@@ -1950,7 +1955,7 @@
                 journey = $('.journey'), flight = $('#flight'), bar = $('.progress'), wall = $('.flight .void'),
                 grain = $('.flight .grain'),
                 title = $('#title'),
-                arrival = $('#arrival'), skip = $('#skip'),
+                arrival = $('#arrival'), skip = $('#skip'), stage = $('#stage'),
                 reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches,
                 behavior = reduceMotion ? 'auto' : 'smooth';
             let shown = -1, ticking = false;
@@ -2176,6 +2181,9 @@
                     root.classList.toggle('scenery-still', still);
                 }
                 window.__inGallery = travel >= N;  // влёт доигран — галерея на экране
+                // До того галерея под пролётом прозрачна, но ловила бы касания: её картина запрещает жесты
+                // (touch-action: none — приближается щипком), и на телефоне палец посреди экрана не листал бы страницу.
+                if (stage.hasAttribute('inert') === window.__inGallery) stage.toggleAttribute('inert', !window.__inGallery);
                 ticking = travel !== goal;  // ещё не догнали скролл — следующий кадр
                 if (ticking) requestAnimationFrame(render);
             }
