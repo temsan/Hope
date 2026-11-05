@@ -1462,6 +1462,8 @@
             background: none;
             cursor: pointer;
             text-align: left;
+            color: #efe7d8;
+            text-shadow: 0 1px 12px #000c;
             transition: opacity .3s
         }
 
@@ -1473,7 +1475,8 @@
         .hint:after {
             content: '↓';
             display: inline-block;
-            margin-left: .7rem;
+            margin-left: .6rem;
+            font-size: 15px;
             color: var(--gold);
             animation: nudge 1.4s ease-in-out infinite
         }
@@ -1951,6 +1954,7 @@
             </header>
             <div class="progress" aria-hidden="true"><span></span></div>
             <button class="skip" id="skip" type="button">сразу в галерею</button>
+            <button class="hint" id="hint" type="button">листайте</button>
             <section class="arrival" id="arrival" aria-label="Конец экспозиции">
                 <div class="actions"><button id="restart" type="button">пройти ещё раз</button></div>
             </section>
@@ -1970,7 +1974,7 @@
                 journey = $('.journey'), flight = $('#flight'), bar = $('.progress'), wall = $('.flight .void'),
                 grain = $('.flight .grain'),
                 title = $('#title'),
-                arrival = $('#arrival'), skip = $('#skip'), stage = $('#stage'),
+                arrival = $('#arrival'), skip = $('#skip'), stage = $('#stage'), hint = $('#hint'),
                 reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches,
                 behavior = reduceMotion ? 'auto' : 'smooth';
             let shown = -1, ticking = false;
@@ -2133,6 +2137,8 @@
                     if (k) wall.style.setProperty('--amb-m', k.m.join(' '));
                 }
                 title.style.opacity = Math.max(0, 1 - raw * 7);
+                // подсказка «листайте» — только на первом экране: пролёт пошёл — она уже не нужна
+                if (hint.classList.contains('gone') !== raw > .004) hint.classList.toggle('gone', raw > .004);
                 // невидимый заголовок убираем совсем: его смешивание screen заставляет сводить весь пролёт
                 // через копию фона — лишний полноэкранный проход на каждом кадре
                 title.style.display = raw * 7 < 1 ? '' : 'none';
@@ -2178,6 +2184,7 @@
             render();
 
             $('#restart').onclick = () => goTo(0);
+            hint.onclick = () => goTo(restOf(1));  // к следующей картине
             // Сразу в конец пути: показ встаёт на последнюю картину, а дальше лента доигрывает влёт в галерею.
             skip.onclick = () => {
                 scrollTo({ top: journey.offsetTop + range() });
