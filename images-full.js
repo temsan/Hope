@@ -1,1 +1,0 @@
-window.imagesFullData = ["images/img_01.jpg","images/img_02.jpg","images/img_03.jpg","images/img_04.jpg","images/img_05.jpg","images/img_06.jpg","images/img_07.jpg","images/img_08.jpg","images/img_09.jpg"];

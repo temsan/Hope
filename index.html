@@ -2523,6 +2523,7 @@
             modalImg.style.setProperty('--modal-pan-y', `${modalPanY.toFixed(2)}px`);
             const isZoomed = modalZoomLevel > 1.01;
             modalImg.classList.toggle('zoomed', isZoomed);
+            if (isZoomed) loadFullForZoom();
             if (!isZoomed) {
                 stopModalPanTracking();
             }
@@ -2540,8 +2541,10 @@
 
         function recalculateModalMaxZoom() {
             if (!modalImg.naturalWidth || !modalImg.clientWidth || !modalImg.clientHeight) return;
-            const ratioW = modalImg.naturalWidth / modalImg.clientWidth;
-            const ratioH = modalImg.naturalHeight / modalImg.clientHeight;
+            // предел приближения — по оригиналу: на экране может стоять средний, оригинал подгрузится при приближении
+            const item = imagesData[currentIndex] || {};
+            const ratioW = (item.w || modalImg.naturalWidth) / modalImg.clientWidth;
+            const ratioH = (item.h || modalImg.naturalHeight) / modalImg.clientHeight;
             modalMaxZoom = Math.max(1, Math.min(MAX_ZOOM_CAP, Math.max(ratioW, ratioH)));
             if (modalZoomLevel > modalMaxZoom) {
                 modalZoomLevel = modalMaxZoom;
@@ -2791,34 +2794,21 @@
                 modal.style.setProperty('--modal-bg-color', `rgba(${r}, ${g}, ${b}, 0.9)`);
             }
 
-            // Плавное открытие: сразу full если в кэше, иначе fade-in после загрузки
-            const snapIndex = currentIndex;
-            if (fullCache.has(snapIndex)) {
-                modalImg.src = fullCache.get(snapIndex);
-                modalImg.classList.add('loaded');
-            } else {
-                modalImg.src = imagesData[snapIndex].thumbnail;
-                modalImg.classList.add('loaded');
-                (window.__clipsDone || Promise.resolve()).then(() => getFullSrc(snapIndex)).then(src => {
-                    if (currentIndex !== snapIndex) return;
-                    const tmp = new Image();
-                    tmp.onload = async () => {
-                        await tmp.decode().catch(() => {});  // распакована заранее — подмена без рывка
-                        if (currentIndex !== snapIndex) return;
-                        modalImg.classList.remove('loaded');
-                        requestAnimationFrame(() => {
-                            modalImg.src = src;
-                            requestAnimationFrame(() => modalImg.classList.add('loaded'));
-                        });
-                    };
-                    tmp.src = src;
-                });
-            }
-
-            // Прогрев соседей
-            const n = imagesData.length;
-            enqueuePreload((currentIndex + 1) % n);
-            enqueuePreload((currentIndex - 1 + n) % n);
+            // Показ — средний размер (~1400 px): уже скачан и распакован — встаёт сразу; иначе пока миниатюра,
+            // а средний подменяет её, как только готов. Оригинал — только когда картину приближают (applyModalZoom).
+            const snapIndex = currentIndex, item = imagesData[snapIndex];
+            const best = isReady(item.full) ? item.full : isReady(item.medium) ? item.medium : item.thumbnail;
+            modalImg.src = best;
+            modalImg.classList.add('loaded');
+            // Пока идёт пролёт, канал — клипам: галерея начинает грузить, когда они скачаны (__clipsDone).
+            afterClips.then(() => {
+                if (best === item.thumbnail) {
+                    loadImage(item.medium).then(() => {
+                        if (currentIndex === snapIndex && modalImg.getAttribute('src') === item.thumbnail) modalImg.src = item.medium;
+                    });
+                }
+                if (currentIndex === snapIndex) preloadMediums(snapIndex);
+            });
 
             // Update info and thumbnails
             markActiveThumb();
@@ -3101,52 +3091,56 @@
             }
         }
 
-        // Звёзды и прогрев полных картин — один раз на загрузке
+        // Звёзды и фоновая загрузка картин среднего размера — один раз на загрузке
         function initGallery() {
             createStars();
-            preloadFullImages();
+            preloadMediums(currentIndex, false);
         }
 
-        // Кэш полных картин: index -> base64 data URL
-        const fullCache = new Map();
-        // Единственный источник full-данных — images-full.js (грузим один раз лениво)
-        let fullDataPromise = null;
-        function getFullData() {
-            if (!fullDataPromise) {
-                fullDataPromise = new Promise(resolve => {
-                    if (window.imagesFullData) { resolve(window.imagesFullData); return; }
-                    const s = document.createElement('script');
-                    s.src = 'images-full.js';
-                    s.onload = () => resolve(window.imagesFullData);
-                    s.onerror = () => resolve(null);
-                    document.head.appendChild(s);
+        // Картины, скачанные и распакованные заранее: src -> {img, done}. Сам Image держим, чтобы браузер
+        // не выкинул распакованную картинку, — подмена src на тот же адрес тогда мгновенна.
+        const imageCache = new Map();
+        const afterClips = window.__clipsDone || Promise.resolve();
+        function loadImage(src) {
+            let e = imageCache.get(src);
+            if (!e) {
+                const img = new Image();
+                img.decoding = 'async';
+                e = { img, done: false };
+                e.promise = new Promise(resolve => {
+                    // распаковку ждём не дольше секунды: в фоновой вкладке decode() может не завершаться до её показа
+                    img.onload = () => Promise.race([img.decode().catch(() => {}), new Promise(r => setTimeout(r, 1000))])
+                        .then(() => { e.done = true; resolve(img); });
+                    img.onerror = () => resolve(null);
                 });
+                img.src = src;
+                imageCache.set(src, e);
             }
-            return fullDataPromise;
+            return e.promise;
         }
+        const isReady = src => Boolean(imageCache.get(src) && imageCache.get(src).done);
 
-        function getFullSrc(index) {
-            if (fullCache.has(index)) return Promise.resolve(fullCache.get(index));
-            return getFullData().then(data => {
-                const src = (data && data[index]) || imagesData[index].thumbnail;
-                fullCache.set(index, src);
-                return src;
+        // Средние — по одному, от текущей картины к соседям (сначала следующая и предыдущая), и только после
+        // клипов пролёта: им канал нужнее.
+        let mediumQueued = false;
+        function preloadMediums(from, neighbors = true) {
+            const n = imagesData.length;
+            // соседи открытой картины — сразу, вне очереди: на них переключатся первыми
+            if (neighbors) [1, -1].forEach(d => loadImage(imagesData[(from + d + n) % n].medium));
+            if (mediumQueued) return;
+            mediumQueued = true;
+            afterClips.then(async () => {
+                for (let k = 0; k < n; k++) await loadImage(imagesData[(from + k) % n].medium);
             });
         }
 
-        function preloadFullImages() {
-            // После загрузки thumbnails — начинаем тянуть full в фоне через idle
-            (window.requestIdleCallback || setTimeout)(() => {
-                getFullData().then(data => {
-                    if (!data) return;
-                    data.forEach((src, i) => { if (src) fullCache.set(i, src); });
-                });
-            }, { timeout: 3000 });
-        }
-
-        function enqueuePreload(index) {
-            // Прогрев кэша для конкретного индекса
-            getFullSrc(index);
+        // Оригинал — только когда картину приближают: подменяет средний без смены размера на экране.
+        function loadFullForZoom() {
+            const index = currentIndex, item = imagesData[index];
+            if (!item || modalImg.getAttribute('src') === item.full) return;
+            loadImage(item.full).then(img => {
+                if (img && currentIndex === index) modalImg.src = item.full;
+            });
         }
 
         const paletteWrap = document.getElementById('paletteWrap');
