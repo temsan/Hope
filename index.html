@@ -1235,7 +1235,7 @@
         }
 
         .journey {
-            height: 1100vh;
+            height: 2200vh; /* длина пути прокрутки: чем больше, тем медленнее пролёт */
             position: relative;
             z-index: 100 /* поверх неба, дождя и луны галереи — они проступают, когда сцена растворяется */
         }
@@ -2076,32 +2076,12 @@
             // Средние цвета картин (assets/stills/edges.js): ими окрашена стена за кадром
             const edges = window.paintingEdges;
 
-            // Пролёт — лента кадров: в каждом переходе все кадры клипа, на каждой картине HOLD шагов покоя.
-            // Показанное положение догоняет скролл не быстрее шага ленты за кадр экрана: клип проигрывается
-            // подряд, без пропусков (щелчок колеса — ~20 кадров за доли секунды). Отставание больше LAG шагов
-            // (рывок ползунком, «пройти ещё раз») проскакивается сразу.
-            const HOLD = 8, LAG = 160;
+            // Показанное положение стоит ровно там, где скролл: без инерции и догоняния — прокрутка остановилась,
+            // остановился и клип.
             // Переход, клип которого ещё докачивается, не обгоняет докачанное: перемотка за край запросила бы кадры
-            // по сети по одному, и переход полз бы. Если загрузка встала дольше STALL мс, переход идёт растворением
-            // картин на DISSOLVE шагов ленты.
-            const DISSOLVE = 24, STALL = 1500;
+            // по сети по одному, и переход полз бы. Если загрузка встала дольше STALL мс, переход идёт растворением.
+            const STALL = 1500;
             let dissolve = -1, stallFrom = 0, lastHave = -1;
-            const span = i => clips[i] && clips[i].duration > 0 && dissolve !== i ? framesOf(clips[i]) - 1 : DISSOLVE;
-            function toTape(travel) {
-                const i = Math.min(N - 1, Math.floor(travel)), local = travel - i;
-                let u = 0;
-                for (let j = 0; j < i; j++) u += HOLD + span(j);
-                return local < CLIP_FROM ? u + local / CLIP_FROM * HOLD
-                    : u + HOLD + (local - CLIP_FROM) / (1 - CLIP_FROM) * span(i);
-            }
-            function fromTape(u) {
-                for (let i = 0; i < N; i++) {
-                    if (u < HOLD) return i + Math.max(0, u) / HOLD * CLIP_FROM;
-                    if (u < HOLD + span(i)) return i + CLIP_FROM + (u - HOLD) / span(i) * (1 - CLIP_FROM);
-                    u -= HOLD + span(i);
-                }
-                return N;
-            }
             let travel = progress() * STEPS; // показанное положение, в шагах пролёта
             // Переменную пишем только на тот элемент, где она нужна, и только если она изменилась:
             // каждая запись заново пересчитывает стили всего поддерева.
@@ -2110,21 +2090,10 @@
                 if (el.style.getPropertyValue(name) !== v) el.style.setProperty(name, v);
             };
 
-            let lastFrame = performance.now();
             function render() {
-                const goal = progress() * STEPS, now = performance.now(), dt = Math.min(100, now - lastFrame);
-                lastFrame = now;
-                if (reduceMotion) travel = goal;
-                else {
-                    const to = toTape(goal), at = Math.min(N - 1, Math.floor(travel));
-                    // в клипе — не больше кадра клипа за кадр экрана; на неподвижной картине шаг по времени:
-                    // если экран пропустил кадр, лента не замедляется
-                    const cap = travel - at >= CLIP_FROM ? 1 : Math.max(1, dt / 16.7);
-                    let u = toTape(travel);
-                    if (Math.abs(to - u) > LAG) u = to - Math.sign(to - u) * LAG;
-                    // пока клип ищет кадр, следующий не просим — иначе кадры пропускались бы
-                    else if (!(activeClip && activeClip.seeking)) u += Math.max(-cap, Math.min(cap, (to - u) * .25));
-                    travel = Math.abs(to - u) < .02 ? goal : fromTape(u);
+                const goal = progress() * STEPS, now = performance.now();
+                travel = goal;
+                {
                     const i = Math.min(N - 1, Math.floor(travel)), c = clips[i];
                     if (travel - i > CLIP_FROM && dissolve !== i && c.src && !c.error && !loaded(c)) {
                         const have = c.buffered.length ? c.buffered.end(c.buffered.length - 1) : 0;
@@ -2211,7 +2180,6 @@
             $('#restart').onclick = () => goTo(0);
             // Сразу в конец пути: показ встаёт на последнюю картину, а дальше лента доигрывает влёт в галерею.
             skip.onclick = () => {
-                travel = Math.max(travel, N - 1);
                 scrollTo({ top: journey.offsetTop + range() });
             };
 
