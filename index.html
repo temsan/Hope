@@ -1347,14 +1347,33 @@
             pointer-events: none
         }
 
+        /* Вступление: тёмный экран, картина видна только сквозь буквы названия (multiply: белое — окно в картину,
+           тёмное её закрывает). Прокрутка увеличивает слой от точки внутри буквы «Н» — зритель влетает в букву,
+           и картина открывается целиком. */
         .title {
             position: absolute;
+            inset: 0;
             z-index: 5;
-            top: clamp(1.4rem, 4vw, 4rem);
-            left: clamp(1.4rem, 4vw, 4rem);
-            max-width: 25rem;
-            mix-blend-mode: screen;
-            transition: opacity .2s linear
+            display: grid;
+            place-items: center;
+            background: var(--ink);
+            mix-blend-mode: multiply;
+            transform-origin: var(--ox, 50%) var(--oy, 50%)
+        }
+
+        .title h1 {
+            margin: 0;
+            color: #fff;
+            text-align: center;
+            font: 600 min(21vw, 36vh)/.84 Spectral, serif;
+            letter-spacing: -.045em
+        }
+
+        .title h1 em {
+            display: block;
+            font-style: italic;
+            font-weight: 500;
+            color: #ffdc94 /* сквозь «Жди» картина теплее */
         }
 
         .eyebrow,
@@ -1677,9 +1696,6 @@
             }
 
 
-            .title {
-                max-width: 17rem
-            }
         }
 
         @media(prefers-reduced-motion:reduce) {
@@ -1950,7 +1966,7 @@
                     alt="Работа 1 Надежды Терёшкиной">
             </div>
             <header class="title" id="title">
-                <h1>Надежда<br><em>Жди</em></h1>
+                <h1><span id="titleKey">Н</span>адежда<br><em>Жди</em></h1>
             </header>
             <div class="progress" aria-hidden="true"><span></span></div>
             <button class="skip" id="skip" type="button">сразу в галерею</button>
@@ -2087,6 +2103,43 @@
             const STALL = 1500;
             let dissolve = -1, stallFrom = 0, lastHave = -1;
             let travel = progress() * STEPS; // показанное положение, в шагах пролёта
+            // Вступление: доля первого сегмента (до клипа, CLIP_FROM) и во сколько раз вырастают буквы.
+            const INTRO = .22, INTRO_ZOOM = 3000;
+            // Точка, в которую влетаем, — середина левой стойки буквы «Н»: вокруг неё всё белое, окно в картину.
+            function aimTitle() {
+                const was = title.style.transform, shown = title.style.display;
+                title.style.transform = 'none';
+                title.style.display = '';
+                const key = $('#titleKey'), k = key.getBoundingClientRect(), f = title.getBoundingClientRect();
+                // Где у «Н» стойка, зависит от шрифта: рисуем букву на холсте и ищем первую закрашенную полосу
+                // на четверти её высоты (на середине — перекладина). Мимо середины стойки нельзя: при увеличении в тысячи раз её край
+                // остался бы на экране.
+                const cs = getComputedStyle(key), E = 200, c = document.createElement('canvas');
+                c.width = E; c.height = E;
+                const g = c.getContext('2d', { willReadFrequently: true });
+                g.font = `${cs.fontStyle} ${cs.fontWeight} ${E * .8}px ${cs.fontFamily}`;
+                g.textBaseline = 'alphabetic';
+                g.fillText('Н', 0, E * .8);
+                const m = g.measureText('Н'), cap = m.actualBoundingBoxAscent || E * .5,
+                    row = g.getImageData(0, Math.round(E * .8 - cap / 4), E, 1).data;
+                let a = -1, b = -1;
+                for (let x = 0; x < E; x++) {
+                    const on = row[x * 4 + 3] > 128;
+                    if (on && a < 0) a = x;
+                    if (!on && a >= 0) { b = x; break; }
+                }
+                const stem = a >= 0 && b > a ? (a + b) / 2 / (E * .8) : .14;  // середина стойки, в долях кегля
+                title.style.setProperty('--ox', (k.left - f.left + stem * parseFloat(cs.fontSize)).toFixed(1) + 'px');
+                // базовая линия делит строку в той же пропорции, что и метрики шрифта
+                const up = m.fontBoundingBoxAscent || E * .8, down = m.fontBoundingBoxDescent || E * .2,
+                    base = k.top - f.top + k.height * up / (up + down);
+                title.style.setProperty('--oy', (base - cap / 4 / (E * .8) * parseFloat(cs.fontSize)).toFixed(1) + 'px');
+                title.style.transform = was;
+                title.style.display = shown;
+            }
+            aimTitle();
+            addEventListener('resize', aimTitle);
+            if (document.fonts) document.fonts.ready.then(aimTitle);
             // Переменную пишем только на тот элемент, где она нужна, и только если она изменилась:
             // каждая запись заново пересчитывает стили всего поддерева.
             const setVar = (el, name, v) => {
@@ -2136,12 +2189,17 @@
                     const k = edges[ORDER[index]];
                     if (k) wall.style.setProperty('--amb-m', k.m.join(' '));
                 }
-                title.style.opacity = Math.max(0, 1 - raw * 7);
+                // Вступление занимает покой первой картины: слой с буквами растёт от точки внутри «Н» и тает.
+                const intro = Math.min(1, travel / INTRO);
+                if (intro < 1) {
+                    title.style.transform = `scale(${Math.exp(Math.pow(intro, 1.5) * Math.log(INTRO_ZOOM)).toFixed(4)})`;
+                    title.style.opacity = 1 - ss(.62, .97, intro);
+                }
                 // подсказка «листайте» — только на первом экране: пролёт пошёл — она уже не нужна
                 if (hint.classList.contains('gone') !== raw > .004) hint.classList.toggle('gone', raw > .004);
                 // невидимый заголовок убираем совсем: его смешивание screen заставляет сводить весь пролёт
                 // через копию фона — лишний полноэкранный проход на каждом кадре
-                title.style.display = raw * 7 < 1 ? '' : 'none';
+                title.style.display = intro < 1 ? '' : 'none';
                 // Влёт — клип последнего сегмента: камера уходит вглубь картины. Комната и сцена (небо, луна,
                 // свечи, дождь) лежат под кадром с начала сегмента: рисуются, пока на экране неподвижная картина,
                 // а не посреди движения. До середины клипа тёмный фон пролёта под видео уходит, и со второй
