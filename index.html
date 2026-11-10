@@ -1348,7 +1348,7 @@
         }
 
         /* Вступление: тёмный экран, картина видна только сквозь буквы названия (multiply: белое — окно в картину,
-           тёмное её закрывает). Прокрутка увеличивает слой от точки внутри буквы «Н» — зритель влетает в букву,
+           тёмное её закрывает). Прокрутка увеличивает слой от центра экрана — буквы разлетаются,
            и картина открывается целиком. */
         .title {
             position: absolute;
@@ -1358,7 +1358,7 @@
             place-items: center;
             background: var(--ink);
             mix-blend-mode: multiply;
-            transform-origin: var(--ox, 50%) var(--oy, 50%)
+            transform-origin: 50% 50%
         }
 
         .title h1 {
@@ -1966,7 +1966,7 @@
                     alt="Работа 1 Надежды Терёшкиной">
             </div>
             <header class="title" id="title">
-                <h1><span id="titleKey">Н</span>адежда<br><em>Жди</em></h1>
+                <h1>Надежда<br><em>Жди</em></h1>
             </header>
             <div class="progress" aria-hidden="true"><span></span></div>
             <button class="skip" id="skip" type="button">сразу в галерею</button>
@@ -2099,47 +2099,13 @@
             // Показанное положение стоит ровно там, где скролл: без инерции и догоняния — прокрутка остановилась,
             // остановился и клип.
             // Переход, клип которого ещё докачивается, не обгоняет докачанное: перемотка за край запросила бы кадры
-            // по сети по одному, и переход полз бы. Если загрузка встала дольше STALL мс, переход идёт растворением.
-            const STALL = 1500;
-            let dissolve = -1, stallFrom = 0, lastHave = -1;
+            // по сети по одному, и переход полз бы. Если загрузка встала дольше STALL мс, переход идёт растворением:
+            // на медленной сети ждём подольше — клип лучше растворения.
+            const STALL = 4000;
+            let dissolve = -1, stallFrom = 0, lastHave = -1, stallClip = null;
             let travel = progress() * STEPS; // показанное положение, в шагах пролёта
-            // Вступление: доля первого сегмента (до клипа, CLIP_FROM) и во сколько раз вырастают буквы.
-            const INTRO = .22, INTRO_ZOOM = 3000;
-            // Точка, в которую влетаем, — середина левой стойки буквы «Н»: вокруг неё всё белое, окно в картину.
-            function aimTitle() {
-                const was = title.style.transform, shown = title.style.display;
-                title.style.transform = 'none';
-                title.style.display = '';
-                const key = $('#titleKey'), k = key.getBoundingClientRect(), f = title.getBoundingClientRect();
-                // Где у «Н» стойка, зависит от шрифта: рисуем букву на холсте и ищем первую закрашенную полосу
-                // на четверти её высоты (на середине — перекладина). Мимо середины стойки нельзя: при увеличении в тысячи раз её край
-                // остался бы на экране.
-                const cs = getComputedStyle(key), E = 200, c = document.createElement('canvas');
-                c.width = E; c.height = E;
-                const g = c.getContext('2d', { willReadFrequently: true });
-                g.font = `${cs.fontStyle} ${cs.fontWeight} ${E * .8}px ${cs.fontFamily}`;
-                g.textBaseline = 'alphabetic';
-                g.fillText('Н', 0, E * .8);
-                const m = g.measureText('Н'), cap = m.actualBoundingBoxAscent || E * .5,
-                    row = g.getImageData(0, Math.round(E * .8 - cap / 4), E, 1).data;
-                let a = -1, b = -1;
-                for (let x = 0; x < E; x++) {
-                    const on = row[x * 4 + 3] > 128;
-                    if (on && a < 0) a = x;
-                    if (!on && a >= 0) { b = x; break; }
-                }
-                const stem = a >= 0 && b > a ? (a + b) / 2 / (E * .8) : .14;  // середина стойки, в долях кегля
-                title.style.setProperty('--ox', (k.left - f.left + stem * parseFloat(cs.fontSize)).toFixed(1) + 'px');
-                // базовая линия делит строку в той же пропорции, что и метрики шрифта
-                const up = m.fontBoundingBoxAscent || E * .8, down = m.fontBoundingBoxDescent || E * .2,
-                    base = k.top - f.top + k.height * up / (up + down);
-                title.style.setProperty('--oy', (base - cap / 4 / (E * .8) * parseFloat(cs.fontSize)).toFixed(1) + 'px');
-                title.style.transform = was;
-                title.style.display = shown;
-            }
-            aimTitle();
-            addEventListener('resize', aimTitle);
-            if (document.fonts) document.fonts.ready.then(aimTitle);
+            // Вступление: доля первого сегмента (до клипа, CLIP_FROM) и во сколько раз вырастают буквы — от центра экрана.
+            const INTRO = .22, INTRO_ZOOM = 14;
             // Переменную пишем только на тот элемент, где она нужна, и только если она изменилась:
             // каждая запись заново пересчитывает стили всего поддерева.
             const setVar = (el, name, v) => {
@@ -2148,20 +2114,25 @@
             };
 
             function render() {
-                const goal = progress() * STEPS, now = performance.now();
+                const goal = progress() * STEPS, now = performance.now(), from = travel;
                 travel = goal;
-                {
-                    const i = Math.min(N - 1, Math.floor(travel)), c = clips[i];
-                    if (travel - i > CLIP_FROM && dissolve !== i && c.src && !c.error && !loaded(c)) {
-                        const have = c.buffered.length ? c.buffered.end(c.buffered.length - 1) : 0;
-                        if (have !== lastHave) { lastHave = have; stallFrom = now; }
-                        const limit = c.duration > 0
-                            ? i + CLIP_FROM + Math.max(0, have * FPS - 1) / (framesOf(c) - 1) * (1 - CLIP_FROM) : i + CLIP_FROM;
-                        if (travel > limit) {
-                            if (now - stallFrom < STALL) travel = limit;
-                            else dissolve = i;
-                        }
-                    }
+                // Вперёд пролёт не проскакивает ни одного перехода, клип которого ещё качается, даже если прокрутка
+                // ушла дальше: кадр идёт за загрузкой, а когда клип докачан, сразу встаёт туда, где прокрутка.
+                for (let i = Math.max(0, Math.floor(from)); goal > from && i < N && i <= goal; i++) {
+                    const c = clips[i];
+                    if (goal - i <= CLIP_FROM - .05) break;
+                    // Дошли до перехода раньше, чем его клип встал в очередь загрузки, — качаем его сейчас же,
+                    // не дожидаясь предыдущих: иначе на медленной сети вместо клипа было бы растворение.
+                    if (!c.src) c.src = c.dataset.src;
+                    if (goal - i <= CLIP_FROM || dissolve === i || c.error || loaded(c)) continue;
+                    if (c !== stallClip) { stallClip = c; lastHave = -1; }
+                    const have = c.buffered.length ? c.buffered.end(c.buffered.length - 1) : 0;
+                    if (have !== lastHave) { lastHave = have; stallFrom = now; }
+                    const limit = c.duration > 0
+                        ? i + CLIP_FROM + Math.max(0, have * FPS - 1) / (framesOf(c) - 1) * (1 - CLIP_FROM) : i + CLIP_FROM;
+                    if (goal <= limit) continue;
+                    if (now - stallFrom < STALL) { travel = Math.max(Math.min(from, goal), limit); break; }
+                    dissolve = i;  // загрузка встала — этот переход идёт растворением
                 }
                 const raw = travel / STEPS,
                     index = Math.min(N - 1, Math.floor(travel)),
@@ -2189,11 +2160,11 @@
                     const k = edges[ORDER[index]];
                     if (k) wall.style.setProperty('--amb-m', k.m.join(' '));
                 }
-                // Вступление занимает покой первой картины: слой с буквами растёт от точки внутри «Н» и тает.
+                // Вступление занимает покой первой картины: слой с буквами растёт от центра экрана и тает.
                 const intro = Math.min(1, travel / INTRO);
                 if (intro < 1) {
                     title.style.transform = `scale(${Math.exp(Math.pow(intro, 1.5) * Math.log(INTRO_ZOOM)).toFixed(4)})`;
-                    title.style.opacity = 1 - ss(.62, .97, intro);
+                    title.style.opacity = 1 - ss(.3, .95, intro);  // буквы разлетаются, темнота между ними тает
                 }
                 // подсказка «листайте» — только на первом экране: пролёт пошёл — она уже не нужна
                 if (hint.classList.contains('gone') !== raw > .004) hint.classList.toggle('gone', raw > .004);
@@ -2245,6 +2216,7 @@
             hint.onclick = () => goTo(restOf(1));  // к следующей картине
             // Сразу в конец пути: показ встаёт на последнюю картину, а дальше лента доигрывает влёт в галерею.
             skip.onclick = () => {
+                travel = Math.max(travel, N - 1);  // промежуточные переходы не ждём — только влёт
                 scrollTo({ top: journey.offsetTop + range() });
             };
 
