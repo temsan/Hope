@@ -1185,6 +1185,22 @@
             box-shadow: 0 0 10vh 2vh rgb(var(--room-glow, 8 6 5) / .45)
         }
 
+        /* Мольберт: лежит под картиной; тёплый отсвет свечей. При приближении картины уходит. */
+        .easel {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            overflow: visible;
+            pointer-events: none;
+            filter: drop-shadow(0 0 18px rgb(255 170 90 / .12)) brightness(.9);
+            transition: opacity .45s ease
+        }
+
+        .easel.away {
+            opacity: 0
+        }
+
         .flight .title {
             pointer-events: none
         }
@@ -1471,19 +1487,21 @@
             will-change: transform
         }
 
+        /* Подсказка о прокрутке — три тонкие нити по центру внизу; по ним стекают блики, нити чуть колышутся. */
         .hint {
             position: absolute;
             z-index: 8;
-            bottom: clamp(1.4rem, 4vw, 3.2rem);
-            left: clamp(1.4rem, 4vw, 4rem);
+            left: 50%;
+            bottom: clamp(.6rem, 2.4vh, 1.6rem);
+            width: 44px;
+            height: 84px;
+            margin-left: -22px;
             border: 0;
             padding: 0;
             background: none;
             cursor: pointer;
-            text-align: left;
-            color: #efe7d8;
-            text-shadow: 0 1px 12px #000c;
-            transition: opacity .3s
+            opacity: .75;
+            transition: opacity .6s
         }
 
         .hint.gone {
@@ -1491,20 +1509,86 @@
             pointer-events: none
         }
 
-        .hint:after {
-            content: '↓';
-            display: inline-block;
-            margin-left: .6rem;
-            font-size: 15px;
-            color: var(--gold);
-            animation: nudge 1.4s ease-in-out infinite
+        .hint svg {
+            width: 100%;
+            height: 100%;
+            overflow: visible;
+            fill: none;
+            stroke-linecap: round
         }
 
-        @keyframes nudge {
-            50% {
-                transform: translateY(5px)
+        .hint .threads {
+            stroke: #efe7d8;
+            stroke-opacity: .22;
+            stroke-width: 1;
+            transform-origin: 22px 0;
+            animation: sway 5s ease-in-out infinite alternate
+        }
+
+        .hint .glints {
+            stroke: var(--gold);
+            stroke-width: 1.4;
+            stroke-dasharray: 10 110;
+            filter: drop-shadow(0 0 3px #d6b775cc);
+            transform-origin: 22px 0;
+            animation: sway 5s ease-in-out infinite alternate
+        }
+
+        .hint .glints path {
+            animation: glint 2.8s cubic-bezier(.45, 0, .55, 1) infinite
+        }
+
+        .hint .glints path:nth-child(2) {
+            animation-delay: -.9s;
+            animation-duration: 3.3s
+        }
+
+        .hint .glints path:nth-child(3) {
+            animation-delay: -1.9s;
+            animation-duration: 3.1s
+        }
+
+        @keyframes glint {
+            from {
+                stroke-dashoffset: 12;
+                opacity: 0
+            }
+
+            25% {
+                opacity: 1
+            }
+
+            75% {
+                opacity: 1
+            }
+
+            to {
+                stroke-dashoffset: -96;
+                opacity: 0
             }
         }
+
+        @keyframes sway {
+            from {
+                transform: skewX(-3deg)
+            }
+
+            to {
+                transform: skewX(3deg)
+            }
+        }
+
+        /* Рябь на воде поверх первой картины (WebGL): на время ряби она рисует и картину, и буквы. */
+        .ripple {
+            position: absolute;
+            inset: 0;
+            z-index: 2; /* как у .portal: в разметке холст после неё — над картиной, под затемнением краёв */
+            width: 100%;
+            height: 100%;
+            display: none;
+            pointer-events: none
+        }
+
 
         .caption {
             position: absolute;
@@ -1718,6 +1802,38 @@
             <div class="grain"></div>
             <section class="stage" id="stage" aria-label="Галерея: открытая картина с палитрой">
     <div id="modal" class="modal open">
+        <!-- Мольберт за картиной: размеры — по картине (layoutEasel) -->
+        <svg class="easel" id="easel" aria-hidden="true">
+            <defs>
+                <linearGradient id="easelWood" x1="0" x2="1" y1="0" y2="0">
+                    <stop offset="0" stop-color="#2a1a0e" />
+                    <stop offset=".45" stop-color="#5e3f24" />
+                    <stop offset=".7" stop-color="#7a5532" />
+                    <stop offset="1" stop-color="#2f1d10" />
+                </linearGradient>
+                <linearGradient id="easelShelf" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0" stop-color="#8a6238" />
+                    <stop offset=".35" stop-color="#5a3c22" />
+                    <stop offset="1" stop-color="#24160b" />
+                </linearGradient>
+                <!-- к полу ножки тонут в темноте комнаты -->
+                <linearGradient id="easelFade" gradientUnits="userSpaceOnUse" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0" stop-color="#fff" />
+                    <stop offset="1" stop-color="#fff" stop-opacity="0" />
+                </linearGradient>
+                <mask id="easelMask" maskUnits="userSpaceOnUse">
+                    <rect id="easelMaskTop" fill="#fff" />
+                    <rect id="easelMaskRect" fill="url(#easelFade)" />
+                </mask>
+            </defs>
+            <g mask="url(#easelMask)">
+                <path id="easelBack" fill="#1c1209" />
+                <path id="easelLegs" fill="url(#easelWood)" />
+                <path id="easelMast" fill="url(#easelWood)" />
+                <path id="easelShelfPath" fill="url(#easelShelf)" />
+                <path id="easelClamp" fill="url(#easelShelf)" />
+            </g>
+        </svg>
         <img class="modal-content" id="modalImg">
         <div class="nav-buttons">
             <button id="prevBtn" class="nav-btn" title="Предыдущая">&#10094;</button>
@@ -1970,7 +2086,21 @@
             </header>
             <div class="progress" aria-hidden="true"><span></span></div>
             <button class="skip" id="skip" type="button">сразу в галерею</button>
-            <button class="hint" id="hint" type="button">листайте</button>
+            <canvas class="ripple" id="ripple" aria-hidden="true"></canvas>
+            <button class="hint" id="hint" type="button" aria-label="Листайте вниз">
+                <svg viewBox="0 0 44 84" aria-hidden="true">
+                    <g class="threads">
+                        <path d="M22 2C19 22 25 42 22 82" />
+                        <path d="M13 14C11 32 16 48 13 70" />
+                        <path d="M31 14C33 32 28 48 31 70" />
+                    </g>
+                    <g class="glints">
+                        <path d="M22 2C19 22 25 42 22 82" />
+                        <path d="M13 14C11 32 16 48 13 70" />
+                        <path d="M31 14C33 32 28 48 31 70" />
+                    </g>
+                </svg>
+            </button>
             <section class="arrival" id="arrival" aria-label="Конец экспозиции">
                 <div class="actions"><button id="restart" type="button">пройти ещё раз</button></div>
             </section>
@@ -2161,11 +2291,14 @@
                     if (k) wall.style.setProperty('--amb-m', k.m.join(' '));
                 }
                 // Вступление занимает покой первой картины: слой с буквами растёт от центра экрана и тает.
-                const intro = Math.min(1, travel / INTRO);
+                const intro = Math.min(1, travel / INTRO),
+                    introScale = Math.exp(Math.pow(intro, 1.5) * Math.log(INTRO_ZOOM)),
+                    introOp = 1 - ss(.3, .95, intro);  // буквы разлетаются, темнота между ними тает
                 if (intro < 1) {
-                    title.style.transform = `scale(${Math.exp(Math.pow(intro, 1.5) * Math.log(INTRO_ZOOM)).toFixed(4)})`;
-                    title.style.opacity = 1 - ss(.3, .95, intro);  // буквы разлетаются, темнота между ними тает
+                    title.style.transform = `scale(${introScale.toFixed(4)})`;
+                    title.style.opacity = introOp;
                 }
+                window.__intro = { k: intro, scale: introScale, op: introOp };  // для ряби на воде (#ripple)
                 // подсказка «листайте» — только на первом экране: пролёт пошёл — она уже не нужна
                 if (hint.classList.contains('gone') !== raw > .004) hint.classList.toggle('gone', raw > .004);
                 // невидимый заголовок убираем совсем: его смешивание screen заставляет сводить весь пролёт
@@ -2237,6 +2370,7 @@
             });
         })();
     </script>
+    <script src="assets/ripple.js"></script>
 
     <div class="nadezhda" id="nadezhda">
     <div class="atmosphere"></div>
@@ -2560,6 +2694,8 @@
             modalImg.style.setProperty('--modal-pan-y', `${modalPanY.toFixed(2)}px`);
             const isZoomed = modalZoomLevel > 1.01;
             modalImg.classList.toggle('zoomed', isZoomed);
+            const easelEl = document.getElementById('easel');
+            if (easelEl) easelEl.classList.toggle('away', isZoomed);
             if (isZoomed) loadFullForZoom();
             if (!isZoomed) {
                 stopModalPanTracking();
@@ -2815,11 +2951,50 @@
         setupModalPanInteractions();
         setupModalPinchZoom();
 
+        // Мольберт по размеру картины на экране (без приближения): стойка с прижимом над картиной, полка под ней,
+        // передние ножки расходятся к полу, задняя — по центру, темнее; ниже полки ножки тонут в темноте.
+        const easel = document.getElementById('easel');
+        function layoutEasel() {
+            const W = modal.clientWidth, H = modal.clientHeight, w = modalImg.clientWidth, h = modalImg.clientHeight;
+            if (!easel || !W || !H || !w || !h) return;
+            easel.setAttribute('viewBox', `0 0 ${W} ${H}`);
+            const cx = W / 2, top = H / 2 - h / 2, bot = H / 2 + h / 2, floor = H + 40,
+                u = Math.max(7, Math.min(w, h) * .03),                  // толщина бруска
+                mastTop = top - Math.max(30, h * .1),
+                spread = Math.max(w * .62, (floor - mastTop) * .28);    // насколько ножки расходятся у пола
+            const set = (id, d) => document.getElementById(id).setAttribute('d', d);
+            const leg = (x0, y0, x1, y1, t0, t1) => `M${x0 - t0},${y0} L${x0 + t0},${y0} L${x1 + t1},${y1} L${x1 - t1},${y1} Z`;
+            set('easelBack', leg(cx, mastTop + u, cx, floor, u * .45, u * .6));
+            set('easelLegs', leg(cx - u * .7, mastTop + u * 1.5, cx - spread, floor, u * .5, u * .65) + ' ' +
+                leg(cx + u * .7, mastTop + u * 1.5, cx + spread, floor, u * .5, u * .65));
+            set('easelMast', `M${cx - u * .55},${mastTop + u * .4} Q${cx},${mastTop - u * .5} ${cx + u * .55},${mastTop + u * .4} ` +
+                `L${cx + u * .55},${bot} L${cx - u * .55},${bot} Z`);
+            const sw = w / 2 + u * 2.4, st = bot - u * .3, sh = u * 1.25;
+            set('easelShelfPath', `M${cx - sw},${st} L${cx + sw},${st} L${cx + sw},${st + sh} L${cx + sw - u * .3},${st + sh + u * .35} ` +
+                `L${cx - sw + u * .3},${st + sh + u * .35} L${cx - sw},${st + sh} Z`);
+            const kw = Math.max(u * 3, w * .12);
+            set('easelClamp', `M${cx - kw / 2},${top - u * 1.1} L${cx + kw / 2},${top - u * 1.1} L${cx + kw / 2},${top + u * .4} L${cx - kw / 2},${top + u * .4} Z`);
+            // маска: до полки всё видно, от полки к полу — растворяется
+            const mt = document.getElementById('easelMaskTop'), mr = document.getElementById('easelMaskRect');
+            mt.setAttribute('x', -W); mt.setAttribute('y', -H); mt.setAttribute('width', W * 3); mt.setAttribute('height', H + bot + sh);
+            mr.setAttribute('x', -W); mr.setAttribute('y', bot + sh); mr.setAttribute('width', W * 3); mr.setAttribute('height', floor - bot - sh);
+            const g = document.getElementById('easelFade');
+            g.setAttribute('y1', bot + sh); g.setAttribute('y2', floor);
+        }
+        modalImg.addEventListener('load', () => requestAnimationFrame(layoutEasel));
+        addEventListener('resize', () => requestAnimationFrame(layoutEasel));
+
         // Show specific image in modal
         function showImage(index) {
             currentIndex = index;
             modalImg.classList.remove('loaded');
-            resetModalZoom();
+            // Приближение при переключении сохраняется: тот же масштаб и то же место кадра (в долях от края),
+            // чтобы рассматривать картины подряд, не приближая каждую заново.
+            const keepZoom = modalZoomLevel,
+                keepX = modalPanMaxX ? modalPanX / modalPanMaxX : 0,
+                keepY = modalPanMaxY ? modalPanY / modalPanMaxY : 0;
+            modalPanMoved = false;
+            stopModalPanTracking();
 
             // Update background color based on temperature
             const currentImage = imagesData[currentIndex];
@@ -2849,7 +3024,15 @@
 
             // Update info and thumbnails
             markActiveThumb();
-            requestAnimationFrame(recalculateModalMaxZoom);
+            requestAnimationFrame(() => {
+                recalculateModalMaxZoom();  // предел — по новой картине
+                modalZoomLevel = Math.max(1, Math.min(modalMaxZoom, keepZoom));
+                updateModalPanLimits();
+                modalPanX = keepX * modalPanMaxX;
+                modalPanY = keepY * modalPanMaxY;
+                applyModalZoom();
+                layoutEasel();
+            });
         }
 
         // Generate thumbnails for modal
@@ -2926,14 +3109,39 @@
             return paletteGeo;
         }
 
+        // Свечи стоят у краёв окна и могут оказаться над палитрой: их прямоугольники (в единицах viewBox, с запасом)
+        // вырезаются из палитры как дыры — мазки их обходят. Край дыры для мазков — такой же край, как у палитры.
+        let paletteHoles = [];
+        function slotGeometry() {
+            const g = paletteGeometry();
+            if (!paletteHoles.length) return g;
+            const he = [];
+            for (const [x0, y0, x1, y1] of paletteHoles) {
+                for (let x = x0; x <= x1; x += 2) he.push([x, y0], [x, y1]);
+                for (let y = y0; y <= y1; y += 2) he.push([x0, y], [x1, y]);
+            }
+            return {
+                edge: g.edge,
+                nearestEdge: (x, y) => {
+                    let [m, e] = g.nearestEdge(x, y);
+                    for (const q of he) {
+                        const d = Math.hypot(x - q[0], y - q[1]);
+                        if (d < m) { m = d; e = q; }
+                    }
+                    return [m, e];
+                },
+                inside: (x, y) => g.inside(x, y) && !paletteHoles.some(([x0, y0, x1, y1]) => x > x0 && x < x1 && y > y0 && y < y1),
+            };
+        }
         // Старт раскладки — count точек равномерно по палитре не ближе PALETTE_EDGE к краю: центроидная
         // диаграмма Вороного (итерации Ллойда) по сетке через 3 единицы; первая точка — каждая дальше всех от выбранных.
-        function spreadSlots(count) {
-            const { edge, nearestEdge, inside } = paletteGeometry();
+        // clear — сколько ещё места до края нужно точке, чтобы старт не попал в узкий коридор у свечи.
+        function spreadSlots(count, clear = 0) {
+            const { edge, nearestEdge, inside } = slotGeometry();
             const xs = edge.map(q => q[0]), ys = edge.map(q => q[1]), pts = [];
             for (let y = Math.min(...ys) + 1.5; y < Math.max(...ys); y += 3) {
                 for (let x = Math.min(...xs) + 1.5; x < Math.max(...xs); x += 3) {
-                    if (inside(x, y) && nearestEdge(x, y)[0] >= PALETTE_EDGE) pts.push([x, y]);
+                    if (inside(x, y) && nearestEdge(x, y)[0] >= PALETTE_EDGE + clear) pts.push([x, y]);
                 }
             }
             if (pts.length < count) return null;
@@ -2974,7 +3182,7 @@
         // до зазора PALETTE_GAP, край палитры и отверстие выталкивают внутрь до запаса PALETTE_EDGE.
         // Возвращает раскладку с самыми крупными мазками; R — полудиаметр мазка с половиной зазора.
         function packSlots(start) {
-            const { nearestEdge, inside } = paletteGeometry();
+            const { nearestEdge, inside } = slotGeometry();
             const centers = start.map(c => c.slice()), margin = PALETTE_EDGE - PALETTE_GAP / 2;
             const fit = () => {
                 let r = Infinity;
@@ -3012,11 +3220,22 @@
         // Раскладка мазков: упаковка от равномерного старта и от него же со сдвигами — она находит ближайший
         // максимум, и из нескольких берётся раскладка с самыми крупными мазками. Обход слотов — от самого
         // левого к ближайшему: соседние по теплоте мазки лежат рядом.
-        // В единицах viewBox раскладка от окна не зависит — считается один раз.
-        let paletteSlotsCache = null;
+        // В единицах viewBox раскладка от окна зависит только через свечи — пересчёт, когда они сдвинулись.
+        const paletteSlotsCache = new Map();  // по числу мазков и дырам свечей
         function buildPaletteSlots(count) {
-            if (paletteSlotsCache && paletteSlotsCache.count === count) return paletteSlotsCache;
-            const start = spreadSlots(count) || [];
+            const key = count + '|' + JSON.stringify(paletteHoles);
+            if (paletteSlotsCache.has(key)) return paletteSlotsCache.get(key);
+            // со свечами старт — только там, где поместится хотя бы две трети обычного мазка
+            let start = null;
+            if (paletteHoles.length) {
+                const holes = paletteHoles;
+                paletteHoles = [];
+                const plain = buildPaletteSlots(count);
+                paletteHoles = holes;
+                const R0 = (plain.size * BLOB_HOVER + PALETTE_GAP) / 2;
+                start = spreadSlots(count, R0 * .66) || spreadSlots(count, R0 * .4);
+            }
+            start = start || spreadSlots(count) || [];
             let seed = 7;
             const jitter = () => ((seed = seed * 16807 % 2147483647) / 2147483647 - .5) * 30;
             let packed = packSlots(start);
@@ -3033,8 +3252,9 @@
                 const from = cur;
                 cur = rest.reduce((n, q) => (Math.hypot(q[0] - from[0], q[1] - from[1]) < Math.hypot(n[0] - from[0], n[1] - from[1]) ? q : n), rest[0]);
             }
-            paletteSlotsCache = { count, size: Math.max(0, 2 * R - PALETTE_GAP) / BLOB_HOVER, slots: path };
-            return paletteSlotsCache;
+            const result = { key, size: Math.max(0, 2 * R - PALETTE_GAP) / BLOB_HOVER, slots: path };
+            paletteSlotsCache.set(key, result);
+            return result;
         }
 
         function layoutPalette() {
@@ -3054,6 +3274,33 @@
             const z = wrapRect.width / wrapW || 1;
             const trackLeft = (trackRect.left - wrapRect.left) / z;
             const trackTop = (trackRect.top - wrapRect.top) / z;
+            // свечи (тело и пламя) — в единицы viewBox, с запасом на свечение; округлены, чтобы раскладка
+            // не пересчитывалась от долей пикселя
+            const toBox = (sx, sy) => [((sx - wrapRect.left) / z - ox) / k, ((sy - wrapRect.top) / z - oy) / k];
+            paletteHoles = [...document.querySelectorAll('.candle')].map(c => {
+                const r = [c, ...c.querySelectorAll('*')].map(el => el.getBoundingClientRect()).filter(b => b.width && b.height);
+                if (!r.length) return null;
+                const pad = 14 * z;
+                const a = toBox(Math.min(...r.map(b => b.left)) - pad, Math.min(...r.map(b => b.top)) - pad),
+                    b = toBox(Math.max(...r.map(b => b.right)) + pad, Math.max(...r.map(b => b.bottom)) + pad);
+                return [a[0], a[1], b[0], b[1]].map(v => Math.round(v / 4) * 4);
+            }).filter(h => h && h[2] > 0 && h[0] < PALETTE_VIEWBOX.w && h[3] > 0 && h[1] < PALETTE_VIEWBOX.h);
+            // за отверстием для пальца (центр 224,132) мазков нет: лопасть справа и снизу от него остаётся чистой
+            paletteHoles.unshift([196, 96, 310, 230]);
+            // соседние свечи — одна дыра: в щель между ними мазок не влезет, а раскладка застревала бы в ней
+            for (let merged = true; merged;) {
+                merged = false;
+                for (let i = 0; i < paletteHoles.length && !merged; i++) {
+                    for (let j = i + 1; j < paletteHoles.length && !merged; j++) {
+                        const a = paletteHoles[i], b = paletteHoles[j], gap = 2 * PALETTE_EDGE + 8;
+                        if (a[0] - gap < b[2] && b[0] - gap < a[2] && a[1] - gap < b[3] && b[1] - gap < a[3]) {
+                            paletteHoles[i] = [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[2], b[2]), Math.max(a[3], b[3])];
+                            paletteHoles.splice(j, 1);
+                            merged = true;
+                        }
+                    }
+                }
+            }
 
             const { size, slots } = buildPaletteSlots(n);
 
