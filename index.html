@@ -22,13 +22,12 @@
     <meta property="og:image:alt" content="Картина Надежды Терёшкиной: красно-жёлтый взрыв красок на тёмном фоне">
     <meta property="og:locale" content="ru_RU">
     <meta name="twitter:card" content="summary_large_image">
+    <link rel="preload" as="image" href="assets/stills/s/img_05.jpg" media="(max-width: 600px)">
+    <link rel="preload" as="image" href="assets/stills/img_05.jpg" media="(min-width: 601px)">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
-        href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600&family=Spectral:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap"
-        rel="stylesheet">
-    <link
-        href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600&family=Spectral:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300&display=swap"
         rel="stylesheet">
     <!-- Галерея Надежды (прежняя версия сайта) — идёт под пролётом -->
     <style>
@@ -2080,8 +2079,11 @@
         <div class="palette-dots" id="thumbnailsTrack"></div>
     </div>
     </section>
-            <div class="portal" aria-live="polite"><img class="art" src="assets/stills/img_05.jpg"
-                    alt="Работа 1 Надежды Терёшкиной">
+            <div class="portal" aria-live="polite"><img class="art" alt="Работа 1 Надежды Терёшкиной"><script>
+                    // первый стоп-кадр: телефону — лёгкий (960 px); оба варианта объявлены в <head> через preload
+                    document.currentScript.previousElementSibling.src =
+                        'assets/stills/' + (matchMedia('(max-width: 600px)').matches ? 's/' : '') + 'img_05.jpg';
+                </script>
             </div>
             <header class="title" id="title">
                 <h1>Надежда<br><em>Жди</em></h1>
@@ -2117,7 +2119,12 @@
                 STEPS = N, // на каждой картине сегмент: покой, затем клип; клип последней — влёт в галерею
                 CLIP_FROM = .25, // доля сегмента, после которой играет клип перехода
                 pad = n => String(n).padStart(2, '0'),
-                images = ORDER.map(n => `assets/stills/img_${pad(n)}.jpg`),
+                // Телефону — стоп-кадры 960 px (как клипы пролёта), вчетверо легче; первый ставит скрипт в разметке.
+                // На медленной сети или с экономией трафика (lite) вперёд качаем по минимуму.
+                small = matchMedia('(max-width: 600px)').matches,
+                net = navigator.connection,
+                lite = !!net && (net.saveData || /2g|3g/.test(net.effectiveType || '')),
+                images = ORDER.map(n => `assets/stills/${small ? 's/' : ''}img_${pad(n)}.jpg`),
                 $ = s => document.querySelector(s),
                 journey = $('.journey'), flight = $('#flight'), bar = $('.progress'), wall = $('.flight .void'),
                 grain = $('.flight .grain'),
@@ -2211,7 +2218,9 @@
             function warm(index) {
                 arts.forEach((img, i) => { if (i >= index && i <= index + 2 && !img.src) img.src = img.dataset.src; });
                 const again = () => warm(Math.max(0, shown));
-                const next = clips.map((_, k) => clips[(index + k) % clips.length]).find(v => !v.src || !loaded(v));
+                // lite: только ближайшие два клипа, остальные — когда до них дойдёт пролёт
+                const next = clips.slice(0, lite ? 2 : clips.length).map((_, k) => clips[(index + k) % clips.length])
+                    .find(v => !v.src || !loaded(v));
                 if (!next) return clipsDone();
                 if (!next.src) {
                     next.src = next.dataset.src;
@@ -3509,7 +3518,9 @@
             const n = imagesData.length;
             // соседи открытой картины — сразу, вне очереди: на них переключатся первыми
             if (neighbors) [1, -1].forEach(d => loadImage(imagesData[(from + d + n) % n].medium));
-            if (mediumQueued) return;
+            // на медленной сети или с экономией трафика всю галерею вперёд не качаем — только открытую и соседей
+            const net = navigator.connection;
+            if (mediumQueued || (net && (net.saveData || /2g|3g/.test(net.effectiveType || '')))) return;
             mediumQueued = true;
             afterClips.then(async () => {
                 for (let k = 0; k < n; k++) await loadImage(imagesData[(from + k) % n].medium);
@@ -3570,7 +3581,10 @@
 
         // Фото неба и луны видны только в галерее — грузятся после клипов пролёта, не отнимая у них канал
         (window.__clipsDone || Promise.resolve()).then(() =>
-            document.querySelectorAll('img.after-clips').forEach(img => { img.src = img.dataset.src; }));
+            document.querySelectorAll('img.after-clips').forEach(img => {
+                // телефону небо вдвое меньше
+                img.src = matchMedia('(max-width: 600px)').matches ? img.dataset.src.replace('w=1800', 'w=900') : img.dataset.src;
+            }));
 
         // Млечный путь
         const mwImg = document.getElementById('milkyWayImg');

@@ -56,13 +56,16 @@ void main() {
     glint = mix(glint, glint * rainbow * 1.6, SPECTRAL * smoothstep(.02, .25, tilt));
     // каустика: выпуклая волна работает линзой и собирает свет на дне в тёплые прожилки (по кривизне поверхности)
     // кривизна — по соседям через клетку: мелкая рябь сетки не дробит каустику на бусины
-    float lap = texture(sim, uv + vec2(2. * dt.x, 0.)).r + texture(sim, uv - vec2(2. * dt.x, 0.)).r +
-                texture(sim, uv + vec2(0., 2. * dt.y)).r + texture(sim, uv - vec2(0., 2. * dt.y)).r - 4. * h;
-    float caustic = smoothstep(0., 1., max(0., -lap) * CAUSTIC) * str;
+    // каустика тоже спектральная: вода преломляет красный слабее, синий сильнее, и они сходятся на дне чуть
+    // в разных местах — у светлой прожилки с одной стороны тёплая кайма, с другой холодная
+    #define LAP(p) (texture(sim, (p) + vec2(2. * dt.x, 0.)).r + texture(sim, (p) - vec2(2. * dt.x, 0.)).r + texture(sim, (p) + vec2(0., 2. * dt.y)).r + texture(sim, (p) - vec2(0., 2. * dt.y)).r - 4. * texture(sim, p).r)
+    vec2 split = n / max(tilt, 1e-3) * min(1., tilt * 10.) * dt * 1.8 * SPECTRAL;
+    vec3 lap = vec3(LAP(uv - split), LAP(uv), LAP(uv + split));
+    vec3 caustic = smoothstep(0., 1., max(vec3(0.), -lap) * CAUSTIC) * str;
     vec3 warm = vec3(1., .92, .74);`;
     // первый экран: картина «cover» на весь экран, умноженная на маску букв (как слой #title с multiply),
     // увеличенную от центра экрана, — с поправкой на наклон воды
-    const DRAW_INTRO = HEAD + `uniform sampler2D sim, paint, mask; uniform vec2 dt, cover; uniform float scale, op, str, drip, cols;
+    const DRAW_INTRO = HEAD + `uniform sampler2D sim, paint, mask, dist; uniform vec2 dt, cover; uniform float scale, op, str, drip, cols, dk, px;
 float hash(float x) { return fract(sin(x * 127.1) * 43758.5453); }
 float noise(float x) { float i = floor(x), f = fract(x); return mix(hash(i), hash(i + 1.), f * f * (3. - 2. * f)); }
 void main() {${SLOPE}
@@ -72,47 +75,79 @@ void main() {${SLOPE}
                    texture(paint, (qb - .5) * cover + .5).b);
     vec3 m = vec3(texture(mask, (qr - .5) / scale + .5).r, texture(mask, (qg - .5) / scale + .5).g,
                   texture(mask, (qb - .5) / scale + .5).b);
-    // Буквы стекают. У низа букв краска чуть оплывает (короткий смаз), а дальше вниз сбегают струйки:
-    // каждая своей длины и толщины, к низу тоньше, на конце — круглая капля. Струйки — по узким столбцам экрана,
-    // в каждом столбце своя (или никакой); где над точкой в пределах длины струйки есть буква, там краска.
+    // Буквы стекают целиком. Вся краска буквы сползает вниз: сперва медленно, потом всё быстрее, в каждом месте
+    // со своей скоростью, так что буква вытягивается и рвётся на языки. За ней остаётся тонкий полосатый след,
+    // он бледнеет и к концу сходит. Впереди, с нижней кромки, сбегают струйки с каплями.
+    // dist — карта, посчитанная заранее вместе с маской: r — сколько вверх до ближайшей буквы, g — до её верха.
+    // С ней кромку не нужно искать перебором, поэтому шейдер лёгкий и для телефона.
     if (drip > .001) {
-        vec2 q = (qg - .5) / scale + .5;
-        float band = noise(uv.x * 22.), hair = noise(uv.x * 230.), len = drip * .22 * (.06 + .94 * pow(band, 1.8)) * (.7 + .3 * hair);
-        float lean = (noise(uv.x * 5. + 7.) - .5) * .15;
-        vec3 run = vec3(0.);
-        for (int j = 1; j <= 28; j++) {
-            float t = float(j) / 28.;
-            vec3 s = texture(mask, q + vec2(lean * t * len, t * len) / scale).rgb;
-            run = max(run, s * (1. - smoothstep(.55, 1., t)) * (1. - .3 * t) * (.35 + .65 * hair));
+        float asp = dt.y / dt.x, fall = 1.7 * pow(drip, 2.2);
+        // разброс скоростей — плавный, в точках экрана (cols ~ ширина / 14), на узком экране слабее: буква
+        // вытягивается, но не рассыпается в зигзаг
+        float spread = .5 * clamp(asp / 1.2, .4, 1.);
+        #define FLOW(x) (fall * (1. - spread + spread * (noise((x) * cols / 13. + 3.) * .78 + noise((x) * cols / 3.6) * .22)))
+        #define LUM(v) dot(texture(mask, v).rgb, vec3(.333))
+        float D = FLOW(uv.x);
+        vec2 sh = vec2(0., D) / scale, q = (qg - .5) / scale + .5;
+        m = vec3(texture(mask, (qr - .5) / scale + .5 + sh).r, texture(mask, q + sh).g,
+                 texture(mask, (qb - .5) / scale + .5 + sh).b);
+        // след там, где краска уже прошла: чем ближе к ушедшей букве, тем свежее и ярче
+        vec2 dd = texture(dist, q).rg;
+        float behind = D - dd.x * dk * scale;
+        if (dd.x < .99 && behind > 0.) {
+            float fresh = clamp(dd.y * dk * scale / max(D, 1e-4), 0., 1.);
+            float film = (.06 + .3 * fresh * fresh) * (.4 + .6 * noise(uv.x * 190.)) * (1. - smoothstep(.5, 1., drip))
+                         * smoothstep(0., 14. * px, behind);
+            m = max(m, texture(mask, q + vec2(0., dd.x * dk + 3. * px)).rgb * film);
         }
-        m = max(m, run);
 
-        float asp = dt.y / dt.x, N = cols, col = floor(uv.x * N);
-        float h1 = hash(col * 1.37 + 2.), h2 = hash(col * 3.11 + 9.), h3 = hash(col * 7.73 + 1.);
-        if (h1 > .58) {
-            // длина (доли высоты экрана), полуширина (доли ширины) и радиус капли (доли высоты)
-            float L = drip * (.12 + .88 * h2 * h2), w = (.16 + .2 * h3) / N, rb = w * 1.5 * asp;
-            float ax = abs(fract(uv.x * N) - .5) / N;
-            vec2 base = (vec2((col + .5) / N, uv.y) + (qg - uv) - .5) / scale + .5;
-            float t0 = -1.;
-            vec3 src = vec3(0.);
-            for (int j = 0; j <= 36; j++) {
-                float t = (L + rb) * float(j) / 36.;
-                vec3 sm = texture(mask, base + vec2(0., t) / scale).rgb;
-                if (dot(sm, vec3(.333)) > .3) {
-                    // цвет — чуть глубже в букве: на сглаженном краю он темнее, и струйка шла бы полосками
-                    t0 = t;
-                    src = max(sm, max(texture(mask, base + vec2(0., t + 3. * dt.y) / scale).rgb,
-                                      texture(mask, base + vec2(0., t + 6. * dt.y) / scale).rgb));
-                    break;
-                }
+        // Струйка как у настоящей краски: у кромки набухает и повисает капля, потом вытягивается вниз; у корня
+        // широкий натёк, тело чуть виляет и к низу тоньше, на конце тяжёлая капля-слеза с объёмом и бликом.
+        // Всё в долях высоты экрана. Столбец рисует свою струйку и соседнюю: широкий корень заходит к соседу.
+        float N = cols, fx = uv.x * N, col0 = floor(fx), side = fract(fx) < .5 ? -1. : 1.;
+        float run = smoothstep(0., .55, drip);
+        for (int c = 0; c < 2; c++) {
+            float col = col0 + float(c) * side, dx = fx - col - .5;
+            float h1 = hash(col * 1.37 + 2.), h2 = hash(col * 3.11 + 9.), h3 = hash(col * 7.73 + 1.),
+                  h4 = hash(col * 5.19 + 4.), h5 = hash(col * 2.03 + 6.);
+            if (h1 < .52 || abs(dx) > .95) continue;
+            float st0 = h4 * .5, pr = clamp((run - st0) / (1. - st0), 0., 1.);
+            if (pr <= 0.) continue;
+            float w = (.1 + .17 * h3 + .07 * h2) / N * asp;
+            float L = .3 * (.08 + .92 * h2 * h2) * pow(max(pr - .12, 0.) / .88, 1.5);
+            float rb = w * (1.45 + .4 * h5) * smoothstep(0., .12, pr);
+            float cx = (col + .5) / N;
+            vec2 base = (vec2(cx, uv.y) + (qg - uv) - .5) / scale + .5 + vec2(0., FLOW(cx)) / scale;
+            float raw = texture(dist, base).r, est = raw * dk * scale;
+            if (raw > .99 || est > L + rb * 2.4 + 6. * px) continue;
+            // карта грубее маски вчетверо: кромку уточняем по самой маске
+            float lo = max(0., est - 6. * px), hi = est + 6. * px;
+            if (LUM(base + vec2(0., hi) / scale) <= .3) continue;
+            for (int j = 0; j < 4; j++) {
+                float mid = (lo + hi) * .5;
+                if (LUM(base + vec2(0., mid) / scale) > .3) hi = mid; else lo = mid;
             }
-            if (t0 >= 0.) {
-                float tip = L - rb, wid = w * (1. - .45 * min(1., t0 / max(L, 1e-4)));
-                float body = step(t0, tip) * (1. - smoothstep(wid * .55, wid * 1.1, ax));
-                float bulb = 1. - smoothstep(rb * .7, rb, length(vec2(ax * asp, t0 - tip)));
-                m = max(m, src * max(body, bulb));
-            }
+            float t0 = hi;
+            // цвет — чуть глубже в букве: на сглаженном краю он темнее
+            vec3 src = max(texture(mask, base + vec2(0., t0 + 2. * px) / scale).rgb,
+                           texture(mask, base + vec2(0., t0 + 5. * px) / scale).rgb);
+            float tl = t0 / max(L, 1e-4);
+            float wander = (noise(t0 * 26. + h5 * 40.) - .5) * .32 / N * asp * smoothstep(0., .06, t0);
+            float sx = dx / N * asp - wander, axh = abs(sx);
+            float wid = w * (1. - .4 * min(tl, 1.)) + w * 1.5 * exp(-t0 / (w * 2.2));
+            float dB = t0 <= L ? axh - wid : length(vec2(axh, t0 - L)) - wid;
+            float tip = L + rb * .35;
+            float dD = length(vec2(axh, (t0 - tip) / 1.25)) - rb;
+            float k = w * .9, hk = clamp(.5 + .5 * (dD - dB) / k, 0., 1.);
+            float d = mix(dD, dB, hk) - k * hk * (1. - hk);
+            float cov = 1. - smoothstep(-px, px, d);
+            if (cov <= 0.) continue;
+            float depth = clamp(-d / max(mix(rb, wid, hk), px), 0., 1.);
+            float spec = (1. - smoothstep(0., .45, length(vec2(sx + rb * .35, t0 - tip + rb * .3)) / max(rb, px))) * (1. - hk);
+            // у самой буквы объёма нет — струйка вливается в неё без шва
+            float vol = smoothstep(px, w * 2.5, t0);
+            vec3 drop = src * mix(1., .72 + .36 * sqrt(depth), vol) + spec * .22 * vol;
+            m = mix(m, max(m, drop), cov);
         }
     }
     vec3 under = pc * mix(vec3(1.), m, op);
@@ -192,9 +227,10 @@ void main() {${SLOPE}
             gl,
             texture,
             get ready() { return sims.length > 0; },
-            // холст — в пикселях экрана (не больше двух на точку), волны — 256 по высоте
+            // холст — в пикселях экрана (не больше двух на точку, на телефоне — полутора: там вдвое меньше точек
+            // на кадр, а вода и так мягкая), волны — 256 по высоте
             resize(w, h) {
-                const d = Math.min(2, devicePixelRatio || 1);
+                const d = Math.min(matchMedia('(max-width: 600px)').matches ? 1.5 : 2, devicePixelRatio || 1);
                 cv.width = Math.max(1, Math.round(w * d));
                 cv.height = Math.max(1, Math.round(h * d));
                 aspect = w / Math.max(1, h);
@@ -249,103 +285,6 @@ void main() {${SLOPE}
     // Затишье: через CALM мс без движения вода за SETTLE мс успокаивается и слой гаснет.
     const CALM = 1800, SETTLE = 1800;
 
-    // Звук воды — синтез в браузере, без файлов. Ведёшь указателем — мягкий плеск: шум, пропущенный через полосовой
-    // фильтр; чем быстрее движение, тем громче и выше, а остановился — плеск за полсекунды стихает. Касание — «плюх»
-    // капли: тон пузырька, что быстро взлетает вверх. Браузер даёт звуку зазвучать только после первого нажатия,
-    // поэтому до него тихо. Кнопка «звук» в углу выключает и включает (запоминается).
-    const sound = (() => {
-        let ac = null, gain = null, bp = null, on = true, lastAt = 0;
-        try { on = localStorage.getItem('hope-sound') !== 'off'; } catch (_) { /* хранилище недоступно */ }
-        function init() {
-            if (ac || !on) return;
-            const AC = window.AudioContext || window.webkitAudioContext;
-            if (!AC) return;
-            ac = new AC();
-            // две секунды мягкого («розового») шума по кругу
-            const len = ac.sampleRate * 2, buf = ac.createBuffer(1, len, ac.sampleRate), data = buf.getChannelData(0);
-            let b0 = 0, b1 = 0, b2 = 0;
-            for (let i = 0; i < len; i++) {
-                const w = Math.random() * 2 - 1;
-                b0 = .99765 * b0 + w * .099; b1 = .963 * b1 + w * .2965; b2 = .57 * b2 + w * 1.0526;
-                data[i] = (b0 + b1 + b2 + w * .1848) * .18;
-            }
-            const src = ac.createBufferSource();
-            src.buffer = buf;
-            src.loop = true;
-            bp = ac.createBiquadFilter();
-            bp.type = 'bandpass'; bp.frequency.value = 600; bp.Q.value = 1.1;
-            const lp = ac.createBiquadFilter();
-            lp.type = 'lowpass'; lp.frequency.value = 1600;
-            gain = ac.createGain();
-            gain.gain.value = 0;
-            src.connect(bp); bp.connect(lp); lp.connect(gain); gain.connect(ac.destination);
-            src.start();
-        }
-        const wake = () => { init(); if (ac && ac.state === 'suspended') ac.resume(); };
-        ['pointerdown', 'keydown', 'touchstart'].forEach(ev => addEventListener(ev, wake, { passive: true }));
-        const ready = () => ac && on && ac.state === 'running';
-        const hold = (param, t) => { if (param.cancelAndHoldAtTime) param.cancelAndHoldAtTime(t); else { param.cancelScheduledValues(t); param.setValueAtTime(param.value, t); } };
-        return {
-            // dist — сколько точек прошёл указатель с прошлого раза
-            stir(dist) {
-                if (!ready()) return;
-                const now = performance.now(), ms = Math.max(8, Math.min(120, now - lastAt));
-                lastAt = now;
-                const v = Math.min(1, dist / ms / 2.2), t = ac.currentTime;
-                hold(gain.gain, t);
-                gain.gain.setTargetAtTime(.015 + .09 * v, t, .07);
-                gain.gain.setTargetAtTime(0, t + .14, .3);
-                hold(bp.frequency, t);
-                bp.frequency.setTargetAtTime(380 + 820 * v + Math.random() * 140, t, .12);
-            },
-            plip() {
-                if (!ready()) return;
-                const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain(), f = 520 + Math.random() * 380;
-                o.type = 'sine';
-                o.frequency.setValueAtTime(f, t);
-                o.frequency.exponentialRampToValueAtTime(f * 2.1, t + .06);
-                g.gain.setValueAtTime(0, t);
-                g.gain.linearRampToValueAtTime(.06, t + .006);
-                g.gain.exponentialRampToValueAtTime(.0001, t + .16);
-                o.connect(g); g.connect(ac.destination);
-                o.start(t); o.stop(t + .18);
-            },
-            toggle() {
-                on = !on;
-                try { localStorage.setItem('hope-sound', on ? 'on' : 'off'); } catch (_) { /* не запомним */ }
-                if (on) wake();
-                else if (gain) { hold(gain.gain, ac.currentTime); gain.gain.setTargetAtTime(0, ac.currentTime, .05); }
-                return on;
-            },
-            get on() { return on; },
-            get state() { return ac ? ac.state : 'none'; },
-        };
-    })();
-    window.__sound = sound;  // для проверки
-    // кнопка «звук» — в левом верхнем углу, в той же манере, что «сразу в галерею»
-    (function () {
-        const st = document.createElement('style');
-        st.textContent = `.sound-toggle{position:fixed;z-index:4500;top:clamp(1.4rem,4vw,4rem);left:clamp(1.45rem,4vw,4.05rem);
-  padding:.5rem 0;border:0;background:none;color:var(--muted,#efe7d880);text-transform:uppercase;letter-spacing:.19em;font-size:10px;
-  font-weight:600;cursor:pointer;display:flex;gap:.5em;align-items:center;transition:color .2s;font-family:inherit}
-.sound-toggle:hover,.sound-toggle:focus-visible{color:var(--paper,#efe7d8)}
-.sound-toggle svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round}
-.sound-toggle[aria-pressed=false] .wave{display:none}
-.sound-toggle[aria-pressed=true] .mute{display:none}
-.sound-toggle.in-gallery{top:calc(clamp(1.4rem,4vw,4rem) + 3.2rem)}`;
-        document.head.appendChild(st);
-        const b = document.createElement('button');
-        b.type = 'button';
-        b.className = 'sound-toggle';
-        b.setAttribute('aria-pressed', sound.on);
-        b.setAttribute('aria-label', 'Звук воды');
-        b.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 6h2.5L8 3v10L4.5 10H2z"/><path class="wave" d="M10.5 5.5a3.5 3.5 0 0 1 0 5M12.5 3.5a6.3 6.3 0 0 1 0 9"/><path class="mute" d="M10.5 6l4 4M14.5 6l-4 4"/></svg>звук';
-        b.onclick = () => b.setAttribute('aria-pressed', sound.toggle());
-        document.body.appendChild(b);
-        // в галерее в углу кнопки «пройти ещё раз» и «раскрутить свою» — «звук» уходит под них
-        setInterval(() => b.classList.toggle('in-gallery', !!window.__inGallery), 400);
-    })();
-
     // Сцена — вода на холсте плюс то, что она рисует; движение указателя будит её.
     const scenes = [];
     function scene(opts) {
@@ -369,7 +308,6 @@ void main() {${SLOPE}
             s.last = [x, y];
             s.lastMotion = performance.now();
             s.w.drop((x - r.left) / r.width, (y - r.top) / r.height, Math.min(.011, .002 + dist * .00025));
-            if (dist) sound.stir(dist);
             s.wake();
         };
         s.tap = (x, y) => {
@@ -378,7 +316,6 @@ void main() {${SLOPE}
             if (!r.width || !r.height) return;
             s.lastMotion = performance.now();
             s.w.drop((x - r.left) / r.width, (y - r.top) / r.height, .022, .07);
-            sound.plip();
             s.wake();
         };
         s.calm = now => 1 - smooth((now - s.lastMotion - (s.calmExtra ? s.calmExtra() : 0) - CALM) / SETTLE);
@@ -399,15 +336,15 @@ void main() {${SLOPE}
         if (!cv || !title || !art) return;
         const w = water(cv, false, DRAW_INTRO);
         if (!w) return;
-        const paintTex = w.texture(), maskTex = w.texture(), maxTex = Math.min(4096, w.gl.getParameter(w.gl.MAX_TEXTURE_SIZE));
+        const paintTex = w.texture(), maskTex = w.texture(), distTex = w.texture(), distCv = document.createElement('canvas'), maxTex = Math.min(4096, w.gl.getParameter(w.gl.MAX_TEXTURE_SIZE));
         let paintReady = false, glyphs = null, bg = '#050608', maskScale = 0, opened = -1, started = false;
         const st = () => window.__intro || { k: 0, scale: 1, op: 1 };
         // рябь живёт весь влёт в буквы и гаснет только под самый конец, когда букв уже не видно
         const scrollFade = k => 1 - smooth((k - .82) / .18);
-        // длина потёков букв (в долях высоты экрана): сколько им позволяет прокрутка; сама краска течёт с конечной
-        // скоростью — струйки сбегают у глаз и после того, как листать перестали; назад втягиваются быстро
-        const dripOf = k => .45 * smooth(k / .5), DRIP_SPEED = .09;
-        let dripNow = 0, dripAt = 0;
+        // насколько буквы стекли (0 — целы, 1 — ушли вниз целиком). Стоит начать листать — краска трогается и
+        // дальше стекает сама, до конца, не останавливаясь; вернулись в самое начало — буквы быстро собираются
+        const dripOf = k => (k > .015 ? 1 : 0), DRIP_SPEED = 1 / 9;
+        let dripNow = 0, dripAt = 0, distK = 1;
         const s = scene({
             cv, w,
             wants: () => st().k < 1 && !window.__inGallery,
@@ -463,6 +400,39 @@ void main() {${SLOPE}
                 g.fillText(q.ch, q.x, q.y);
             }
             w.upload(maskTex, mc);
+            // Карта расстояний вчетверо грубее экрана: для каждой точки — сколько вверх до ближайшей буквы (r)
+            // и до верха этой буквы (g), в точках карты. По ней шейдер знает, где кромка, без перебора.
+            const lw = Math.ceil(W / 4), lh = Math.ceil(H / 4);
+            distCv.width = lw;
+            distCv.height = lh;
+            const dg = distCv.getContext('2d', { willReadFrequently: true });
+            dg.fillStyle = '#000';
+            dg.fillRect(0, 0, lw, lh);
+            dg.scale(lw / W, lh / H);
+            dg.translate(W / 2, H / 2);
+            dg.scale(scale, scale);
+            dg.translate(-W / 2, -H / 2);
+            dg.fillStyle = '#fff';
+            for (const q of glyphs) {
+                dg.font = q.font;
+                dg.fillText(q.ch, q.x, q.y);
+            }
+            const im = dg.getImageData(0, 0, lw, lh), px = im.data;
+            for (let x = 0; x < lw; x++) {
+                let bottom = -1e9, top = -1e9, inRun = false;
+                for (let y = 0, i = x * 4; y < lh; y++, i += lw * 4) {
+                    const on = px[i] > 110;
+                    if (on) { if (!inRun) { top = y; inRun = true; } bottom = y; }
+                    else inRun = false;
+                    px[i] = on ? 0 : Math.min(255, y - bottom);
+                    px[i + 1] = Math.min(255, y - top);
+                    px[i + 2] = 0;
+                    px[i + 3] = 255;
+                }
+            }
+            dg.putImageData(im, 0, 0);
+            w.upload(distTex, distCv);
+            distK = 255 / lh;
             maskScale = scale;
         }
         s.resize = () => {
@@ -485,7 +455,7 @@ void main() {${SLOPE}
             const now = performance.now(), i = st(), str = scrollFade(i.k) * (opened < 0 ? 1 : s.calm(now)), goal = dripOf(i.k);
             const ddt = Math.min(.1, (now - (dripAt || now)) / 1000);
             dripAt = now;
-            dripNow = goal > dripNow ? Math.min(goal, dripNow + ddt * DRIP_SPEED) : Math.max(goal, dripNow - ddt * 1.5);
+            dripNow = goal > dripNow ? Math.min(goal, dripNow + ddt * DRIP_SPEED) : Math.max(goal, dripNow - ddt * 3);
             const d = dripNow, flowing = goal > dripNow + 1e-4;
             // потёки держат слой и в затишье: обычная вёрстка их нарисовать не может
             s.setActive(paintReady && glyphs && w.ready && !document.hidden && !window.__inGallery && (str > .002 || d > .001 || goal > .001));
@@ -502,15 +472,19 @@ void main() {${SLOPE}
             }
             if (!maskScale || i.scale / maskScale > 1.25 || i.scale / maskScale < .8) drawMask(i.scale);
             const iw = art.naturalWidth, ih = art.naturalHeight, k = Math.max(innerWidth / iw, innerHeight / ih);
-            w.frame([[1, paintTex], [2, maskTex]], u => {
+            w.frame([[1, paintTex], [2, maskTex], [3, distTex]], u => {
                 w.gl.uniform1i(u.paint, 1);
                 w.gl.uniform1i(u.mask, 2);
                 w.gl.uniform2f(u.cover, innerWidth / (iw * k), innerHeight / (ih * k));
                 w.gl.uniform1f(u.scale, i.scale / maskScale);  // остаток увеличения сверх нарисованного в маске
-                w.gl.uniform1f(u.op, i.op);
+                // буквы стекли — темнота между ними тает следом, и открывается картина
+                w.gl.uniform1f(u.op, i.op * (1 - smooth((d - .7) / .3)));
                 w.gl.uniform1f(u.str, str);
                 w.gl.uniform1f(u.drip, d);
-                w.gl.uniform1f(u.cols, Math.max(36, Math.min(130, Math.round(innerWidth / 11))));  // столбец струйки ~11 px
+                w.gl.uniform1i(u.dist, 3);
+                w.gl.uniform1f(u.dk, distK);
+                w.gl.uniform1f(u.px, 1 / innerHeight);
+                w.gl.uniform1f(u.cols, Math.max(36, Math.min(130, Math.round(innerWidth / 14))));  // столбец струйки ~14 px
             });
             if (str > .002 || flowing) s.wake();  // вода в покое и краска не течёт — новый кадр нужен только при прокрутке
             else dripAt = 0;
