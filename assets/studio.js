@@ -5,13 +5,19 @@
 // центробежное ускорение (ω²·r) пересиливает её вязкость, летит наружу, загибаясь против вращения (Кориолис),
 // и оставляет за собой след, теряя массу; изредка отрывает брызги. Холст поворачивается через CSS, частицы живут
 // в его собственных координатах — след ложится на вращающийся холст.
+//
+// Краски смешиваются. Под холстом — сетка мокрой краски (цвет и влажность в клетке 4×4 точки): частица, проходя
+// по мокрому, подхватывает его цвет, а клетка — её; капля, упавшая в мокрое, смешивается с ним. Два режима:
+// акрил — плотная краска на тёмном холсте; акварель — прозрачные слои на белой бумаге (слои сходятся к пигменту:
+// жёлтый поверх синего — зелёный, но не чёрный), у капли темнеет край.
 (function () {
     const PAINTS = [
         ['красный', '#d6322b'], ['охра', '#d8b13a'], ['розовый', '#f1c6bb'], ['белый', '#f3eee4'], ['кобальт', '#2552b8'],
         ['бирюза', '#2ea596'], ['фиолетовый', '#5c2f8f'], ['золото', '#c8a04b'], ['чёрный', '#121212'],
     ];
     const SIZES = [['мелкая', 9], ['средняя', 16], ['крупная', 26]];
-    const BOARD = '#2a2a2d';
+    const BOARDS = { acrylic: '#2a2a2d', water: '#f3efe6' };
+    let mode = 'acrylic';
 
     const css = `
 .studio{position:fixed;inset:0;z-index:5000;display:grid;grid-template-columns:auto auto;align-items:center;justify-content:center;
@@ -26,6 +32,9 @@
 .studio h2{margin:0;font:400 clamp(1.8rem,3.4vw,2.8rem)/.9 Spectral,serif;letter-spacing:-.04em}
 .studio h2 em{color:#d6b775}
 .studio p{margin:0;color:#efe7d89e;font-size:.82rem;line-height:1.6}
+.studio .modes{display:flex;border:1px solid #efe7d84d}
+.studio .mode{background:none;border:0;color:#efe7d8b3;font:inherit;font-size:.78rem;padding:.5rem .9rem;cursor:pointer}
+.studio .mode[aria-pressed=true]{background:#efe7d8;color:#050608}
 .studio .paints{display:grid;grid-template-columns:repeat(3,2.6rem);gap:.55rem}
 .studio .paint{width:2.6rem;height:2.6rem;border-radius:46% 54% 50% 50%/55% 45% 55% 45%;border:0;cursor:pointer;padding:0;
   box-shadow:inset -4px -5px 8px #0006,inset 3px 3px 6px #fff4;transition:transform .15s}
@@ -61,7 +70,12 @@
 <div class="board-wrap"><canvas aria-label="Холст: касание — капля краски, проведение — мазок"></canvas></div>
 <div class="side">
   <h2>Своя <em>раскрутка</em></h2>
-  <p>Наберите краску, капните или проведите по холсту — и раскрутите. Можно добавить ещё и докрутить.</p>
+  <p>Наберите краску, капните или проведите по холсту — и раскрутите. Мокрые краски смешиваются; можно добавить ещё
+    и докрутить.</p>
+  <div class="modes" role="group" aria-label="Краска">
+    <button class="mode" type="button" data-mode="acrylic" aria-pressed="true">акрил</button>
+    <button class="mode" type="button" data-mode="water" aria-pressed="false">акварель</button>
+  </div>
   <div class="paints" role="group" aria-label="Краски"></div>
   <div class="sizes" role="group" aria-label="Размер капли"></div>
   <div class="acts">
@@ -117,41 +131,93 @@
         cv.width = W * d; cv.height = H * d;
         cv.style.width = W + 'px'; cv.style.height = H + 'px';
         ctx.setTransform(d, 0, 0, d, 0, 0);
-        ctx.fillStyle = BOARD;
+        ctx.fillStyle = BOARDS[mode];
         ctx.fillRect(0, 0, W, H);
         if (old) ctx.drawImage(old, 0, 0, W, H);
         particles.forEach(p => { p.x *= sx; p.y *= sx; p.m *= sx; });
+        makeGrid();
+    }
+
+    // Сетка мокрой краски: цвет (0..255) и влажность (0..1) в клетке CELL×CELL точек холста.
+    const CELL = 4;
+    let gw = 0, gh = 0, gR, gG, gB, gWet;
+    function makeGrid() {
+        gw = Math.ceil(W / CELL); gh = Math.ceil(H / CELL);
+        gR = new Float32Array(gw * gh); gG = new Float32Array(gw * gh); gB = new Float32Array(gw * gh); gWet = new Float32Array(gw * gh);
+    }
+    const cellAt = (x, y) => {
+        const i = Math.floor(x / CELL), j = Math.floor(y / CELL);
+        return i >= 0 && j >= 0 && i < gw && j < gh ? j * gw + i : -1;
+    };
+    const hex = c => [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)];
+    const mixInto = (a, b, k) => { a[0] += (b[0] - a[0]) * k; a[1] += (b[1] - a[1]) * k; a[2] += (b[2] - a[2]) * k; return a; };
+    const rgba = (c, a) => `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${a})`;
+    // краска c ложится в клетку: в мокрое — смешиваясь (k — доля новой), в сухое — как есть
+    function wet(i, c, k) {
+        if (i < 0) return;
+        if (gWet[i] > .05) {
+            gR[i] += (c[0] - gR[i]) * k; gG[i] += (c[1] - gG[i]) * k; gB[i] += (c[2] - gB[i]) * k;
+        } else { gR[i] = c[0]; gG[i] = c[1]; gB[i] = c[2]; }
+        gWet[i] = Math.max(gWet[i], .9);
     }
     function clearBoard() {
         ctx.globalCompositeOperation = 'source-over';
-        ctx.fillStyle = BOARD;
+        ctx.fillStyle = BOARDS[mode];
         ctx.fillRect(0, 0, W, H);
-        // лёгкая фактура холста
+        // лёгкая фактура: зерно холста или волокна бумаги
         for (let i = 0; i < W * H / 90; i++) {
-            ctx.fillStyle = `rgba(255,255,255,${rnd(0, .025)})`;
-            ctx.fillRect(rnd(0, W), rnd(0, H), 1, 1);
+            ctx.fillStyle = mode === 'water' ? `rgba(90,70,40,${rnd(0, .05)})` : `rgba(255,255,255,${rnd(0, .025)})`;
+            ctx.fillRect(rnd(0, W), rnd(0, H), mode === 'water' ? rnd(1, 3) : 1, 1);
         }
+        makeGrid();
         particles = [];
         angle = 0;
         cv.style.transform = '';
     }
 
     // Капля: неровная лужица с бликом, в ней — частицы краски.
-    function dab(x, y, r, c) {
-        ctx.globalCompositeOperation = 'source-over';
-        ctx.fillStyle = c;
-        for (let i = 0; i < 6; i++) {
+    function dab(x, y, r, hexColor) {
+        // упала в мокрое — смешивается с ним
+        const c = hex(hexColor), under = cellAt(x, y);
+        if (under >= 0 && gWet[under] > .2) mixInto(c, [gR[under], gG[under], gB[under]], mode === 'water' ? .35 : .3);
+        if (mode === 'water') {
+            // акварель: прозрачные слои пигмента («темнее из двух»: слои сходятся к цвету пигмента и не уходят
+            // в чёрное), к краю лужицы пигмент собирается темнее
+            ctx.globalCompositeOperation = 'darken';
+            ctx.fillStyle = rgba(c, .35);
+            for (let i = 0; i < 5; i++) {
+                ctx.beginPath();
+                ctx.arc(x + rnd(-.2, .2) * r, y + rnd(-.2, .2) * r, r * rnd(.7, 1), 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.strokeStyle = rgba(c.map(v => v * .78), .45);
+            ctx.lineWidth = r * .12;
             ctx.beginPath();
-            ctx.arc(x + rnd(-.25, .25) * r, y + rnd(-.25, .25) * r, r * rnd(.55, .85), 0, Math.PI * 2);
+            ctx.arc(x, y, r * .92, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.globalCompositeOperation = 'source-over';
+        } else {
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.fillStyle = rgba(c, 1);
+            for (let i = 0; i < 6; i++) {
+                ctx.beginPath();
+                ctx.arc(x + rnd(-.25, .25) * r, y + rnd(-.25, .25) * r, r * rnd(.55, .85), 0, Math.PI * 2);
+                ctx.fill();
+            }
+            const g = ctx.createRadialGradient(x - r * .3, y - r * .35, 0, x - r * .3, y - r * .35, r * .6);
+            g.addColorStop(0, 'rgba(255,255,255,.28)');
+            g.addColorStop(1, 'rgba(255,255,255,0)');
+            ctx.fillStyle = g;
+            ctx.beginPath();
+            ctx.arc(x, y, r * .8, 0, Math.PI * 2);
             ctx.fill();
         }
-        const g = ctx.createRadialGradient(x - r * .3, y - r * .35, 0, x - r * .3, y - r * .35, r * .6);
-        g.addColorStop(0, 'rgba(255,255,255,.28)');
-        g.addColorStop(1, 'rgba(255,255,255,0)');
-        ctx.fillStyle = g;
-        ctx.beginPath();
-        ctx.arc(x, y, r * .8, 0, Math.PI * 2);
-        ctx.fill();
+        // лужица мокрая
+        for (let yy = y - r; yy <= y + r; yy += CELL) {
+            for (let xx = x - r; xx <= x + r; xx += CELL) {
+                if ((xx - x) ** 2 + (yy - y) ** 2 <= r * r) wet(cellAt(xx, yy), c, .65);
+            }
+        }
         const n = Math.round(r * 2.2);
         for (let i = 0; i < n; i++) {
             const a = rnd(0, Math.PI * 2), q = Math.sqrt(Math.random()) * r * .75;
@@ -159,7 +225,7 @@
                 x: x + Math.cos(a) * q, y: y + Math.sin(a) * q, vx: 0, vy: 0,
                 m: rnd(.6, 1.4) * r * .16,               // масса — толщина следа
                 stick: rnd(.4, 1.6),                      // вязкость: чем больше, тем позже срывается
-                c,
+                c: c.slice(),
             });
         }
         if (particles.length > 9000) particles.splice(0, particles.length - 9000);
@@ -223,9 +289,9 @@
         else { raf = 0; omega = 0; angle = 0; }
     }
     function flow(dt) {
-        const cx = W / 2, cy = H / 2, scale = Math.min(W, H) / 400, w2 = omega * omega;
-        ctx.globalCompositeOperation = 'source-over';
-        ctx.lineCap = 'round';
+        const cx = W / 2, cy = H / 2, scale = Math.min(W, H) / 400, w2 = omega * omega, water = mode === 'water';
+        ctx.globalCompositeOperation = water ? 'darken' : 'source-over';
+        ctx.lineCap = water ? 'butt' : 'round';  // в акварели скруглённые концы накладывались бы бусинами
         const keep = [], spray = [];
         for (const p of particles) {
             const rx = p.x - cx, ry = p.y - cy, r = Math.hypot(rx, ry) || 1;
@@ -236,8 +302,14 @@
             p.vx = (p.vx + ax * dt) * (1 - 2.2 * dt);
             p.vy = (p.vy + ay * dt) * (1 - 2.2 * dt);
             const nx = p.x + p.vx * dt, ny = p.y + p.vy * dt, len = Math.hypot(nx - p.x, ny - p.y);
-            ctx.strokeStyle = p.c;
-            ctx.lineWidth = Math.max(.6, p.m);
+            // по мокрому — подхватывает его цвет и оставляет свой
+            const i = cellAt(nx, ny);
+            if (i >= 0) {
+                if (gWet[i] > .05) mixInto(p.c, [gR[i], gG[i], gB[i]], Math.min(.5, (water ? .1 : .07) * gWet[i] * (1 + len * .15)));
+                wet(i, p.c, .3);
+            }
+            ctx.strokeStyle = rgba(p.c, water ? .4 : .92);
+            ctx.lineWidth = Math.max(.6, p.m * (water ? 1.5 : 1));
             ctx.beginPath();
             ctx.moveTo(p.x, p.y);
             ctx.lineTo(nx, ny);
@@ -246,14 +318,21 @@
             p.m -= len * .012;                       // краска остаётся на холсте
             if (p.m > .9 && Math.random() < len * .0015) {  // брызги
                 const a = Math.atan2(p.vy, p.vx) + rnd(-.5, .5), v = Math.hypot(p.vx, p.vy) * rnd(.8, 1.4);
-                spray.push({ x: p.x, y: p.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, m: p.m * .45, stick: 0, c: p.c });
+                spray.push({ x: p.x, y: p.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, m: p.m * .45, stick: 0, c: p.c.slice() });
                 p.m *= .8;
             }
             if (p.m > .35 && p.x > -20 && p.x < W + 20 && p.y > -20 && p.y < H + 20) keep.push(p);
         }
         particles = keep.concat(spray);
+        ctx.globalCompositeOperation = 'source-over';
     }
 
+    root.querySelectorAll('.mode').forEach(b => b.onclick = () => {
+        if (b.dataset.mode === mode) return;
+        mode = b.dataset.mode;
+        root.querySelectorAll('.mode').forEach(x => x.setAttribute('aria-pressed', x === b));
+        clearBoard();  // акрил — тёмный холст, акварель — белая бумага
+    });
     $('.spin').onclick = spin;
     $('.clear').onclick = clearBoard;
     $('.save').onclick = () => {

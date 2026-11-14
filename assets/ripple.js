@@ -19,6 +19,7 @@ in vec2 p; out vec2 uv;
 void main() { uv = p * .5 + .5; gl_Position = vec4(p, 0., 1.); }`;
     const HEAD = `#version 300 es
 precision highp float;
+#define CAUSTIC ${window.__caustic || 800}.
 in vec2 uv; out vec4 o;
 `;
     // капля: поднимает воду куполом радиуса r (в долях высоты слоя)
@@ -46,7 +47,13 @@ void main() {
     vec3 dy = vec3(0., texture(sim, uv + vec2(0., dt.y)).r - h, dt.y);
     vec2 n = -normalize(cross(dy, dx)).xz;
     float lit = dot(n, normalize(vec2(-.6, 1.)));
-    vec3 glint = pow(max(0., lit), 2.2) * str * vec3(1., .96, .88);`;
+    vec3 glint = pow(max(0., lit), 2.2) * str * vec3(1., .96, .88);
+    // каустика: выпуклая волна работает линзой и собирает свет на дне в тёплые прожилки (по кривизне поверхности)
+    // кривизна — по соседям через клетку: мелкая рябь сетки не дробит каустику на бусины
+    float lap = texture(sim, uv + vec2(2. * dt.x, 0.)).r + texture(sim, uv - vec2(2. * dt.x, 0.)).r +
+                texture(sim, uv + vec2(0., 2. * dt.y)).r + texture(sim, uv - vec2(0., 2. * dt.y)).r - 4. * h;
+    float caustic = smoothstep(0., 1., max(0., -lap) * CAUSTIC) * str;
+    vec3 warm = vec3(1., .92, .74);`;
     // первый экран: картина «cover» на весь экран, умноженная на маску букв (как слой #title с multiply),
     // увеличенную от центра экрана, — с поправкой на наклон воды
     const DRAW_INTRO = HEAD + `uniform sampler2D sim, paint, mask; uniform vec2 dt, cover; uniform float scale, op, str;
@@ -54,16 +61,18 @@ void main() {${SLOPE}
     vec2 q = uv + n * .014 * str;
     vec3 pc = texture(paint, (q - .5) * cover + .5).rgb;
     vec3 m = texture(mask, (q - .5) / scale + .5).rgb;
-    o = vec4(pc * mix(vec3(1.), m, op) + glint * .38, 1.);
+    vec3 under = pc * mix(vec3(1.), m, op);
+    o = vec4(under * (1. + caustic * .9) + caustic * .05 * warm + glint * .38, 1.);
 }`;
     // галерея: в прямоугольнике картины — сама картина со сдвигом, вокруг — только блики и тени (слой прозрачный,
     // цвет с умноженной альфой)
     const DRAW_GALLERY = HEAD + `uniform sampler2D sim, paint; uniform vec2 dt; uniform vec4 rect; uniform float str, hasPaint;
 void main() {${SLOPE}
-    vec3 light = glint * .34;
+    vec3 light = glint * .34 + caustic * .16 * warm;
     if (hasPaint > .5 && uv.x >= rect.x && uv.x <= rect.z && uv.y >= rect.y && uv.y <= rect.w) {
         vec2 q = uv + n * .012 * str;
-        o = vec4(texture(paint, clamp((q - rect.xy) / (rect.zw - rect.xy), 0., 1.)).rgb + light, 1.);
+        vec3 c = texture(paint, clamp((q - rect.xy) / (rect.zw - rect.xy), 0., 1.)).rgb;
+        o = vec4(c * (1. + caustic * .8) + light, 1.);
     } else {
         float shade = max(0., -lit) * .3 * str;  // впадины волн чуть темнее
         o = vec4(light, clamp(max(light.r, shade), 0., 1.));
