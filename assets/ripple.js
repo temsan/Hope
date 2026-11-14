@@ -249,6 +249,103 @@ void main() {${SLOPE}
     // Затишье: через CALM мс без движения вода за SETTLE мс успокаивается и слой гаснет.
     const CALM = 1800, SETTLE = 1800;
 
+    // Звук воды — синтез в браузере, без файлов. Ведёшь указателем — мягкий плеск: шум, пропущенный через полосовой
+    // фильтр; чем быстрее движение, тем громче и выше, а остановился — плеск за полсекунды стихает. Касание — «плюх»
+    // капли: тон пузырька, что быстро взлетает вверх. Браузер даёт звуку зазвучать только после первого нажатия,
+    // поэтому до него тихо. Кнопка «звук» в углу выключает и включает (запоминается).
+    const sound = (() => {
+        let ac = null, gain = null, bp = null, on = true, lastAt = 0;
+        try { on = localStorage.getItem('hope-sound') !== 'off'; } catch (_) { /* хранилище недоступно */ }
+        function init() {
+            if (ac || !on) return;
+            const AC = window.AudioContext || window.webkitAudioContext;
+            if (!AC) return;
+            ac = new AC();
+            // две секунды мягкого («розового») шума по кругу
+            const len = ac.sampleRate * 2, buf = ac.createBuffer(1, len, ac.sampleRate), data = buf.getChannelData(0);
+            let b0 = 0, b1 = 0, b2 = 0;
+            for (let i = 0; i < len; i++) {
+                const w = Math.random() * 2 - 1;
+                b0 = .99765 * b0 + w * .099; b1 = .963 * b1 + w * .2965; b2 = .57 * b2 + w * 1.0526;
+                data[i] = (b0 + b1 + b2 + w * .1848) * .18;
+            }
+            const src = ac.createBufferSource();
+            src.buffer = buf;
+            src.loop = true;
+            bp = ac.createBiquadFilter();
+            bp.type = 'bandpass'; bp.frequency.value = 600; bp.Q.value = 1.1;
+            const lp = ac.createBiquadFilter();
+            lp.type = 'lowpass'; lp.frequency.value = 1600;
+            gain = ac.createGain();
+            gain.gain.value = 0;
+            src.connect(bp); bp.connect(lp); lp.connect(gain); gain.connect(ac.destination);
+            src.start();
+        }
+        const wake = () => { init(); if (ac && ac.state === 'suspended') ac.resume(); };
+        ['pointerdown', 'keydown', 'touchstart'].forEach(ev => addEventListener(ev, wake, { passive: true }));
+        const ready = () => ac && on && ac.state === 'running';
+        const hold = (param, t) => { if (param.cancelAndHoldAtTime) param.cancelAndHoldAtTime(t); else { param.cancelScheduledValues(t); param.setValueAtTime(param.value, t); } };
+        return {
+            // dist — сколько точек прошёл указатель с прошлого раза
+            stir(dist) {
+                if (!ready()) return;
+                const now = performance.now(), ms = Math.max(8, Math.min(120, now - lastAt));
+                lastAt = now;
+                const v = Math.min(1, dist / ms / 2.2), t = ac.currentTime;
+                hold(gain.gain, t);
+                gain.gain.setTargetAtTime(.015 + .09 * v, t, .07);
+                gain.gain.setTargetAtTime(0, t + .14, .3);
+                hold(bp.frequency, t);
+                bp.frequency.setTargetAtTime(380 + 820 * v + Math.random() * 140, t, .12);
+            },
+            plip() {
+                if (!ready()) return;
+                const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain(), f = 520 + Math.random() * 380;
+                o.type = 'sine';
+                o.frequency.setValueAtTime(f, t);
+                o.frequency.exponentialRampToValueAtTime(f * 2.1, t + .06);
+                g.gain.setValueAtTime(0, t);
+                g.gain.linearRampToValueAtTime(.06, t + .006);
+                g.gain.exponentialRampToValueAtTime(.0001, t + .16);
+                o.connect(g); g.connect(ac.destination);
+                o.start(t); o.stop(t + .18);
+            },
+            toggle() {
+                on = !on;
+                try { localStorage.setItem('hope-sound', on ? 'on' : 'off'); } catch (_) { /* не запомним */ }
+                if (on) wake();
+                else if (gain) { hold(gain.gain, ac.currentTime); gain.gain.setTargetAtTime(0, ac.currentTime, .05); }
+                return on;
+            },
+            get on() { return on; },
+            get state() { return ac ? ac.state : 'none'; },
+        };
+    })();
+    window.__sound = sound;  // для проверки
+    // кнопка «звук» — в левом верхнем углу, в той же манере, что «сразу в галерею»
+    (function () {
+        const st = document.createElement('style');
+        st.textContent = `.sound-toggle{position:fixed;z-index:4500;top:clamp(1.4rem,4vw,4rem);left:clamp(1.45rem,4vw,4.05rem);
+  padding:.5rem 0;border:0;background:none;color:var(--muted,#efe7d880);text-transform:uppercase;letter-spacing:.19em;font-size:10px;
+  font-weight:600;cursor:pointer;display:flex;gap:.5em;align-items:center;transition:color .2s;font-family:inherit}
+.sound-toggle:hover,.sound-toggle:focus-visible{color:var(--paper,#efe7d8)}
+.sound-toggle svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round}
+.sound-toggle[aria-pressed=false] .wave{display:none}
+.sound-toggle[aria-pressed=true] .mute{display:none}
+.sound-toggle.in-gallery{top:calc(clamp(1.4rem,4vw,4rem) + 3.2rem)}`;
+        document.head.appendChild(st);
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'sound-toggle';
+        b.setAttribute('aria-pressed', sound.on);
+        b.setAttribute('aria-label', 'Звук воды');
+        b.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 6h2.5L8 3v10L4.5 10H2z"/><path class="wave" d="M10.5 5.5a3.5 3.5 0 0 1 0 5M12.5 3.5a6.3 6.3 0 0 1 0 9"/><path class="mute" d="M10.5 6l4 4M14.5 6l-4 4"/></svg>звук';
+        b.onclick = () => b.setAttribute('aria-pressed', sound.toggle());
+        document.body.appendChild(b);
+        // в галерее в углу кнопки «пройти ещё раз» и «раскрутить свою» — «звук» уходит под них
+        setInterval(() => b.classList.toggle('in-gallery', !!window.__inGallery), 400);
+    })();
+
     // Сцена — вода на холсте плюс то, что она рисует; движение указателя будит её.
     const scenes = [];
     function scene(opts) {
@@ -272,6 +369,7 @@ void main() {${SLOPE}
             s.last = [x, y];
             s.lastMotion = performance.now();
             s.w.drop((x - r.left) / r.width, (y - r.top) / r.height, Math.min(.011, .002 + dist * .00025));
+            if (dist) sound.stir(dist);
             s.wake();
         };
         s.tap = (x, y) => {
@@ -280,6 +378,7 @@ void main() {${SLOPE}
             if (!r.width || !r.height) return;
             s.lastMotion = performance.now();
             s.w.drop((x - r.left) / r.width, (y - r.top) / r.height, .022, .07);
+            sound.plip();
             s.wake();
         };
         s.calm = now => 1 - smooth((now - s.lastMotion - (s.calmExtra ? s.calmExtra() : 0) - CALM) / SETTLE);
