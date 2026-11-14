@@ -62,7 +62,7 @@ void main() {
     vec3 warm = vec3(1., .92, .74);`;
     // первый экран: картина «cover» на весь экран, умноженная на маску букв (как слой #title с multiply),
     // увеличенную от центра экрана, — с поправкой на наклон воды
-    const DRAW_INTRO = HEAD + `uniform sampler2D sim, paint, mask; uniform vec2 dt, cover; uniform float scale, op, str, drip;
+    const DRAW_INTRO = HEAD + `uniform sampler2D sim, paint, mask; uniform vec2 dt, cover; uniform float scale, op, str, drip, cols;
 float hash(float x) { return fract(sin(x * 127.1) * 43758.5453); }
 float noise(float x) { float i = floor(x), f = fract(x); return mix(hash(i), hash(i + 1.), f * f * (3. - 2. * f)); }
 void main() {${SLOPE}
@@ -72,11 +72,12 @@ void main() {${SLOPE}
                    texture(paint, (qb - .5) * cover + .5).b);
     vec3 m = vec3(texture(mask, (qr - .5) / scale + .5).r, texture(mask, (qg - .5) / scale + .5).g,
                   texture(mask, (qb - .5) / scale + .5).b);
-    // потёки: буквы смазаны широкой кистью и стекают вниз; длина потёка своя у каждой полосы кисти,
-    // внутри полосы — неровные следы щетины; к концу потёк тоньше и прозрачнее
+    // Буквы стекают. У низа букв краска чуть оплывает (короткий смаз), а дальше вниз сбегают струйки:
+    // каждая своей длины и толщины, к низу тоньше, на конце — круглая капля. Струйки — по узким столбцам экрана,
+    // в каждом столбце своя (или никакой); где над точкой в пределах длины струйки есть буква, там краска.
     if (drip > .001) {
         vec2 q = (qg - .5) / scale + .5;
-        float band = noise(uv.x * 22.), hair = noise(uv.x * 230.), len = drip * (.06 + .94 * pow(band, 1.8)) * (.7 + .3 * hair);
+        float band = noise(uv.x * 22.), hair = noise(uv.x * 230.), len = drip * .22 * (.06 + .94 * pow(band, 1.8)) * (.7 + .3 * hair);
         float lean = (noise(uv.x * 5. + 7.) - .5) * .15;
         vec3 run = vec3(0.);
         for (int j = 1; j <= 28; j++) {
@@ -85,6 +86,34 @@ void main() {${SLOPE}
             run = max(run, s * (1. - smoothstep(.55, 1., t)) * (1. - .3 * t) * (.35 + .65 * hair));
         }
         m = max(m, run);
+
+        float asp = dt.y / dt.x, N = cols, col = floor(uv.x * N);
+        float h1 = hash(col * 1.37 + 2.), h2 = hash(col * 3.11 + 9.), h3 = hash(col * 7.73 + 1.);
+        if (h1 > .58) {
+            // длина (доли высоты экрана), полуширина (доли ширины) и радиус капли (доли высоты)
+            float L = drip * (.12 + .88 * h2 * h2), w = (.16 + .2 * h3) / N, rb = w * 1.5 * asp;
+            float ax = abs(fract(uv.x * N) - .5) / N;
+            vec2 base = (vec2((col + .5) / N, uv.y) + (qg - uv) - .5) / scale + .5;
+            float t0 = -1.;
+            vec3 src = vec3(0.);
+            for (int j = 0; j <= 36; j++) {
+                float t = (L + rb) * float(j) / 36.;
+                vec3 sm = texture(mask, base + vec2(0., t) / scale).rgb;
+                if (dot(sm, vec3(.333)) > .3) {
+                    // цвет — чуть глубже в букве: на сглаженном краю он темнее, и струйка шла бы полосками
+                    t0 = t;
+                    src = max(sm, max(texture(mask, base + vec2(0., t + 3. * dt.y) / scale).rgb,
+                                      texture(mask, base + vec2(0., t + 6. * dt.y) / scale).rgb));
+                    break;
+                }
+            }
+            if (t0 >= 0.) {
+                float tip = L - rb, wid = w * (1. - .45 * min(1., t0 / max(L, 1e-4)));
+                float body = step(t0, tip) * (1. - smoothstep(wid * .55, wid * 1.1, ax));
+                float bulb = 1. - smoothstep(rb * .7, rb, length(vec2(ax * asp, t0 - tip)));
+                m = max(m, src * max(body, bulb));
+            }
+        }
     }
     vec3 under = pc * mix(vec3(1.), m, op);
     o = vec4(under * (1. + caustic * .9) + caustic * .05 * warm + glint * .38, 1.);
@@ -276,8 +305,10 @@ void main() {${SLOPE}
         const st = () => window.__intro || { k: 0, scale: 1, op: 1 };
         // рябь живёт весь влёт в буквы и гаснет только под самый конец, когда букв уже не видно
         const scrollFade = k => 1 - smooth((k - .82) / .18);
-        // длина потёков букв (в долях высоты экрана) растёт с прокруткой; к концу влёта буквы тают вместе с ними
-        const dripOf = k => .45 * smooth(k / .5);
+        // длина потёков букв (в долях высоты экрана): сколько им позволяет прокрутка; сама краска течёт с конечной
+        // скоростью — струйки сбегают у глаз и после того, как листать перестали; назад втягиваются быстро
+        const dripOf = k => .45 * smooth(k / .5), DRIP_SPEED = .09;
+        let dripNow = 0, dripAt = 0;
         const s = scene({
             cv, w,
             wants: () => st().k < 1 && !window.__inGallery,
@@ -352,9 +383,13 @@ void main() {${SLOPE}
             s.wake();
         }, { passive: true });
         s.tick = () => {
-            const now = performance.now(), i = st(), str = scrollFade(i.k) * (opened < 0 ? 1 : s.calm(now)), d = dripOf(i.k);
+            const now = performance.now(), i = st(), str = scrollFade(i.k) * (opened < 0 ? 1 : s.calm(now)), goal = dripOf(i.k);
+            const ddt = Math.min(.1, (now - (dripAt || now)) / 1000);
+            dripAt = now;
+            dripNow = goal > dripNow ? Math.min(goal, dripNow + ddt * DRIP_SPEED) : Math.max(goal, dripNow - ddt * 1.5);
+            const d = dripNow, flowing = goal > dripNow + 1e-4;
             // потёки держат слой и в затишье: обычная вёрстка их нарисовать не может
-            s.setActive(paintReady && glyphs && w.ready && !document.hidden && !window.__inGallery && (str > .002 || d > .001));
+            s.setActive(paintReady && glyphs && w.ready && !document.hidden && !window.__inGallery && (str > .002 || d > .001 || goal > .001));
             if (!s.active) return;
             // стартовые капли и отсчёт затишья — с первого готового кадра (на медленной сети шрифты приходят
             // не сразу); открыли страницу не с начала — капель не будет
@@ -376,8 +411,10 @@ void main() {${SLOPE}
                 w.gl.uniform1f(u.op, i.op);
                 w.gl.uniform1f(u.str, str);
                 w.gl.uniform1f(u.drip, d);
+                w.gl.uniform1f(u.cols, Math.max(36, Math.min(130, Math.round(innerWidth / 11))));  // столбец струйки ~11 px
             });
-            if (str > .002) s.wake();  // вода в покое — новый кадр нужен только при прокрутке
+            if (str > .002 || flowing) s.wake();  // вода в покое и краска не течёт — новый кадр нужен только при прокрутке
+            else dripAt = 0;
         };
         const uploadPaint = () => { w.upload(paintTex, art); paintReady = true; s.wake(); };
         if (art.complete && art.naturalWidth) uploadPaint();

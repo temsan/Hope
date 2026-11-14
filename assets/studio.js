@@ -76,6 +76,13 @@
   box-shadow:inset -4px -5px 8px #0006,inset 3px 3px 6px #fff4;transition:transform .15s}
 .studio .paint[aria-pressed=true]{transform:scale(1.18);outline:2px solid #efe7d8;outline-offset:3px}
 .studio .sizes{display:flex;gap:.5rem;align-items:center}
+.studio .row2{display:flex;gap:.9rem;align-items:center;flex-wrap:wrap}
+.studio .mixer{display:flex;gap:.45rem;align-items:center}
+.studio .mixbtn{width:2.3rem;height:2.3rem;border-radius:50%;border:1px solid #efe7d84d;background:none;color:#efe7d8;cursor:pointer;padding:0;
+  display:grid;place-items:center}
+.studio .mixbtn svg{width:1.3rem;height:1.3rem;fill:none;stroke:currentColor;stroke-width:1.4}
+.studio .mixbtn[aria-pressed=true]{background:#efe7d8;color:#050608;border-color:#efe7d8}
+.studio .mixbar{width:5.5rem;height:1.1rem;border-radius:999px;border:1px solid #efe7d84d;padding:0;cursor:pointer}
 .studio .size{border:1px solid #efe7d84d;background:none;border-radius:50%;cursor:pointer;display:grid;place-items:center;
   width:2.3rem;height:2.3rem;padding:0}
 .studio .size span{display:block;border-radius:50%;background:#efe7d8}
@@ -98,6 +105,7 @@
   .studio .mats-row,.studio .media-row{flex-wrap:nowrap}
   .studio .paints{grid-template-columns:repeat(9,1.9rem);gap:.4rem}
   .studio .paint{width:1.9rem;height:1.9rem}
+  .studio .row2{flex-wrap:nowrap;justify-content:center}
   .studio h2,.studio p{display:none}
   .studio .acts{flex-wrap:nowrap;gap:.4rem;justify-content:center}
   .studio .acts button{padding:.7rem .65rem;font-size:.76rem}
@@ -124,7 +132,13 @@
     <div class="mat-name" aria-live="polite"></div>
   </div>
   <div class="paints" role="group" aria-label="Краски"></div>
-  <div class="sizes" role="group" aria-label="Размер капли"></div>
+  <div class="row2">
+    <div class="sizes" role="group" aria-label="Размер капли"></div>
+    <div class="mixer">
+      <button class="mixbtn" type="button" aria-pressed="false" aria-label="Смешивать краски на кисти" title="Смешивать: набрать на кисть до трёх красок"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="12" r="5.5"/><circle cx="15" cy="12" r="5.5"/></svg></button>
+      <button class="mixbar" type="button" aria-label="Краска на кисти; нажмите, чтобы развернуть переход" title="Краска на кисти: нажмите — переход наоборот"></button>
+    </div>
+  </div>
   <div class="acts">
     <button class="play" type="button" aria-label="Раскрутить" title="Раскрутить"><svg viewBox="0 0 16 16"><path d="M4 2.5v11l9.5-5.5z"/></svg></button>
     <button class="stop" type="button" aria-label="Остановить" title="Остановить" disabled><svg viewBox="0 0 16 16"><rect x="3" y="3" width="10" height="10"/></svg></button>
@@ -137,17 +151,27 @@
 
     const cv = root.querySelector('canvas'), ctx = cv.getContext('2d'), $ = s => root.querySelector(s);
     const sv = root.querySelector('canvas.stroke'), sctx = sv.getContext('2d'), view = $('.view'), wrap = $('.board-wrap');
-    let color = PAINTS[0][1], size = SIZES[1][1];
+    // Краска на кисти: одна или (в режиме «смешивать») до трёх — тогда кисть набрана градиентом поперёк, как
+    // кисть, обмакнутая в две-три краски сразу: мазок переливается от края к краю, а при раскрутке лучи с разных
+    // сторон мазка уносят разные цвета. Полоска рядом показывает набранное; нажатие разворачивает переход.
+    let colors = [PAINTS[0][1]], mixing = false, size = SIZES[1][1];
+    function showLoad() {
+        const bar = $('.mixbar');
+        bar.style.background = colors.length > 1 ? `linear-gradient(90deg,${colors.join(',')})` : colors[0];
+        root.querySelectorAll('.paint').forEach(x => x.setAttribute('aria-pressed', colors.includes(x.dataset.c)));
+    }
     PAINTS.forEach(([name, c], i) => {
         const b = document.createElement('button');
         b.className = 'paint';
         b.type = 'button';
         b.style.background = c;
+        b.dataset.c = c;
         b.setAttribute('aria-label', name);
         b.setAttribute('aria-pressed', i === 0);
         b.onclick = () => {
-            color = c;
-            root.querySelectorAll('.paint').forEach(x => x.setAttribute('aria-pressed', x === b));
+            if (!mixing) colors = [c];
+            else if (colors[colors.length - 1] !== c) { colors.push(c); if (colors.length > 3) colors.shift(); }
+            showLoad();
         };
         $('.paints').appendChild(b);
     });
@@ -306,7 +330,7 @@
     function newBrush(r) {
         const M = MEDIA[medium], light = GROUNDS[material].light, n = Math.max(7, Math.min(36, Math.round(r * 1.5)));
         return {
-            r, M, mk: medium, pts: [], load: 1, p0: particles.length,
+            r, M, mk: medium, pts: [], load: 1, p0: particles.length, g: colors.map(hex),
             // акварель на светлом — прозрачные слои («темнее из двух»: сходятся к пигменту, не уходят в чёрное);
             // на тёмном прозрачная краска едва видна, как в жизни
             op: M.glaze && light ? 'darken' : 'source-over',
@@ -317,23 +341,47 @@
         };
     }
     const shade = (c, k) => k > 0 ? mixInto(c.slice(), [255, 255, 255], k) : c.map(v => v * (1 + k));
+    // цвет краски в точке мазка pt на доле f поперёк кисти (0 — один край, 1 — другой): набранный градиент,
+    // смешанный с мокрым, что было под кистью; в гуаши — с мелом
+    function paintAt(pt, f, M) {
+        // край кисти растушёван — крайние краски берём шире, чтобы их было видно
+        const c = gradAtFor(pt.g, .5 + (f - .5) * 1.4);
+        if (pt.k) mixInto(c, pt.u, pt.k);
+        return M.chalk ? mixInto(c, [245, 240, 230], .08) : c;
+    }
+    // градиент кисти запоминается при касании: смена красок посреди мазка его не меняет
+    const gradAtFor = (g, f) => {
+        if (g.length === 1) return g[0].slice();
+        const t = Math.min(1, Math.max(0, f)) * (g.length - 1), i = Math.min(g.length - 2, Math.floor(t));
+        return mixInto(g[i].slice(), g[i + 1], t - i);
+    };
     // Отпечаток кисти на слое g.
-    function blot(g, x, y, r, base, A, M) {
-        const gr = g.createRadialGradient(x, y, 0, x, y, r);
-        gr.addColorStop(0, rgba(base, A));
-        gr.addColorStop(.5, rgba(base, A * .95));
-        gr.addColorStop(.8, rgba(base, A * .5));
-        gr.addColorStop(1, rgba(base, 0));
-        g.fillStyle = gr;
+    // a — куда кисть повели; поперёк этого направления лежит набранный градиент.
+    function blot(g, x, y, r, pt, A, M, a) {
+        const ux = Math.cos(a), uy = Math.sin(a), nx = -uy, ny = ux;
+        // заливка: градиент поперёк кисти…
+        const lin = g.createLinearGradient(x - nx * r, y - ny * r, x + nx * r, y + ny * r);
+        for (let i = 0; i <= 8; i++) lin.addColorStop(i / 8, rgba(paintAt(pt, i / 8, M), A));
+        g.fillStyle = lin;
         g.beginPath();
         g.ellipse(x, y, r, r * rnd(.85, 1), rnd(0, Math.PI), 0, Math.PI * 2);
         g.fill();
+        // …и растушёвка края: плотная середина, к краю краска сходит на нет
+        const gr = g.createRadialGradient(x, y, 0, x, y, r);
+        gr.addColorStop(0, 'rgba(0,0,0,1)');
+        gr.addColorStop(.5, 'rgba(0,0,0,.95)');
+        gr.addColorStop(.8, 'rgba(0,0,0,.5)');
+        gr.addColorStop(1, 'rgba(0,0,0,0)');
+        g.globalCompositeOperation = 'destination-in';
+        g.fillStyle = gr;
+        g.fillRect(x - r - 2, y - r - 2, r * 2 + 4, r * 2 + 4);
+        g.globalCompositeOperation = 'source-over';
         // след щетины: кисть прижали и чуть повели
-        const a = rnd(0, Math.PI * 2), ux = Math.cos(a), uy = Math.sin(a), n = Math.round(r * 1.2);
+        const n = Math.round(r * 1.2);
         g.lineCap = 'round';
         for (let i = 0; i < n; i++) {
             const o = rnd(-1, 1), ox = -uy * o * r * .7, oy = ux * o * r * .7;
-            g.strokeStyle = rgba(shade(base, rnd(-1, 1) * M.streak), A * rnd(.12, .35) * (1 - o * o));
+            g.strokeStyle = rgba(shade(paintAt(pt, (o * .7 + 1) / 2, M), rnd(-1, 1) * M.streak), A * rnd(.12, .35) * (1 - o * o));
             g.lineWidth = rnd(.5, 1.2);
             g.beginPath();
             g.moveTo(x + ox - ux * r * .4, y + oy - uy * r * .4);
@@ -381,11 +429,16 @@
                 if (!on || run.length >= 8 || i === n - 1) { flush(); run = on ? [i] : []; }
             }
         };
-        if (!M.glaze) runs(q => q.load > .3, 0, hw * 1.45, m => rgba(m.c, A * .85 * Math.min(1, m.load + .2)));
+        // тело мазка — полосами, каждая своего цвета из набранного градиента
+        if (!M.glaze) for (let j = 0; j < 8; j++) {
+            const f = (j + .5) / 8;
+            runs(q => q.load > .3, (f * 2 - 1) * hw * .64, hw * 1.45 / 8 * 1.35, m => rgba(paintAt(m, f, M), A * .85 * Math.min(1, m.load + .2)));
+        }
         for (const q of b.bristles) {
+            const f = (q.o + 1) / 2;
             runs(m => q.dry < m.load * 1.4,  // пустая кисть следа не оставляет
                 q.o * hw, hw * 2 / b.bristles.length * 1.6 * q.w,
-                m => rgba(shade(m.c, q.t * M.streak), A * q.a * (1 - .75 * q.o * q.o) * (.6 + .4 * m.load)));
+                m => rgba(shade(paintAt(m, f, M), q.t * M.streak), A * q.a * (1 - .75 * q.o * q.o) * (.6 + .4 * m.load)));
         }
     }
     // Слой мазка: отпечаток касания (готов заранее) и мазок поверх.
@@ -411,36 +464,43 @@
         brush = null;
     }
     // Краска под кистью: смешивается с мокрым, мокрит клетки, кладёт частицы для раскрутки.
-    function dab(x, y, r, hexColor, first) {
-        const c = hex(hexColor), under = cellAt(x, y), M = brush.M;
-        if (under >= 0 && gWet[under] > .2) mixInto(c, [gR[under], gG[under], gB[under]], M.glaze ? .35 : .3);
-        const base = M.chalk ? mixInto(c.slice(), [245, 240, 230], .08) : c;
+    function dab(x, y, r, first) {
+        const under = cellAt(x, y), M = brush.M, P = brush.pts;
+        const pt = { x, y, g: brush.g, k: 0, u: null, load: brush.load };
+        if (under >= 0 && gWet[under] > .2) { pt.u = [gR[under], gG[under], gB[under]]; pt.k = M.glaze ? .35 : .3; }
+        // направление поперёк кисти: при касании — случайное (куда кисть повели), по ходу мазка — нормаль к пути
+        let nx, ny;
         if (first) {
+            const a = rnd(0, Math.PI * 2);
+            nx = -Math.sin(a); ny = Math.cos(a);
             bctx.setTransform(d, 0, 0, d, 0, 0);
             bctx.clearRect(0, 0, W, H);
-            blot(bctx, x, y, r, base, brush.A, M);
+            blot(bctx, x, y, r, pt, brush.A, M, a);
         } else {
-            const last = brush.pts[brush.pts.length - 1];
-            if (last) brush.load = Math.max(0, brush.load - Math.hypot(x - last.x, y - last.y) / (r * 60));  // краска на кисти кончается
+            const last = P[P.length - 1], dx = x - last.x, dy = y - last.y, l = Math.hypot(dx, dy) || 1;
+            nx = -dy / l; ny = dx / l;
+            brush.load = Math.max(0, brush.load - l / (r * 60));  // краска на кисти кончается
+            pt.load = brush.load;
         }
-        brush.pts.push({ x, y, c: base, load: brush.load });
+        P.push(pt);
         // в раскрутку идёт столько краски, сколько осталось на кисти: касание — полная капля, по ходу мазка всё меньше
         const L = first ? 1 : brush.load;
         if (L <= .02) return;
+        const across = (px, py) => .5 + ((px - x) * nx + (py - y) * ny) / (2 * r * .75);
         // лужица мокрая
         for (let yy = y - r; yy <= y + r; yy += CELL) {
             for (let xx = x - r; xx <= x + r; xx += CELL) {
-                if ((xx - x) ** 2 + (yy - y) ** 2 <= r * r) wet(cellAt(xx, yy), c, .65 * L);
+                if ((xx - x) ** 2 + (yy - y) ** 2 <= r * r) wet(cellAt(xx, yy), paintAt(pt, across(xx, yy), M), .65 * L);
             }
         }
         const n = Math.round(r * (first ? 2.2 : 1.1) * L);
         for (let i = 0; i < n; i++) {
-            const a = rnd(0, Math.PI * 2), q = Math.sqrt(Math.random()) * r * .75;
+            const a = rnd(0, Math.PI * 2), q = Math.sqrt(Math.random()) * r * .75, px = x + Math.cos(a) * q, py = y + Math.sin(a) * q;
             particles.push({
-                x: x + Math.cos(a) * q, y: y + Math.sin(a) * q, vx: 0, vy: 0,
+                x: px, y: py, vx: 0, vy: 0,
                 m: rnd(.6, 1.4) * r * .16 * (.5 + .5 * L),  // масса — толщина следа
                 stick: rnd(.4, 1.6) * M.stick,            // вязкость: чем больше, тем позже срывается
-                c: c.slice(), md: brush.mk,
+                c: paintAt(pt, across(px, py), M), md: brush.mk,
             });
         }
         if (particles.length > 9000) { particles.splice(0, particles.length - 9000); brush.p0 = 0; }
@@ -502,7 +562,7 @@
         hand = { clientX: e.clientX, clientY: e.clientY };
         brush = newBrush(size * .7);
         sv.style.mixBlendMode = brush.op === 'darken' ? 'darken' : 'normal';
-        dab(x, y, size * .8, color, true);
+        dab(x, y, size * .8, true);
         redrawStroke();
         brushSpinStart();
     });
@@ -529,7 +589,7 @@
         let prev = drawing;
         for (let t = step; t <= dist; t += step) {
             const k = t / dist, q = [drawing[0] + (x - drawing[0]) * k, drawing[1] + (y - drawing[1]) * k];
-            dab(q[0], q[1], size * .7, color, false);
+            dab(q[0], q[1], size * .7, false);
             prev = q;
         }
         if (dist < step) return;
@@ -703,6 +763,14 @@
     });
     const matName = () => GROUNDS[material].label + ' · ' + MEDIA[medium].label;
     $('.mat-name').textContent = matName();
+    $('.mixbtn').onclick = () => {
+        mixing = !mixing;
+        $('.mixbtn').setAttribute('aria-pressed', mixing);
+        if (!mixing && colors.length > 1) colors = [colors[colors.length - 1]];
+        showLoad();
+    };
+    $('.mixbar').onclick = () => { colors.reverse(); showLoad(); };
+    showLoad();
     playBtn.onclick = spin;
     stopBtn.onclick = stop;
     instantBtn.onclick = () => {
