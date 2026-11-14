@@ -354,7 +354,7 @@ void main() {${SLOPE}
         if (!w) return;
         const paintTex = w.texture();
         let paintSrc = '', greeted = false;
-        const s = scene({ cv, w, wants: () => window.__inGallery === true });
+        const s = scene({ cv, w, wants: () => window.__inGallery === true && !window.__studioOpen });
         // текстура картины — то, что сейчас в <img> (миниатюра, средний размер или оригинал при приближении)
         function uploadPaint() {
             if (!img.complete || !img.naturalWidth || img.currentSrc === paintSrc) return;
