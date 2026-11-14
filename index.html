@@ -1253,7 +1253,7 @@
         .journey {
             height: 2200vh; /* длина пути прокрутки: чем больше, тем медленнее пролёт */
             position: relative;
-            z-index: 100 /* поверх неба, дождя и луны галереи — они проступают, когда сцена растворяется */
+            z-index: 100 /* поверх неба, звёзд и луны галереи — они проступают, когда сцена растворяется */
         }
 
         /* Пока идёт пролёт, сцена галереи под ним не видна: не рисуем её (in-flight) и не крутим её анимации
@@ -2306,7 +2306,7 @@
                 // через копию фона — лишний полноэкранный проход на каждом кадре
                 title.style.display = intro < 1 ? '' : 'none';
                 // Влёт — клип последнего сегмента: камера уходит вглубь картины. Комната и сцена (небо, луна,
-                // свечи, дождь) лежат под кадром с начала сегмента: рисуются, пока на экране неподвижная картина,
+                // свечи, падающие звёзды) лежат под кадром с начала сегмента: рисуются, пока на экране неподвижная картина,
                 // а не посреди движения. До середины клипа тёмный фон пролёта под видео уходит, и со второй
                 // половины клип растворяется прямо в живую комнату.
                 const last = index === N - 1, end = last ? t : 0;
@@ -2535,10 +2535,11 @@
 
     <div class="stars" id="stars"></div>
 
-    <!-- Дождь за окном (тонкие линии, дальний план) -->
+    <!-- Падающие звёзды над горами (дальний план) -->
     <canvas id="rainBgCanvas" style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:1;pointer-events:none;"></canvas>
     <script>
-    // Дождь за окном: тонкие падающие линии-частицы (Canvas 2D, плавно, без мелькания).
+    // Падающие звёзды: раз в несколько секунд, иногда по две-три подряд, по верхней части неба пролетает метеор —
+    // яркая голова со свечением и тающий хвост. Скорость — по времени, а не по кадрам экрана.
     function __startRainBg(){
       if (window.__rainBgRunning) return;
       const cv = document.getElementById('rainBgCanvas');
@@ -2547,59 +2548,78 @@
       window.__rainBgRunning = true;
       const DPR = Math.min(window.devicePixelRatio || 1, 2);
       const rnd = (a,b) => a + (b-a)*Math.random();
-      let W, H, lines = [];
+      let W, H, meteors = [], next = performance.now() + rnd(600, 1800), last = performance.now();
 
-      function makeLine(){
-        // три плана глубины: дальний тоньше/бледнее/медленнее
-        const depth = Math.random();              // 0 дальний … 1 ближний
-        const len   = rnd(14, 40) * (0.5 + depth); // длина штриха
-        return {
-          x: rnd(-40, W+40),
-          y: rnd(-H, 0),
-          len,
-          vy: rnd(7, 12) * (0.5 + depth),          // скорость падения
-          slant: rnd(0.12, 0.22),                  // наклон (ветер)
-          w: 0.6 + depth*0.9,                       // толщина
-          a: 0.06 + depth*0.16                      // прозрачность
-        };
+      function launch(){
+        // летят вниз под углом 20–40°, то влево, то вправо; старт — в верхней половине неба
+        const dir = Math.random() < .5 ? -1 : 1, ang = rnd(.35, .7), speed = rnd(.9, 1.7) * Math.max(W, 700);  // пикс/с
+        meteors.push({
+          x: dir > 0 ? rnd(-.1, .6) * W : rnd(.4, 1.1) * W,
+          y: rnd(-.05, .35) * H,
+          vx: Math.cos(ang) * speed * dir,
+          vy: Math.sin(ang) * speed,
+          tail: rnd(.12, .24) * Math.max(W, 700),   // длина хвоста
+          life: rnd(.55, 1.1), age: 0,               // секунды
+          w: rnd(1.1, 2.2),
+          hue: Math.random() < .25 ? '200,220,255' : '255,246,226'  // изредка голубоватые
+        });
       }
 
       function resize(){
         W = window.innerWidth; H = window.innerHeight;
         cv.width = W*DPR; cv.height = H*DPR;
         ctx.setTransform(DPR,0,0,DPR,0,0);
-        const count = Math.round(W / 14);           // плотность дождя
-        lines = []; for (let i=0;i<count;i++){ const l=makeLine(); l.y=rnd(0,H); lines.push(l); }
       }
 
-      function step(){
-        if (window.__sceneryPaused){ requestAnimationFrame(step); return; }  // под пролётом не виден
+      function step(now){
+        const dt = Math.min(.05, (now - last) / 1000);
+        last = now;
+        if (window.__sceneryPaused){ requestAnimationFrame(step); return; }  // под пролётом не видны
+        if (now >= next){
+          launch();
+          // изредка — короткий звездопад из двух-трёх подряд
+          const burst = Math.random() < .2 ? Math.floor(rnd(1, 3)) : 0;
+          for (let i = 0; i < burst; i++) setTimeout(launch, rnd(150, 600) * (i + 1));
+          next = now + rnd(1800, 5200);
+        }
         ctx.clearRect(0,0,W,H);
-        ctx.lineCap = 'round';
-        for (let i=0;i<lines.length;i++){
-          const l = lines[i];
-          l.y += l.vy;
-          l.x += l.vy * l.slant;
-          ctx.beginPath();
-          ctx.moveTo(l.x, l.y);
-          ctx.lineTo(l.x - l.len*l.slant, l.y - l.len);  // штрих вдоль направления падения
-          ctx.lineWidth = l.w;
-          ctx.strokeStyle = 'rgba(180,205,255,'+l.a+')';
-          ctx.stroke();
-          if (l.y - l.len > H + 10){                 // ушла за низ — респавн сверху
-            Object.assign(l, makeLine());
-            l.y = rnd(-40, -5);
+        if (meteors.length){
+          ctx.globalCompositeOperation = 'lighter';
+          ctx.lineCap = 'round';
+          for (const m of meteors){
+            m.age += dt;
+            m.x += m.vx * dt; m.y += m.vy * dt;
+            const t = m.age / m.life, a = Math.sin(Math.PI * Math.min(1, t));  // разгорается и гаснет
+            const sp = Math.hypot(m.vx, m.vy), ux = m.vx / sp, uy = m.vy / sp,
+                  tx = m.x - ux * m.tail * (.4 + .6 * a), ty = m.y - uy * m.tail * (.4 + .6 * a);
+            const g = ctx.createLinearGradient(m.x, m.y, tx, ty);
+            g.addColorStop(0, 'rgba(' + m.hue + ',' + (.9 * a) + ')');
+            g.addColorStop(.25, 'rgba(' + m.hue + ',' + (.35 * a) + ')');
+            g.addColorStop(1, 'rgba(' + m.hue + ',0)');
+            ctx.strokeStyle = g;
+            ctx.lineWidth = m.w;
+            ctx.beginPath(); ctx.moveTo(m.x, m.y); ctx.lineTo(tx, ty); ctx.stroke();
+            // голова со свечением
+            const r = m.w * 4, h = ctx.createRadialGradient(m.x, m.y, 0, m.x, m.y, r);
+            h.addColorStop(0, 'rgba(255,255,255,' + a + ')');
+            h.addColorStop(.3, 'rgba(' + m.hue + ',' + (.45 * a) + ')');
+            h.addColorStop(1, 'rgba(' + m.hue + ',0)');
+            ctx.fillStyle = h;
+            ctx.beginPath(); ctx.arc(m.x, m.y, r, 0, Math.PI * 2); ctx.fill();
           }
+          ctx.globalCompositeOperation = 'source-over';
+          meteors = meteors.filter(m => m.age < m.life);
         }
         requestAnimationFrame(step);
       }
       window.addEventListener('resize', resize);
       resize();
       requestAnimationFrame(step);
+      window.__launchMeteor = launch;  // для проверки
     }
 
     // Определяем уровень производительности устройства:
-    // 0 = слабый телефон (дождь отключён), 1 = телефон или планшет, 2 = десктоп или ноутбук.
+    // 0 = слабый телефон (падающих звёзд нет), 1 = телефон или планшет, 2 = десктоп или ноутбук.
     function __perfTier(){
       const touch = window.matchMedia('(pointer: coarse)').matches;
       const mem = navigator.deviceMemory || 4;          // GB, Chrome-only (Safari → 4)
@@ -2616,7 +2636,7 @@
     // Запуск после полной загрузки — не блокирует первичный рендер
     function __startAll(){
       const tier = __perfTier();
-      if (tier === 0) return; // слабый телефон — без дождя
+      if (tier === 0) return; // слабый телефон — без падающих звёзд
       requestAnimationFrame(__startRainBg);
     }
     if (document.readyState === 'complete') {
