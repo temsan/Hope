@@ -55,10 +55,11 @@
 .studio .acts button{padding:.75rem 1rem;background:transparent;border:1px solid #efe7d8a6;color:inherit;font:inherit;font-size:.8rem;
   cursor:pointer;transition:background .2s,color .2s}
 .studio .acts button:hover{background:#efe7d8;color:#050608}
-.studio .acts .play,.studio .acts .stop{width:3rem;padding:0;display:grid;place-items:center}
-.studio .acts .play svg,.studio .acts .stop svg{width:1rem;height:1rem;fill:currentColor}
+.studio .acts .play,.studio .acts .stop,.studio .acts .instant{width:3rem;min-height:2.75rem;padding:0;display:grid;place-items:center}
+.studio .acts .play svg,.studio .acts .stop svg,.studio .acts .instant svg{width:1rem;height:1rem;fill:currentColor}
 .studio .acts .play:not(:disabled){background:#efe7d8;color:#050608}
 .studio .acts .play:not(:disabled):hover{background:#d6b775}
+.studio .acts .instant svg{width:1.35rem;height:1.35rem}
 .studio .acts button:disabled{opacity:.35;cursor:default;background:transparent;color:inherit}
 .studio .close{position:absolute;top:1rem;right:1.2rem;background:none;border:0;color:#efe7d8b0;font-size:1.6rem;cursor:pointer;line-height:1}
 @media (max-width:760px){
@@ -67,6 +68,9 @@
   .studio .paints{grid-template-columns:repeat(9,1.9rem);gap:.4rem}
   .studio .paint{width:1.9rem;height:1.9rem}
   .studio h2,.studio p{display:none}
+  .studio .acts{flex-wrap:nowrap;gap:.4rem;justify-content:center}
+  .studio .acts button{padding:.7rem .65rem;font-size:.76rem}
+  .studio .acts .play,.studio .acts .stop,.studio .acts .instant{width:2.6rem;flex:none}
 }`;
     const style = document.createElement('style');
     style.textContent = css;
@@ -92,6 +96,7 @@
   <div class="acts">
     <button class="play" type="button" aria-label="Раскрутить" title="Раскрутить"><svg viewBox="0 0 16 16"><path d="M4 2.5v11l9.5-5.5z"/></svg></button>
     <button class="stop" type="button" aria-label="Остановить" title="Остановить" disabled><svg viewBox="0 0 16 16"><rect x="3" y="3" width="10" height="10"/></svg></button>
+    <button class="instant" type="button" aria-label="Мгновенная раскрутка" title="Мгновенная раскрутка"><svg viewBox="0 0 24 24"><path d="M12 2.5a9.5 9.5 0 1 1-9.4 8.1M12 5.5a6.5 6.5 0 1 0 6.3 4.9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M13 6.5 8.5 13h3l-1 4.5 4.5-6.5h-3z"/></svg></button>
     <button class="clear" type="button">очистить</button>
     <button class="save" type="button">сохранить</button>
   </div>
@@ -308,7 +313,17 @@
     const OMEGA = 15;   // рад/с на полном ходу
     let spinUntil = 0, raf = 0, last = 0, braking = false, rest = null;
     const playBtn = $('.play'), stopBtn = $('.stop');
-    const buttons = spinning => { playBtn.disabled = spinning; stopBtn.disabled = !spinning; };
+    const instantBtn = $('.instant');
+    const buttons = spinning => { playBtn.disabled = instantBtn.disabled = spinning; stopBtn.disabled = !spinning; };
+    // Мгновенная раскрутка: та же физика, что у ▶, но 4 с вращения и торможение считаются за один кадр, без анимации.
+    function instant() {
+        if (raf) return;
+        const dt = 1 / 60;
+        omega = OMEGA;
+        for (let t = 0; t < 4 && particles.length; t += dt) flow(dt);
+        while (omega > .5 && particles.length) { omega -= omega * 1.6 * dt; flow(dt); }
+        omega = 0;
+    }
     function spin() {
         const now = performance.now();
         spinUntil = now + 60000;
@@ -412,6 +427,7 @@
     $('.mat-name').textContent = matName();
     playBtn.onclick = spin;
     stopBtn.onclick = stop;
+    instantBtn.onclick = instant;
     $('.clear').onclick = clearBoard;
     $('.save').onclick = () => {
         // сохраняем как есть, без поворота: холст в своей ориентации
