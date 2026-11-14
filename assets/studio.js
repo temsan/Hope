@@ -54,8 +54,12 @@
 .studio .acts{display:flex;flex-wrap:wrap;gap:.55rem}
 .studio .acts button{padding:.75rem 1rem;background:transparent;border:1px solid #efe7d8a6;color:inherit;font:inherit;font-size:.8rem;
   cursor:pointer;transition:background .2s,color .2s}
-.studio .acts button:hover,.studio .acts .spin{background:#efe7d8;color:#050608}
-.studio .acts .spin:hover{background:#d6b775}
+.studio .acts button:hover{background:#efe7d8;color:#050608}
+.studio .acts .play,.studio .acts .stop{width:3rem;padding:0;display:grid;place-items:center}
+.studio .acts .play svg,.studio .acts .stop svg{width:1rem;height:1rem;fill:currentColor}
+.studio .acts .play:not(:disabled){background:#efe7d8;color:#050608}
+.studio .acts .play:not(:disabled):hover{background:#d6b775}
+.studio .acts button:disabled{opacity:.35;cursor:default;background:transparent;color:inherit}
 .studio .close{position:absolute;top:1rem;right:1.2rem;background:none;border:0;color:#efe7d8b0;font-size:1.6rem;cursor:pointer;line-height:1}
 @media (max-width:760px){
   .studio{grid-template-columns:1fr;grid-template-rows:auto auto;align-content:center;gap:1rem}
@@ -86,7 +90,8 @@
   <div class="paints" role="group" aria-label="Краски"></div>
   <div class="sizes" role="group" aria-label="Размер капли"></div>
   <div class="acts">
-    <button class="spin" type="button">раскрутить</button>
+    <button class="play" type="button" aria-label="Раскрутить" title="Раскрутить"><svg viewBox="0 0 16 16"><path d="M4 2.5v11l9.5-5.5z"/></svg></button>
+    <button class="stop" type="button" aria-label="Остановить" title="Остановить" disabled><svg viewBox="0 0 16 16"><rect x="3" y="3" width="10" height="10"/></svg></button>
     <button class="clear" type="button">очистить</button>
     <button class="save" type="button">сохранить</button>
   </div>
@@ -297,20 +302,26 @@
     cv.addEventListener('pointerup', stopDraw);
     cv.addEventListener('pointercancel', stopDraw);
 
-    // Раскрутка: разгон, вращение 4 с, замедление. Пока холст крутится, кнопка — «остановить»: быстрое торможение.
+    // Раскрутка как у плеера: ▶ разгоняет холст, и он крутится, пока не нажали ■ (но не дольше минуты), ■ — быстрое торможение.
     // Под конец холст доворачивается до ровного положения — один раз, до конца (rest запоминается): иначе доворот
     // снова разгонял бы холст, тот проскакивал ровное положение, и вращение не кончалось.
     const OMEGA = 15;   // рад/с на полном ходу
     let spinUntil = 0, raf = 0, last = 0, braking = false, rest = null;
-    const spinBtn = $('.spin');
+    const playBtn = $('.play'), stopBtn = $('.stop');
+    const buttons = spinning => { playBtn.disabled = spinning; stopBtn.disabled = !spinning; };
     function spin() {
         const now = performance.now();
-        if (raf && !braking) { spinUntil = 0; braking = true; spinBtn.textContent = 'раскрутить'; return; }  // остановить
-        spinUntil = now + 4000;
+        spinUntil = now + 60000;
         braking = false;
         rest = null;
-        spinBtn.textContent = 'остановить';
+        buttons(true);
         if (!raf) { last = now; raf = requestAnimationFrame(tick); }
+    }
+    function stop() {
+        if (!raf || braking) return;
+        spinUntil = 0;
+        braking = true;
+        buttons(false);
     }
     function tick(now) {
         const dt = Math.min(.033, (now - last) / 1000);
@@ -320,7 +331,6 @@
             omega += (OMEGA - omega) * Math.min(1, dt * 3);       // разгон ~0,7 с
             angle += omega * dt;
         } else if (rest === null && omega > 3) {
-            if (spinBtn.textContent !== 'раскрутить') spinBtn.textContent = 'раскрутить';
             omega -= omega * Math.min(1, dt * (braking ? 5 : 1.6));  // замедление: ~1,5 с, по кнопке ~0,4 с
             angle += omega * dt;
         } else {
@@ -336,7 +346,7 @@
         cv.style.transform = omega ? `rotate(${angle}rad) scale(${k.toFixed(3)})` : '';
         flow(dt);
         if (omega > 0 || now < spinUntil) raf = requestAnimationFrame(tick);
-        else { raf = 0; omega = 0; angle = 0; rest = null; braking = false; spinBtn.textContent = 'раскрутить'; }
+        else { raf = 0; omega = 0; angle = 0; rest = null; braking = false; buttons(false); }
     }
     function flow(dt) {
         const cx = W / 2, cy = H / 2, scale = Math.min(W, H) / 400, w2 = omega * omega, water = mode === 'water';
@@ -400,7 +410,8 @@
     });
     const matName = () => MATERIALS[material].label + ' · ' + (mode === 'water' ? 'акварель' : 'акрил');
     $('.mat-name').textContent = matName();
-    $('.spin').onclick = spin;
+    playBtn.onclick = spin;
+    stopBtn.onclick = stop;
     $('.clear').onclick = clearBoard;
     $('.save').onclick = () => {
         // сохраняем как есть, без поворота: холст в своей ориентации
