@@ -2540,6 +2540,10 @@
     <script>
     // Падающие звёзды: раз в несколько секунд, иногда по две-три подряд, по верхней части неба пролетает метеор —
     // яркая голова со свечением и тающий хвост. Скорость — по времени, а не по кадрам экрана.
+    // Летают только по небу: ниже гребня гор на фото фона (#milkyWayImg) их обрезает маска — долетевший до гор
+    // метеор уходит за них.
+    // Гребень гор на фото: точки в долях кадра (x слева направо, y сверху), обведены по снимку с запасом вверх.
+    const SKYLINE = [[0.0, 0.6983], [0.0444, 0.6483], [0.0833, 0.615], [0.1111, 0.5767], [0.1311, 0.5667], [0.1556, 0.59], [0.1944, 0.61], [0.2222, 0.5983], [0.2667, 0.565], [0.3111, 0.55], [0.3556, 0.55], [0.3889, 0.54], [0.4222, 0.51], [0.4556, 0.4867], [0.4778, 0.4733], [0.4944, 0.4767], [0.5111, 0.4983], [0.5311, 0.54], [0.5556, 0.5733], [0.5778, 0.5767], [0.6056, 0.5567], [0.6389, 0.5367], [0.6644, 0.52], [0.68, 0.5317], [0.6944, 0.565], [0.7222, 0.5933], [0.7667, 0.615], [0.8222, 0.6317], [0.8556, 0.63], [0.8644, 0.5933], [0.8733, 0.5867], [0.8889, 0.6067], [0.9111, 0.5567], [0.9444, 0.4983], [0.9722, 0.4567], [0.9889, 0.4367], [1.0, 0.4267]];
     function __startRainBg(){
       if (window.__rainBgRunning) return;
       const cv = document.getElementById('rainBgCanvas');
@@ -2548,7 +2552,19 @@
       window.__rainBgRunning = true;
       const DPR = Math.min(window.devicePixelRatio || 1, 2);
       const rnd = (a,b) => a + (b-a)*Math.random();
-      let W, H, meteors = [], next = performance.now() + rnd(600, 1800), last = performance.now();
+      let W, H, meteors = [], next = performance.now() + rnd(600, 1800), last = performance.now(), sky = null;
+      // Небо над горами в координатах экрана: фото кадрировано как в CSS — object-fit: cover, позиция «центр 30%».
+      function skyPath(){
+        const img = document.getElementById('milkyWayImg');
+        const iw = (img && img.naturalWidth) || 1800, ih = (img && img.naturalHeight) || 1201;
+        const k = Math.max(W / iw, H / ih), dw = iw * k, dh = ih * k, ox = (W - dw) * .5, oy = (H - dh) * .3;
+        const path = new Path2D();
+        path.moveTo(ox - 10, -10);
+        path.lineTo(ox + dw + 10, -10);
+        for (let i = SKYLINE.length - 1; i >= 0; i--) path.lineTo(ox + SKYLINE[i][0] * dw, oy + SKYLINE[i][1] * dh);
+        path.closePath();
+        return path;
+      }
 
       function launch(){
         // летят вниз под углом 20–40°, то влево, то вправо; старт — в верхней половине неба
@@ -2569,6 +2585,7 @@
         W = window.innerWidth; H = window.innerHeight;
         cv.width = W*DPR; cv.height = H*DPR;
         ctx.setTransform(DPR,0,0,DPR,0,0);
+        sky = skyPath();
       }
 
       function step(now){
@@ -2584,6 +2601,8 @@
         }
         ctx.clearRect(0,0,W,H);
         if (meteors.length){
+          ctx.save();
+          if (sky) ctx.clip(sky);
           ctx.globalCompositeOperation = 'lighter';
           ctx.lineCap = 'round';
           for (const m of meteors){
@@ -2607,13 +2626,16 @@
             ctx.fillStyle = h;
             ctx.beginPath(); ctx.arc(m.x, m.y, r, 0, Math.PI * 2); ctx.fill();
           }
-          ctx.globalCompositeOperation = 'source-over';
+          ctx.restore();
           meteors = meteors.filter(m => m.age < m.life);
         }
         requestAnimationFrame(step);
       }
       window.addEventListener('resize', resize);
       resize();
+      // размеры фото узнаём, когда оно загрузится (до того — по известным 1800×1201)
+      const mw = document.getElementById('milkyWayImg');
+      if (mw) mw.addEventListener('load', () => { sky = skyPath(); });
       requestAnimationFrame(step);
       window.__launchMeteor = launch;  // для проверки
     }
