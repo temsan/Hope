@@ -1,8 +1,8 @@
 // Рябь на воде — на первом экране и во всей галерее.
 //
 // Первый экран (#ripple): при открытии в воду падают три капли, дальше круги оставляет указатель (и палец);
-// сквозь волны преломляются картина и буквы названия, по гребням бегут блики. С началом прокрутки рябь гаснет
-// сразу, и вступление дальше рисует обычная вёрстка (картина в .portal и буквы в #title).
+// сквозь волны преломляются картина и буквы названия, по гребням бегут блики. Рябь держится весь влёт в буквы
+// (прокрутка тоже тревожит воду) и гаснет под его конец; дальше кадр рисует обычная вёрстка (.portal и #title).
 //
 // Галерея (#galleryRipple): картина на мольберте преломляется сквозь волны (в том числе приближенная),
 // на остальном — небе, луне, свечах — видны блики и тени волн: вёрстку WebGL преломить не может.
@@ -35,7 +35,7 @@ void main() {
     vec4 i = texture(t, uv);
     float a = (texture(t, uv - vec2(dt.x, 0.)).r + texture(t, uv + vec2(dt.x, 0.)).r +
                texture(t, uv - vec2(0., dt.y)).r + texture(t, uv + vec2(0., dt.y)).r) * .25;
-    i.g = (i.g + (a - i.r) * 2.) * .994;
+    i.g = (i.g + (a - i.r) * 2.) * .993;
     i.r += i.g;
     o = i;
 }`;
@@ -46,23 +46,23 @@ void main() {
     vec3 dy = vec3(0., texture(sim, uv + vec2(0., dt.y)).r - h, dt.y);
     vec2 n = -normalize(cross(dy, dx)).xz;
     float lit = dot(n, normalize(vec2(-.6, 1.)));
-    vec3 glint = pow(max(0., lit), 4.) * str * vec3(1., .96, .88);`;
+    vec3 glint = pow(max(0., lit), 2.2) * str * vec3(1., .96, .88);`;
     // первый экран: картина «cover» на весь экран, умноженная на маску букв (как слой #title с multiply),
     // увеличенную от центра экрана, — с поправкой на наклон воды
     const DRAW_INTRO = HEAD + `uniform sampler2D sim, paint, mask; uniform vec2 dt, cover; uniform float scale, op, str;
 void main() {${SLOPE}
-    vec2 q = uv + n * .022 * str;
+    vec2 q = uv + n * .014 * str;
     vec3 pc = texture(paint, (q - .5) * cover + .5).rgb;
     vec3 m = texture(mask, (q - .5) / scale + .5).rgb;
-    o = vec4(pc * mix(vec3(1.), m, op) + glint * .8, 1.);
+    o = vec4(pc * mix(vec3(1.), m, op) + glint * .38, 1.);
 }`;
     // галерея: в прямоугольнике картины — сама картина со сдвигом, вокруг — только блики и тени (слой прозрачный,
     // цвет с умноженной альфой)
     const DRAW_GALLERY = HEAD + `uniform sampler2D sim, paint; uniform vec2 dt; uniform vec4 rect; uniform float str, hasPaint;
 void main() {${SLOPE}
-    vec3 light = glint * .7;
+    vec3 light = glint * .34;
     if (hasPaint > .5 && uv.x >= rect.x && uv.x <= rect.z && uv.y >= rect.y && uv.y <= rect.w) {
-        vec2 q = uv + n * .018 * str;
+        vec2 q = uv + n * .012 * str;
         o = vec4(texture(paint, clamp((q - rect.xy) / (rect.zw - rect.xy), 0., 1.)).rgb + light, 1.);
     } else {
         float shade = max(0., -lit) * .3 * str;  // впадины волн чуть темнее
@@ -150,18 +150,17 @@ void main() {${SLOPE}
                 if (!ok) sims = [];
             },
             // капля в точке (fx, fy) в долях слоя, fy — сверху вниз
-            drop(fx, fy, s) {
+            drop(fx, fy, s, r = .055) {
                 if (!sims.length) return;
                 simPass(P.drop, u => {
                     gl.uniform2f(u.c, fx, 1 - fy);
                     gl.uniform2f(u.asp, aspect, 1);
-                    gl.uniform1f(u.r, .03);
+                    gl.uniform1f(u.r, r);
                     gl.uniform1f(u.s, s);
                 });
             },
             // шаг волн и кадр; textures — [единица, текстура] для картины и прочего
             frame(textures, setup) {
-                simPass(P.step, u => gl.uniform2f(u.dt, 1 / simW, 1 / simH));
                 simPass(P.step, u => gl.uniform2f(u.dt, 1 / simW, 1 / simH));
                 gl.activeTexture(gl.TEXTURE0);
                 gl.bindTexture(gl.TEXTURE_2D, sims[0].t);
@@ -207,7 +206,7 @@ void main() {${SLOPE}
             const dist = s.last ? Math.hypot(x - s.last[0], y - s.last[1]) : 0;
             s.last = [x, y];
             s.lastMotion = performance.now();
-            s.w.drop((x - r.left) / r.width, (y - r.top) / r.height, Math.min(.022, .004 + dist * .0005));
+            s.w.drop((x - r.left) / r.width, (y - r.top) / r.height, Math.min(.011, .002 + dist * .00025));
             s.wake();
         };
         s.tap = (x, y) => {
@@ -215,7 +214,7 @@ void main() {${SLOPE}
             const r = s.box();
             if (!r.width || !r.height) return;
             s.lastMotion = performance.now();
-            s.w.drop((x - r.left) / r.width, (y - r.top) / r.height, .04);
+            s.w.drop((x - r.left) / r.width, (y - r.top) / r.height, .022, .07);
             s.wake();
         };
         s.calm = now => 1 - smooth((now - s.lastMotion - (s.calmExtra ? s.calmExtra() : 0) - CALM) / SETTLE);
@@ -236,61 +235,87 @@ void main() {${SLOPE}
         if (!cv || !title || !art) return;
         const w = water(cv, false, DRAW_INTRO);
         if (!w) return;
-        const paintTex = w.texture(), maskTex = w.texture();
-        let paintReady = false, maskReady = false, opened = -1, started = false;
+        const paintTex = w.texture(), maskTex = w.texture(), maxTex = Math.min(4096, w.gl.getParameter(w.gl.MAX_TEXTURE_SIZE));
+        let paintReady = false, glyphs = null, bg = '#050608', maskScale = 0, opened = -1, started = false;
         const st = () => window.__intro || { k: 0, scale: 1, op: 1 };
-        // рябь видна, пока идёт начало вступления; к четверти его гаснет
-        const scrollFade = k => 1 - smooth(k / .25);
+        // рябь живёт весь влёт в буквы и гаснет только под самый конец, когда букв уже не видно
+        const scrollFade = k => 1 - smooth((k - .82) / .18);
         const s = scene({
             cv, w,
-            wants: () => st().k < .25 && !window.__inGallery,
+            wants: () => st().k < 1 && !window.__inGallery,
             onToggle: on => { title.style.visibility = on ? 'hidden' : ''; },
             // после открытия затишье наступает позже: стартовые капли успевают разойтись
             calmExtra: () => (s.lastMotion === opened ? 1400 : 0),
         });
 
-        // Маска букв — те же буквы, что в #title, на месте каждой: цвет буквы — окно в картину, фон слоя — темнота.
-        function buildMask() {
-            const W = innerWidth, H = innerHeight, d = Math.min(3, (devicePixelRatio || 1) * 1.5);
-            const mc = document.createElement('canvas');
-            mc.width = Math.round(W * d);
-            mc.height = Math.round(H * d);
-            const g = mc.getContext('2d');
-            g.scale(d, d);
-            g.fillStyle = getComputedStyle(title).backgroundColor;
-            g.fillRect(0, 0, W, H);
+        // Буквы #title: где каждая стоит и каким шрифтом и цветом нарисована — замеряем один раз (и при смене окна).
+        function measureGlyphs() {
             const was = [title.style.transform, title.style.display];
             title.style.transform = 'none';
             title.style.display = '';
-            const f = title.getBoundingClientRect(), r = document.createRange(),
-                walk = document.createTreeWalker(title, NodeFilter.SHOW_TEXT);
+            const f = title.getBoundingClientRect(), r = document.createRange(), g = document.createElement('canvas').getContext('2d'),
+                walk = document.createTreeWalker(title, NodeFilter.SHOW_TEXT), out = [];
             for (let node; (node = walk.nextNode());) {
-                const cs = getComputedStyle(node.parentElement);
-                g.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
-                g.fillStyle = cs.color;
+                const cs = getComputedStyle(node.parentElement), font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+                g.font = font;
                 const asc = g.measureText('Н').fontBoundingBoxAscent;
                 for (let i = 0; i < node.length; i++) {
                     if (!node.data[i].trim()) continue;
                     r.setStart(node, i);
                     r.setEnd(node, i + 1);
                     const b = r.getClientRects()[0];
-                    if (b) g.fillText(node.data[i], b.left - f.left, b.top - f.top + asc);
+                    if (b) out.push({ ch: node.data[i], x: b.left - f.left, y: b.top - f.top + asc, font, color: cs.color });
                 }
             }
+            bg = getComputedStyle(title).backgroundColor;
             title.style.transform = was[0];
             title.style.display = was[1];
-            w.upload(maskTex, mc);
-            maskReady = true;
+            glyphs = out;
+            maskScale = 0;
             s.wake();
+        }
+        // Маска букв, увеличенных в scale раз от центра экрана: цвет буквы — окно в картину, фон слоя — темнота.
+        // Перерисовывается, когда увеличение ушло от нарисованного больше чем на четверть, — буквы остаются чёткими.
+        function drawMask(scale) {
+            const W = innerWidth, H = innerHeight,
+                d = Math.min(3, (devicePixelRatio || 1) * 1.5, maxTex / W, maxTex / H);
+            const mc = document.createElement('canvas');
+            mc.width = Math.round(W * d);
+            mc.height = Math.round(H * d);
+            const g = mc.getContext('2d');
+            g.scale(d, d);
+            g.fillStyle = bg;
+            g.fillRect(0, 0, W, H);
+            g.translate(W / 2, H / 2);
+            g.scale(scale, scale);
+            g.translate(-W / 2, -H / 2);
+            for (const q of glyphs) {
+                g.font = q.font;
+                g.fillStyle = q.color;
+                g.fillText(q.ch, q.x, q.y);
+            }
+            w.upload(maskTex, mc);
+            maskScale = scale;
         }
         s.resize = () => {
             w.resize(innerWidth, innerHeight);
-            if (document.fonts && document.fonts.status !== 'loaded') document.fonts.ready.then(buildMask);
-            else buildMask();
+            if (document.fonts && document.fonts.status !== 'loaded') document.fonts.ready.then(measureGlyphs);
+            else measureGlyphs();
         };
+        // Прокрутка во время влёта тоже тревожит воду: мягкие капли в случайных местах, тем сильнее, чем быстрее листают.
+        let lastY = scrollY, lastScrollDrop = 0;
+        addEventListener('scroll', () => {
+            const now = performance.now(), dy = Math.abs(scrollY - lastY);
+            lastY = scrollY;
+            if (!dy || !s.wants() || opened < 0 || now - lastScrollDrop < 70) return;
+            lastScrollDrop = now;
+            s.lastMotion = now;
+            w.drop(.2 + Math.random() * .6, .25 + Math.random() * .5, Math.min(.016, dy * .0001 + .004), .08);
+            s.wake();
+        }, { passive: true });
         s.tick = () => {
             const now = performance.now(), i = st(), str = scrollFade(i.k) * (opened < 0 ? 1 : s.calm(now));
-            s.setActive(paintReady && maskReady && w.ready && !document.hidden && !window.__inGallery && str > .002);
+            s.setActive(paintReady && glyphs && w.ready && !document.hidden && !window.__inGallery && str > .002);
             if (!s.active) return;
             // стартовые капли и отсчёт затишья — с первого готового кадра (на медленной сети шрифты приходят
             // не сразу); открыли страницу не с начала — капель не будет
@@ -299,15 +324,16 @@ void main() {${SLOPE}
                 if (i.k < .02 && !started) {
                     started = true;
                     [[.38, .42, 0], [.62, .56, 380], [.5, .34, 820]].forEach(([x, y, t]) =>
-                        setTimeout(() => { w.drop(x, y, .05); s.wake(); }, t));
+                        setTimeout(() => { w.drop(x, y, .028, .07); s.wake(); }, t));
                 }
             }
+            if (!maskScale || i.scale / maskScale > 1.25 || i.scale / maskScale < .8) drawMask(i.scale);
             const iw = art.naturalWidth, ih = art.naturalHeight, k = Math.max(innerWidth / iw, innerHeight / ih);
             w.frame([[1, paintTex], [2, maskTex]], u => {
                 w.gl.uniform1i(u.paint, 1);
                 w.gl.uniform1i(u.mask, 2);
                 w.gl.uniform2f(u.cover, innerWidth / (iw * k), innerHeight / (ih * k));
-                w.gl.uniform1f(u.scale, i.scale);
+                w.gl.uniform1f(u.scale, i.scale / maskScale);  // остаток увеличения сверх нарисованного в маске
                 w.gl.uniform1f(u.op, i.op);
                 w.gl.uniform1f(u.str, str);
             });
@@ -348,7 +374,7 @@ void main() {${SLOPE}
                 const r = img.getBoundingClientRect(), c = s.box();
                 if (r.width && c.width) {
                     s.lastMotion = now;
-                    w.drop((r.left + r.width * .5 - c.left) / c.width, (r.top + r.height * .45 - c.top) / c.height, .04);
+                    w.drop((r.left + r.width * .5 - c.left) / c.width, (r.top + r.height * .45 - c.top) / c.height, .022, .07);
                 }
             }
             const str = s.calm(now);
