@@ -231,6 +231,7 @@
                     transparent 100%);
             border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
             filter: blur(0.8px);
+            transform-origin: 50% 90%;  /* клонится от фитиля */
             animation: flicker 1.8s ease-in-out infinite;
             box-shadow: 0 0 18px rgba(255, 160, 40, 0.6), 0 0 40px rgba(255, 100, 20, 0.3);
         }
@@ -2531,6 +2532,59 @@
             </div>
         </div>
     </div>
+    <script>
+    // Пламя свечей чувствует руку: движение мыши рядом гонит воздух, и огонь клонится по ходу движения,
+    // вытягивается и тускнеет; резкий взмах вблизи почти гасит его, потом пламя разгорается снова.
+    // Мерцание (@keyframes flicker) живёт в transform, а отклик — в отдельных свойствах rotate и scale
+    // и в яркости, так что одно накладывается на другое.
+    (function () {
+        if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        const flames = [...document.querySelectorAll('.candles-container .flame')].map(el => ({ el, lean: 0, v: 0, gust: 0, dim: 0 }));
+        if (!flames.length) return;
+        let raf = 0, last = 0, px = null, py = null, pt = 0;
+        addEventListener('pointermove', e => {
+            if (e.pointerType === 'touch') return;
+            const now = performance.now();
+            if (px !== null && now - pt < 100) {
+                const dt = Math.max(8, now - pt), vx = (e.clientX - px) / dt, vy = (e.clientY - py) / dt;  // точек за мс
+                for (const f of flames) {
+                    const r = f.el.getBoundingClientRect();
+                    if (!r.width) continue;  // свечи скрыты (узкий экран)
+                    const d = Math.hypot(e.clientX - (r.left + r.width / 2), e.clientY - (r.top + r.height / 2));
+                    const near = Math.exp(-d / 140);         // поток от руки слабеет с расстоянием
+                    f.v += vx * near * 180;                   // толчок вбок, по ходу движения (град/с)
+                    f.gust = Math.min(1.6, f.gust + Math.hypot(vx, vy) * near * .5);
+                }
+                if (!raf) { last = now; raf = requestAnimationFrame(tick); }
+            }
+            px = e.clientX; py = e.clientY; pt = now;
+        }, { passive: true });
+        function tick(now) {
+            const dt = Math.min(.05, (now - last) / 1000);
+            last = now;
+            let busy = false;
+            for (const f of flames) {
+                // пружина с затуханием: пламя клонится и, качнувшись раз-другой (около секунды), выпрямляется
+                f.v += (-f.lean * 40 - f.v * 6) * dt;
+                f.lean = Math.max(-35, Math.min(35, f.lean + f.v * dt));
+                f.gust *= Math.exp(-dt * 2);
+                // сильный порыв гасит огонь, разгорается он медленнее
+                f.dim += ((f.gust > .9 ? .85 : f.gust * .5) - f.dim) * Math.min(1, dt * (f.gust > .9 ? 9 : 2.2));
+                const g = Math.min(1, f.gust);
+                f.el.style.rotate = f.lean.toFixed(2) + 'deg';
+                f.el.style.scale = `${(1 - g * .25 - f.dim * .3).toFixed(3)} ${(1 + g * .35 - f.dim * .6).toFixed(3)}`;
+                f.el.style.filter = `blur(0.8px) brightness(${(1 - f.dim * .75).toFixed(3)})`;
+                if (Math.abs(f.lean) > .05 || Math.abs(f.v) > .05 || f.gust > .005 || f.dim > .005) busy = true;
+            }
+            if (busy) raf = requestAnimationFrame(tick);
+            else {
+                raf = 0;
+                for (const f of flames) { f.lean = f.v = f.gust = f.dim = 0; f.el.style.rotate = f.el.style.scale = f.el.style.filter = ''; }
+            }
+        }
+        window.__flames = flames;  // для проверки
+    })();
+    </script>
 
     <div class="mist"></div>
 

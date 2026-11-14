@@ -62,7 +62,9 @@ void main() {
     vec3 warm = vec3(1., .92, .74);`;
     // первый экран: картина «cover» на весь экран, умноженная на маску букв (как слой #title с multiply),
     // увеличенную от центра экрана, — с поправкой на наклон воды
-    const DRAW_INTRO = HEAD + `uniform sampler2D sim, paint, mask; uniform vec2 dt, cover; uniform float scale, op, str;
+    const DRAW_INTRO = HEAD + `uniform sampler2D sim, paint, mask; uniform vec2 dt, cover; uniform float scale, op, str, drip;
+float hash(float x) { return fract(sin(x * 127.1) * 43758.5453); }
+float noise(float x) { float i = floor(x), f = fract(x); return mix(hash(i), hash(i + 1.), f * f * (3. - 2. * f)); }
 void main() {${SLOPE}
     // дисперсия: красный преломляется слабее, синий сильнее — на склонах волн радужная кайма
     vec2 off = n * .014 * str, qr = uv + off * (1. - DISPERSION), qg = uv + off, qb = uv + off * (1. + DISPERSION);
@@ -70,6 +72,20 @@ void main() {${SLOPE}
                    texture(paint, (qb - .5) * cover + .5).b);
     vec3 m = vec3(texture(mask, (qr - .5) / scale + .5).r, texture(mask, (qg - .5) / scale + .5).g,
                   texture(mask, (qb - .5) / scale + .5).b);
+    // потёки: буквы смазаны широкой кистью и стекают вниз; длина потёка своя у каждой полосы кисти,
+    // внутри полосы — неровные следы щетины; к концу потёк тоньше и прозрачнее
+    if (drip > .001) {
+        vec2 q = (qg - .5) / scale + .5;
+        float band = noise(uv.x * 22.), hair = noise(uv.x * 230.), len = drip * (.06 + .94 * pow(band, 1.8)) * (.7 + .3 * hair);
+        float lean = (noise(uv.x * 5. + 7.) - .5) * .15;
+        vec3 run = vec3(0.);
+        for (int j = 1; j <= 28; j++) {
+            float t = float(j) / 28.;
+            vec3 s = texture(mask, q + vec2(lean * t * len, t * len) / scale).rgb;
+            run = max(run, s * (1. - smoothstep(.55, 1., t)) * (1. - .3 * t) * (.35 + .65 * hair));
+        }
+        m = max(m, run);
+    }
     vec3 under = pc * mix(vec3(1.), m, op);
     o = vec4(under * (1. + caustic * .9) + caustic * .05 * warm + glint * .38, 1.);
 }`;
@@ -260,6 +276,8 @@ void main() {${SLOPE}
         const st = () => window.__intro || { k: 0, scale: 1, op: 1 };
         // рябь живёт весь влёт в буквы и гаснет только под самый конец, когда букв уже не видно
         const scrollFade = k => 1 - smooth((k - .82) / .18);
+        // длина потёков букв (в долях высоты экрана) растёт с прокруткой; к концу влёта буквы тают вместе с ними
+        const dripOf = k => .45 * smooth(k / .5);
         const s = scene({
             cv, w,
             wants: () => st().k < 1 && !window.__inGallery,
@@ -334,8 +352,9 @@ void main() {${SLOPE}
             s.wake();
         }, { passive: true });
         s.tick = () => {
-            const now = performance.now(), i = st(), str = scrollFade(i.k) * (opened < 0 ? 1 : s.calm(now));
-            s.setActive(paintReady && glyphs && w.ready && !document.hidden && !window.__inGallery && str > .002);
+            const now = performance.now(), i = st(), str = scrollFade(i.k) * (opened < 0 ? 1 : s.calm(now)), d = dripOf(i.k);
+            // потёки держат слой и в затишье: обычная вёрстка их нарисовать не может
+            s.setActive(paintReady && glyphs && w.ready && !document.hidden && !window.__inGallery && (str > .002 || d > .001));
             if (!s.active) return;
             // стартовые капли и отсчёт затишья — с первого готового кадра (на медленной сети шрифты приходят
             // не сразу); открыли страницу не с начала — капель не будет
@@ -356,8 +375,9 @@ void main() {${SLOPE}
                 w.gl.uniform1f(u.scale, i.scale / maskScale);  // остаток увеличения сверх нарисованного в маске
                 w.gl.uniform1f(u.op, i.op);
                 w.gl.uniform1f(u.str, str);
+                w.gl.uniform1f(u.drip, d);
             });
-            s.wake();
+            if (str > .002) s.wake();  // вода в покое — новый кадр нужен только при прокрутке
         };
         const uploadPaint = () => { w.upload(paintTex, art); paintReady = true; s.wake(); };
         if (art.complete && art.naturalWidth) uploadPaint();
