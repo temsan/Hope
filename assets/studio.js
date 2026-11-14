@@ -128,7 +128,7 @@
   <div class="acts">
     <button class="play" type="button" aria-label="Раскрутить" title="Раскрутить"><svg viewBox="0 0 16 16"><path d="M4 2.5v11l9.5-5.5z"/></svg></button>
     <button class="stop" type="button" aria-label="Остановить" title="Остановить" disabled><svg viewBox="0 0 16 16"><rect x="3" y="3" width="10" height="10"/></svg></button>
-    <button class="instant" type="button" aria-pressed="false" aria-label="Мгновенная раскрутка: каждый мазок сразу раскручивается" title="Мгновенная раскрутка: вкл/выкл"><svg viewBox="0 0 24 24"><path d="M12 2.5a9.5 9.5 0 1 1-9.4 8.1M12 5.5a6.5 6.5 0 1 0 6.3 4.9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M13 6.5 8.5 13h3l-1 4.5 4.5-6.5h-3z"/></svg></button>
+    <button class="instant" type="button" aria-pressed="true" aria-label="Раскрутка под кистью: пока кисть на холсте, он вращается" title="Раскрутка под кистью: вкл/выкл"><svg viewBox="0 0 24 24"><path d="M12 2.5a9.5 9.5 0 1 1-9.4 8.1M12 5.5a6.5 6.5 0 1 0 6.3 4.9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M13 6.5 8.5 13h3l-1 4.5 4.5-6.5h-3z"/></svg></button>
     <button class="clear" type="button">очистить</button>
     <button class="save" type="button">сохранить</button>
   </div>
@@ -383,7 +383,8 @@
         };
         if (!M.glaze) runs(q => q.load > .3, 0, hw * 1.45, m => rgba(m.c, A * .85 * Math.min(1, m.load + .2)));
         for (const q of b.bristles) {
-            runs(m => q.dry <= m.load + .35, q.o * hw, hw * 2 / b.bristles.length * 1.6 * q.w,
+            runs(m => q.dry < m.load * 1.4,  // пустая кисть следа не оставляет
+                q.o * hw, hw * 2 / b.bristles.length * 1.6 * q.w,
                 m => rgba(shade(m.c, q.t * M.streak), A * q.a * (1 - .75 * q.o * q.o) * (.6 + .4 * m.load)));
         }
     }
@@ -420,21 +421,24 @@
             blot(bctx, x, y, r, base, brush.A, M);
         } else {
             const last = brush.pts[brush.pts.length - 1];
-            if (last) brush.load = Math.max(.15, brush.load - Math.hypot(x - last.x, y - last.y) / (r * 45));  // краска на кисти кончается
+            if (last) brush.load = Math.max(0, brush.load - Math.hypot(x - last.x, y - last.y) / (r * 60));  // краска на кисти кончается
         }
         brush.pts.push({ x, y, c: base, load: brush.load });
+        // в раскрутку идёт столько краски, сколько осталось на кисти: касание — полная капля, по ходу мазка всё меньше
+        const L = first ? 1 : brush.load;
+        if (L <= .02) return;
         // лужица мокрая
         for (let yy = y - r; yy <= y + r; yy += CELL) {
             for (let xx = x - r; xx <= x + r; xx += CELL) {
-                if ((xx - x) ** 2 + (yy - y) ** 2 <= r * r) wet(cellAt(xx, yy), c, .65);
+                if ((xx - x) ** 2 + (yy - y) ** 2 <= r * r) wet(cellAt(xx, yy), c, .65 * L);
             }
         }
-        const n = Math.round(r * 2.2);
+        const n = Math.round(r * (first ? 2.2 : 1.1) * L);
         for (let i = 0; i < n; i++) {
             const a = rnd(0, Math.PI * 2), q = Math.sqrt(Math.random()) * r * .75;
             particles.push({
                 x: x + Math.cos(a) * q, y: y + Math.sin(a) * q, vx: 0, vy: 0,
-                m: rnd(.6, 1.4) * r * .16,               // масса — толщина следа
+                m: rnd(.6, 1.4) * r * .16 * (.5 + .5 * L),  // масса — толщина следа
                 stick: rnd(.4, 1.6) * M.stick,            // вязкость: чем больше, тем позже срывается
                 c: c.slice(), md: brush.mk,
             });
@@ -481,12 +485,13 @@
     const mid = () => { const v = [...touches.values()]; return [(v[0][0] + v[1][0]) / 2, (v[0][1] + v[1][1]) / 2, Math.hypot(v[0][0] - v[1][0], v[0][1] - v[1][1])]; };
     cv.addEventListener('pointerdown', e => {
         e.preventDefault();
-        cv.setPointerCapture(e.pointerId);
+        try { cv.setPointerCapture(e.pointerId); } catch (_) { /* указатель уже ушёл */ }
         touches.set(e.pointerId, [e.clientX, e.clientY]);
         if (touches.size === 2) {
             // второй палец — это щипок, а не мазок
             drawing = null;
             cancelStroke();
+            brushSpinEnd();
             const [x, y, dd] = mid(), [cx, cy] = wrapCenter();
             pinch = { d: Math.max(10, dd), z: zoom, ox: x - cx, oy: y - cy, px: panX, py: panY };
             return;
@@ -494,10 +499,12 @@
         if (touches.size > 2) return;
         const [x, y] = toBoard(e);
         drawing = [x, y];
+        hand = { clientX: e.clientX, clientY: e.clientY };
         brush = newBrush(size * .7);
         sv.style.mixBlendMode = brush.op === 'darken' ? 'darken' : 'normal';
         dab(x, y, size * .8, color, true);
         redrawStroke();
+        brushSpinStart();
     });
     cv.addEventListener('pointermove', e => {
         if (touches.has(e.pointerId)) touches.set(e.pointerId, [e.clientX, e.clientY]);
@@ -511,25 +518,56 @@
             return;
         }
         if (!drawing || !brush) return;
-        const [x, y] = toBoard(e), step = Math.max(2, size * .3), dist = Math.hypot(x - drawing[0], y - drawing[1]);
+        hand = { clientX: e.clientX, clientY: e.clientY };
+        brushTo(hand);
+    });
+    // Кисть тянется к точке экрана: шаг за шагом кладёт краску. Холст крутится — под неподвижной кистью точка
+    // холста всё время другая, поэтому tick() зовёт это каждый кадр, и стоящая кисть рисует круг.
+    let hand = null;
+    function brushTo(pt) {
+        const [x, y] = toBoard(pt), step = Math.max(2, size * .3), dist = Math.hypot(x - drawing[0], y - drawing[1]);
         let prev = drawing;
         for (let t = step; t <= dist; t += step) {
-            const k = t / dist, pt = [drawing[0] + (x - drawing[0]) * k, drawing[1] + (y - drawing[1]) * k];
-            dab(pt[0], pt[1], size * .7, color, false);
-            prev = pt;
+            const k = t / dist, q = [drawing[0] + (x - drawing[0]) * k, drawing[1] + (y - drawing[1]) * k];
+            dab(q[0], q[1], size * .7, color, false);
+            prev = q;
         }
-        if (dist >= step) { drawing = prev; redrawStroke(); }
-    });
+        if (dist < step) return;
+        drawing = prev;
+        // длинный мазок (на крутящемся холсте он набегает быстро) кладём на холст кусками: перерисовка остаётся лёгкой
+        if (brush.pts.length > 150) {
+            const b = brush;
+            commitStroke();
+            bctx.clearRect(0, 0, W, H);
+            brush = Object.assign({}, b, { pts: [b.pts[b.pts.length - 1]], p0: particles.length });
+        }
+        redrawStroke();
+    }
+    // Раскрутка под кистью: кисть коснулась — холст сразу на полном ходу, краска ложится на вращающуюся основу
+    // (кисть, что стоит на месте, рисует круг) и тут же разлетается; кисть оторвали — холст тормозит.
+    // Если холст уже крутится от ▶, кисть его не трогает.
+    let brushSpin = false;
+    function brushSpinStart() {
+        if (!instantOn || (raf && !braking && !brushSpin)) return;
+        brushSpin = true;
+        spin();
+        omega = Math.max(omega, OMEGA);
+    }
+    function brushSpinEnd() {
+        if (!brushSpin) return;
+        brushSpin = false;
+        stop();
+    }
     const stopDraw = e => {
         touches.delete(e.pointerId);
         if (touches.size < 2) pinch = null;
         if (!drawing) return;
         drawing = null;
         commitStroke();
-        if (instantOn && !raf) instant();  // включена мгновенная раскрутка — каждый мазок сразу раскручивается
+        brushSpinEnd();
     };
     cv.addEventListener('pointerup', stopDraw);
-    cv.addEventListener('pointercancel', e => { touches.delete(e.pointerId); if (touches.size < 2) pinch = null; drawing = null; cancelStroke(); });
+    cv.addEventListener('pointercancel', e => { touches.delete(e.pointerId); if (touches.size < 2) pinch = null; drawing = null; cancelStroke(); brushSpinEnd(); });
 
     // Раскрутка как у плеера: ▶ разгоняет холст, и он крутится, пока не нажмут ■; ■ — быстрое торможение.
     // Под конец холст доворачивается до ровного положения — один раз, до конца (rest запоминается): иначе доворот
@@ -539,18 +577,7 @@
     const playBtn = $('.play'), stopBtn = $('.stop');
     const instantBtn = $('.instant');
     const buttons = spinning => { playBtn.disabled = spinning; stopBtn.disabled = !spinning; };
-    let instantOn = false;
-    // Мгновенная раскрутка — переключатель: пока включена, каждый мазок, едва кисть оторвалась, раскручивается сразу —
-    // та же физика, что у ▶, но 4 с вращения и торможение считаются за один кадр, без анимации. Включили —
-    // раскручивается и то, что уже лежит на холсте.
-    function instant() {
-        if (raf) return;
-        const dt = 1 / 60;
-        omega = OMEGA;
-        for (let t = 0; t < 4 && particles.length; t += dt) flow(dt);
-        while (omega > .5 && particles.length) { omega -= omega * 1.6 * dt; flow(dt); }
-        omega = 0;
-    }
+    let instantOn = true;   // раскрутка под кистью включена с самого начала
     function spin() {
         const now = performance.now();
         spinUntil = Infinity;
@@ -588,6 +615,7 @@
         cv.style.transform = sv.style.transform = omega ? `rotate(${angle}rad) scale(${k.toFixed(3)})` : '';
         spinK = omega ? k : 1;
         flow(dt);
+        if (drawing && brush && hand) brushTo(hand);
         if (omega > 0 || now < spinUntil) raf = requestAnimationFrame(tick);
         else { raf = 0; omega = 0; angle = 0; rest = null; braking = false; buttons(false); }
     }
@@ -680,7 +708,6 @@
     instantBtn.onclick = () => {
         instantOn = !instantOn;
         instantBtn.setAttribute('aria-pressed', instantOn);
-        if (instantOn && !raf) instant();
     };
     $('.clear').onclick = clearBoard;
     $('.save').onclick = () => {
