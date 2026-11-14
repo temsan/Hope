@@ -20,6 +20,8 @@ void main() { uv = p * .5 + .5; gl_Position = vec4(p, 0., 1.); }`;
     const HEAD = `#version 300 es
 precision highp float;
 #define CAUSTIC ${window.__caustic || 800}.
+#define DISPERSION ${window.__dispersion || .6}
+#define SPECTRAL ${window.__spectral || .8}
 in vec2 uv; out vec4 o;
 `;
     // капля: поднимает воду куполом радиуса r (в долях высоты слоя)
@@ -48,6 +50,10 @@ void main() {
     vec2 n = -normalize(cross(dy, dx)).xz;
     float lit = dot(n, normalize(vec2(-.6, 1.)));
     vec3 glint = pow(max(0., lit), 2.2) * str * vec3(1., .96, .88);
+    // радуга на гребнях: оттенок бежит по кругу вместе с направлением склона, как в капле, которая работает призмой
+    float tilt = length(n);
+    vec3 rainbow = .5 + .5 * cos(6.2832 * (atan(n.y, n.x) / 6.2832 + vec3(0., .33, .67)));
+    glint = mix(glint, glint * rainbow * 1.6, SPECTRAL * smoothstep(.02, .25, tilt));
     // каустика: выпуклая волна работает линзой и собирает свет на дне в тёплые прожилки (по кривизне поверхности)
     // кривизна — по соседям через клетку: мелкая рябь сетки не дробит каустику на бусины
     float lap = texture(sim, uv + vec2(2. * dt.x, 0.)).r + texture(sim, uv - vec2(2. * dt.x, 0.)).r +
@@ -58,9 +64,12 @@ void main() {
     // увеличенную от центра экрана, — с поправкой на наклон воды
     const DRAW_INTRO = HEAD + `uniform sampler2D sim, paint, mask; uniform vec2 dt, cover; uniform float scale, op, str;
 void main() {${SLOPE}
-    vec2 q = uv + n * .014 * str;
-    vec3 pc = texture(paint, (q - .5) * cover + .5).rgb;
-    vec3 m = texture(mask, (q - .5) / scale + .5).rgb;
+    // дисперсия: красный преломляется слабее, синий сильнее — на склонах волн радужная кайма
+    vec2 off = n * .014 * str, qr = uv + off * (1. - DISPERSION), qg = uv + off, qb = uv + off * (1. + DISPERSION);
+    vec3 pc = vec3(texture(paint, (qr - .5) * cover + .5).r, texture(paint, (qg - .5) * cover + .5).g,
+                   texture(paint, (qb - .5) * cover + .5).b);
+    vec3 m = vec3(texture(mask, (qr - .5) / scale + .5).r, texture(mask, (qg - .5) / scale + .5).g,
+                  texture(mask, (qb - .5) / scale + .5).b);
     vec3 under = pc * mix(vec3(1.), m, op);
     o = vec4(under * (1. + caustic * .9) + caustic * .05 * warm + glint * .38, 1.);
 }`;
@@ -70,8 +79,10 @@ void main() {${SLOPE}
 void main() {${SLOPE}
     vec3 light = glint * .34 + caustic * .16 * warm;
     if (hasPaint > .5 && uv.x >= rect.x && uv.x <= rect.z && uv.y >= rect.y && uv.y <= rect.w) {
-        vec2 q = uv + n * .012 * str;
-        vec3 c = texture(paint, clamp((q - rect.xy) / (rect.zw - rect.xy), 0., 1.)).rgb;
+        vec2 off = n * .012 * str, span = rect.zw - rect.xy;
+        vec3 c = vec3(texture(paint, clamp((uv + off * (1. - DISPERSION) - rect.xy) / span, 0., 1.)).r,
+                      texture(paint, clamp((uv + off - rect.xy) / span, 0., 1.)).g,
+                      texture(paint, clamp((uv + off * (1. + DISPERSION) - rect.xy) / span, 0., 1.)).b);
         o = vec4(c * (1. + caustic * .8) + light, 1.);
     } else {
         float shade = max(0., -lit) * .3 * str;  // впадины волн чуть темнее
