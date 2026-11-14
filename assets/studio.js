@@ -7,17 +7,22 @@
 // в его собственных координатах — след ложится на вращающийся холст.
 //
 // Краски смешиваются. Под холстом — сетка мокрой краски (цвет и влажность в клетке 4×4 точки): частица, проходя
-// по мокрому, подхватывает его цвет, а клетка — её; капля, упавшая в мокрое, смешивается с ним. Два режима:
-// акрил — плотная краска на тёмном холсте; акварель — прозрачные слои на белой бумаге (слои сходятся к пигменту:
-// жёлтый поверх синего — зелёный, но не чёрный), у капли темнеет край.
+// по мокрому, подхватывает его цвет, а клетка — её; капля, упавшая в мокрое, смешивается с ним. Основа на выбор:
+// тёмный или белый холст под акрил (плотная краска) и акварельная бумага под акварель (прозрачные слои сходятся
+// к пигменту: жёлтый поверх синего — зелёный, но не чёрный; у капли темнеет край).
 (function () {
     const PAINTS = [
         ['красный', '#d6322b'], ['охра', '#d8b13a'], ['розовый', '#f1c6bb'], ['белый', '#f3eee4'], ['кобальт', '#2552b8'],
         ['бирюза', '#2ea596'], ['фиолетовый', '#5c2f8f'], ['золото', '#c8a04b'], ['чёрный', '#121212'],
     ];
     const SIZES = [['мелкая', 9], ['средняя', 16], ['крупная', 26]];
-    const BOARDS = { acrylic: '#2a2a2d', water: '#f3efe6' };
-    let mode = 'acrylic';
+    // Основа: тёмный или белый грунтованный холст под акрил, акварельная бумага под акварель.
+    const MATERIALS = {
+        dark: { label: 'тёмный холст', paint: 'acrylic', base: '#2a2a2d' },
+        canvas: { label: 'белый холст', paint: 'acrylic', base: '#ece6da' },
+        paper: { label: 'бумага', paint: 'water', base: '#f4f0e6' },
+    };
+    let material = 'dark', mode = 'acrylic';
 
     const css = `
 .studio{position:fixed;inset:0;z-index:5000;display:grid;grid-template-columns:auto auto;align-items:center;justify-content:center;
@@ -32,9 +37,11 @@
 .studio h2{margin:0;font:400 clamp(1.8rem,3.4vw,2.8rem)/.9 Spectral,serif;letter-spacing:-.04em}
 .studio h2 em{color:#d6b775}
 .studio p{margin:0;color:#efe7d89e;font-size:.82rem;line-height:1.6}
-.studio .modes{display:flex;border:1px solid #efe7d84d}
-.studio .mode{background:none;border:0;color:#efe7d8b3;font:inherit;font-size:.78rem;padding:.5rem .9rem;cursor:pointer}
-.studio .mode[aria-pressed=true]{background:#efe7d8;color:#050608}
+.studio .mats{display:grid;gap:.35rem}
+.studio .mats-row{display:flex;gap:.45rem}
+.studio .mat{width:3.1rem;height:3.1rem;border:1px solid #efe7d84d;border-radius:3px;cursor:pointer;padding:0;background-size:cover}
+.studio .mat[aria-pressed=true]{outline:2px solid #efe7d8;outline-offset:2px}
+.studio .mat-name{font-size:.72rem;color:#efe7d8b3;letter-spacing:.04em}
 .studio .paints{display:grid;grid-template-columns:repeat(3,2.6rem);gap:.55rem}
 .studio .paint{width:2.6rem;height:2.6rem;border-radius:46% 54% 50% 50%/55% 45% 55% 45%;border:0;cursor:pointer;padding:0;
   box-shadow:inset -4px -5px 8px #0006,inset 3px 3px 6px #fff4;transition:transform .15s}
@@ -72,9 +79,9 @@
   <h2>Своя <em>раскрутка</em></h2>
   <p>Наберите краску, капните или проведите по холсту — и раскрутите. Мокрые краски смешиваются; можно добавить ещё
     и докрутить.</p>
-  <div class="modes" role="group" aria-label="Краска">
-    <button class="mode" type="button" data-mode="acrylic" aria-pressed="true">акрил</button>
-    <button class="mode" type="button" data-mode="water" aria-pressed="false">акварель</button>
+  <div class="mats">
+    <div class="mats-row" role="group" aria-label="Основа"></div>
+    <div class="mat-name"></div>
   </div>
   <div class="paints" role="group" aria-label="Краски"></div>
   <div class="sizes" role="group" aria-label="Размер капли"></div>
@@ -131,7 +138,7 @@
         cv.width = W * d; cv.height = H * d;
         cv.style.width = W + 'px'; cv.style.height = H + 'px';
         ctx.setTransform(d, 0, 0, d, 0, 0);
-        ctx.fillStyle = BOARDS[mode];
+        ctx.fillStyle = MATERIALS[material].base;
         ctx.fillRect(0, 0, W, H);
         if (old) ctx.drawImage(old, 0, 0, W, H);
         particles.forEach(p => { p.x *= sx; p.y *= sx; p.m *= sx; });
@@ -160,15 +167,46 @@
         } else { gR[i] = c[0]; gG[i] = c[1]; gB[i] = c[2]; }
         gWet[i] = Math.max(gWet[i], .9);
     }
+    // Фактура основы: у холста — переплетение нитей (уток и основа с неровной толщиной), у бумаги — зерно
+    // холодного прессования (мягкие бугорки) и редкие волокна.
+    function texture(g, w, h, mat) {
+        const m = MATERIALS[mat];
+        g.fillStyle = m.base;
+        g.fillRect(0, 0, w, h);
+        if (m.paint === 'water') {
+            for (let i = 0; i < w * h / 55; i++) {
+                const r = rnd(1.2, 3.6), x = rnd(0, w), y = rnd(0, h), gr = g.createRadialGradient(x, y, 0, x, y, r);
+                const a = rnd(.03, .08);
+                gr.addColorStop(0, `rgba(120,100,70,${a})`);
+                gr.addColorStop(1, 'rgba(120,100,70,0)');
+                g.fillStyle = gr;
+                g.fillRect(x - r, y - r, r * 2, r * 2);
+            }
+            g.strokeStyle = 'rgba(140,120,90,.08)';
+            g.lineWidth = .5;
+            for (let i = 0; i < w * h / 4000; i++) {
+                const x = rnd(0, w), y = rnd(0, h), a = rnd(0, Math.PI);
+                g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + rnd(-6, 6), y + rnd(-6, 6), x + Math.cos(a) * 14, y + Math.sin(a) * 14); g.stroke();
+            }
+        } else {
+            const light = mat === 'canvas', step = 2.6;
+            for (let y = 0; y < h; y += step) {
+                g.fillStyle = light ? `rgba(110,95,70,${rnd(.04, .1)})` : `rgba(255,255,255,${rnd(.015, .045)})`;
+                g.fillRect(0, y, w, step * rnd(.35, .55));
+            }
+            for (let x = 0; x < w; x += step) {
+                g.fillStyle = light ? `rgba(110,95,70,${rnd(.03, .08)})` : `rgba(0,0,0,${rnd(.05, .12)})`;
+                g.fillRect(x, 0, step * rnd(.35, .55), h);
+            }
+            for (let i = 0; i < w * h / 120; i++) {
+                g.fillStyle = light ? `rgba(90,75,50,${rnd(0, .06)})` : `rgba(255,255,255,${rnd(0, .03)})`;
+                g.fillRect(rnd(0, w), rnd(0, h), 1, 1);
+            }
+        }
+    }
     function clearBoard() {
         ctx.globalCompositeOperation = 'source-over';
-        ctx.fillStyle = BOARDS[mode];
-        ctx.fillRect(0, 0, W, H);
-        // лёгкая фактура: зерно холста или волокна бумаги
-        for (let i = 0; i < W * H / 90; i++) {
-            ctx.fillStyle = mode === 'water' ? `rgba(90,70,40,${rnd(0, .05)})` : `rgba(255,255,255,${rnd(0, .025)})`;
-            ctx.fillRect(rnd(0, W), rnd(0, H), mode === 'water' ? rnd(1, 3) : 1, 1);
-        }
+        texture(ctx, W, H, material);
         makeGrid();
         particles = [];
         angle = 0;
@@ -259,34 +297,46 @@
     cv.addEventListener('pointerup', stopDraw);
     cv.addEventListener('pointercancel', stopDraw);
 
-    // Раскрутка: разгон, вращение, замедление. Повторное нажатие продлевает.
+    // Раскрутка: разгон, вращение 4 с, замедление. Пока холст крутится, кнопка — «остановить»: быстрое торможение.
+    // Под конец холст доворачивается до ровного положения — один раз, до конца (rest запоминается): иначе доворот
+    // снова разгонял бы холст, тот проскакивал ровное положение, и вращение не кончалось.
     const OMEGA = 15;   // рад/с на полном ходу
-    let spinUntil = 0, raf = 0, last = 0;
+    let spinUntil = 0, raf = 0, last = 0, braking = false, rest = null;
+    const spinBtn = $('.spin');
     function spin() {
         const now = performance.now();
-        spinUntil = Math.max(spinUntil, now) + 2600;
+        if (raf && !braking) { spinUntil = 0; braking = true; spinBtn.textContent = 'раскрутить'; return; }  // остановить
+        spinUntil = now + 4000;
+        braking = false;
+        rest = null;
+        spinBtn.textContent = 'остановить';
         if (!raf) { last = now; raf = requestAnimationFrame(tick); }
     }
     function tick(now) {
         const dt = Math.min(.033, (now - last) / 1000);
         last = now;
-        // к цели — плавно: разгон ~0,7 с, замедление ~1,5 с; под конец холст доворачивается до ровного положения
-        const target = now < spinUntil ? OMEGA : 0, TURN = Math.PI * 2;
-        if (target === 0 && omega < 2.5) {
-            const rest = Math.ceil(angle / TURN - .02) * TURN, was = angle;
-            angle += (rest - angle) * Math.min(1, dt * 2.6);
-            omega = (angle - was) / Math.max(dt, 1e-3);
-            if (rest - angle < .002) { angle = rest; omega = 0; }
-        } else {
-            omega += (target - omega) * Math.min(1, dt * (target > omega ? 3 : 1.6));
+        const TURN = Math.PI * 2;
+        if (now < spinUntil) {
+            omega += (OMEGA - omega) * Math.min(1, dt * 3);       // разгон ~0,7 с
             angle += omega * dt;
+        } else if (rest === null && omega > 3) {
+            if (spinBtn.textContent !== 'раскрутить') spinBtn.textContent = 'раскрутить';
+            omega -= omega * Math.min(1, dt * (braking ? 5 : 1.6));  // замедление: ~1,5 с, по кнопке ~0,4 с
+            angle += omega * dt;
+        } else {
+            // доворот до ближайшего ровного положения впереди
+            if (rest === null) rest = Math.ceil(angle / TURN + .05) * TURN;
+            const was = angle;
+            angle += (rest - angle) * Math.min(1, dt * (braking ? 7 : 3.2));  // по кнопке — быстрее
+            omega = (angle - was) / Math.max(dt, 1e-3);
+            if (rest - angle < .003) { angle = rest; omega = 0; }
         }
         // на ходу холст чуть отъезжает: повёрнутые углы помещаются в его место
         const k = 1 - .3 * Math.min(1, omega / 4);
         cv.style.transform = omega ? `rotate(${angle}rad) scale(${k.toFixed(3)})` : '';
         flow(dt);
         if (omega > 0 || now < spinUntil) raf = requestAnimationFrame(tick);
-        else { raf = 0; omega = 0; angle = 0; }
+        else { raf = 0; omega = 0; angle = 0; rest = null; braking = false; spinBtn.textContent = 'раскрутить'; }
     }
     function flow(dt) {
         const cx = W / 2, cy = H / 2, scale = Math.min(W, H) / 400, w2 = omega * omega, water = mode === 'water';
@@ -327,12 +377,29 @@
         ctx.globalCompositeOperation = 'source-over';
     }
 
-    root.querySelectorAll('.mode').forEach(b => b.onclick = () => {
-        if (b.dataset.mode === mode) return;
-        mode = b.dataset.mode;
-        root.querySelectorAll('.mode').forEach(x => x.setAttribute('aria-pressed', x === b));
-        clearBoard();  // акрил — тёмный холст, акварель — белая бумага
+    // Выбор основы: образцы — кусочки той же фактуры; смена основы начинает работу заново.
+    Object.keys(MATERIALS).forEach(key => {
+        const b = document.createElement('button'), sw = document.createElement('canvas');
+        b.className = 'mat';
+        b.type = 'button';
+        b.dataset.mat = key;
+        b.setAttribute('aria-label', MATERIALS[key].label + (MATERIALS[key].paint === 'water' ? ', акварель' : ', акрил'));
+        b.setAttribute('aria-pressed', key === material);
+        sw.width = sw.height = 100;
+        texture(sw.getContext('2d'), 100, 100, key);
+        b.style.backgroundImage = `url(${sw.toDataURL()})`;
+        b.onclick = () => {
+            if (key === material) return;
+            material = key;
+            mode = MATERIALS[key].paint;
+            root.querySelectorAll('.mat').forEach(x => x.setAttribute('aria-pressed', x === b));
+            $('.mat-name').textContent = matName();
+            clearBoard();
+        };
+        $('.mats-row').appendChild(b);
     });
+    const matName = () => MATERIALS[material].label + ' · ' + (mode === 'water' ? 'акварель' : 'акрил');
+    $('.mat-name').textContent = matName();
     $('.spin').onclick = spin;
     $('.clear').onclick = clearBoard;
     $('.save').onclick = () => {
