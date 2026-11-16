@@ -496,7 +496,8 @@ void main() {${SLOPE}
             dripNow = goal > dripNow ? Math.min(goal, dripNow + ddt * DRIP_SPEED) : Math.max(goal, dripNow - ddt * 3);
             const d = dripNow, flowing = goal > dripNow + 1e-4;
             // потёки держат слой и в затишье: обычная вёрстка их нарисовать не может
-            s.setActive(paintReady && glyphs && w.ready && !document.hidden && !window.__inGallery && (str > .002 || d > .001 || goal > .001));
+            // вступление кончилось (k = 1) — слой гаснет сразу: дальше под ним идёт пролёт
+            s.setActive(paintReady && glyphs && w.ready && !document.hidden && !window.__inGallery && i.k < 1 && (str > .002 || d > .001 || goal > .001));
             if (!s.active) return;
             // стартовые капли и отсчёт затишья — с первого готового кадра (на медленной сети шрифты приходят
             // не сразу); открыли страницу не с начала — капель не будет

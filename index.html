@@ -2120,10 +2120,7 @@
                 CLIP_FROM = .25, // доля сегмента, после которой играет клип перехода
                 pad = n => String(n).padStart(2, '0'),
                 // Телефону — стоп-кадры 960 px (как клипы пролёта), вчетверо легче; первый ставит скрипт в разметке.
-                // На медленной сети или с экономией трафика (lite) вперёд качаем по минимуму.
                 small = matchMedia('(max-width: 600px)').matches,
-                net = navigator.connection,
-                lite = !!net && (net.saveData || /2g|3g/.test(net.effectiveType || '')),
                 images = ORDER.map(n => `assets/stills/${small ? 's/' : ''}img_${pad(n)}.jpg`),
                 $ = s => document.querySelector(s),
                 journey = $('.journey'), flight = $('#flight'), bar = $('.progress'), wall = $('.flight .void'),
@@ -2218,9 +2215,7 @@
             function warm(index) {
                 arts.forEach((img, i) => { if (i >= index && i <= index + 2 && !img.src) img.src = img.dataset.src; });
                 const again = () => warm(Math.max(0, shown));
-                // lite: только ближайшие два клипа, остальные — когда до них дойдёт пролёт
-                const next = clips.slice(0, lite ? 2 : clips.length).map((_, k) => clips[(index + k) % clips.length])
-                    .find(v => !v.src || !loaded(v));
+                const next = clips.map((_, k) => clips[(index + k) % clips.length]).find(v => !v.src || !loaded(v));
                 if (!next) return clipsDone();
                 if (!next.src) {
                     next.src = next.dataset.src;
@@ -3518,9 +3513,8 @@
             const n = imagesData.length;
             // соседи открытой картины — сразу, вне очереди: на них переключатся первыми
             if (neighbors) [1, -1].forEach(d => loadImage(imagesData[(from + d + n) % n].medium));
-            // на медленной сети или с экономией трафика всю галерею вперёд не качаем — только открытую и соседей
-            const net = navigator.connection;
-            if (mediumQueued || (net && (net.saveData || /2g|3g/.test(net.effectiveType || '')))) return;
+            // с включённой в браузере экономией трафика всю галерею вперёд не качаем — только открытую и соседей
+            if (mediumQueued || (navigator.connection && navigator.connection.saveData)) return;
             mediumQueued = true;
             afterClips.then(async () => {
                 for (let k = 0; k < n; k++) await loadImage(imagesData[(from + k) % n].medium);
