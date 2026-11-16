@@ -286,6 +286,10 @@ void main() {${SLOPE}
     const CALM = 1800, SETTLE = 1800;
 
     // Сцена — вода на холсте плюс то, что она рисует; движение указателя будит её.
+    // Воду можно выключить кнопкой «вода» (запоминается): холсты прячутся, кадры не рисуются, заголовок и картины
+    // остаются обычной вёрсткой.
+    let waterOn = true;
+    try { waterOn = localStorage.getItem('hope-water') !== 'off'; } catch (_) { /* хранилище недоступно */ }
     const scenes = [];
     function scene(opts) {
         const s = Object.assign({ active: false, raf: 0, last: null, lastMotion: -1e9 }, opts);
@@ -293,6 +297,7 @@ void main() {${SLOPE}
         s.box = () => s.cv.parentElement.getBoundingClientRect();
         s.wake = () => { if (!s.raf) s.raf = requestAnimationFrame(() => { s.raf = 0; s.tick(); }); };
         s.setActive = on => {
+            on = on && waterOn;
             if (on === s.active) return;
             s.active = on;
             s.cv.style.display = on ? 'block' : 'none';
@@ -301,7 +306,7 @@ void main() {${SLOPE}
         };
         // указатель: капля на каждый сдвиг, сильнее при быстром движении
         s.move = (x, y) => {
-            if (!s.wants()) return;
+            if (!waterOn || !s.wants()) return;
             const r = s.box();
             if (!r.width || !r.height) return;
             const dist = s.last ? Math.hypot(x - s.last[0], y - s.last[1]) : 0;
@@ -311,7 +316,7 @@ void main() {${SLOPE}
             s.wake();
         };
         s.tap = (x, y) => {
-            if (!s.wants()) return;
+            if (!waterOn || !s.wants()) return;
             const r = s.box();
             if (!r.width || !r.height) return;
             s.lastMotion = performance.now();
@@ -322,6 +327,39 @@ void main() {${SLOPE}
         scenes.push(s);
         return s;
     }
+    // кнопка «вода» — в левом верхнем углу, в той же манере, что «сразу в галерею»; в галерее опускается ниже её кнопок
+    (function () {
+        const st = document.createElement('style');
+        st.textContent = `.water-toggle{position:fixed;z-index:4500;top:clamp(1.4rem,4vw,4rem);left:clamp(1.45rem,4vw,4.05rem);
+  padding:.5rem 0;border:0;background:none;color:var(--muted,#efe7d880);text-transform:uppercase;letter-spacing:.19em;font-size:10px;
+  font-weight:600;cursor:pointer;display:flex;gap:.5em;align-items:center;transition:color .2s,top .3s;font-family:inherit}
+.water-toggle.in-gallery{top:calc(clamp(1.4rem,4vw,4rem) + 3.2rem)}
+.water-toggle:focus-visible{color:var(--paper,#efe7d8)}
+@media (hover:hover){.water-toggle:hover{color:var(--paper,#efe7d8)}}
+.water-toggle svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.water-toggle[aria-pressed=true] .off{display:none}`;
+        document.head.appendChild(st);
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'water-toggle';
+        const show = () => {
+            b.setAttribute('aria-pressed', waterOn);
+            b.title = waterOn ? 'Эффект воды: включён' : 'Эффект воды: выключен';
+        };
+        b.setAttribute('aria-label', 'Эффект воды');
+        b.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.8c2.4 3 4 5.2 4 7.4a4 4 0 0 1-8 0c0-2.2 1.6-4.4 4-7.4z"/><path class="off" d="M2.5 2.5l11 11"/></svg>вода';
+        show();
+        b.onclick = () => {
+            waterOn = !waterOn;
+            try { localStorage.setItem('hope-water', waterOn ? 'on' : 'off'); } catch (_) { /* не запомним */ }
+            show();
+            scenes.forEach(s => { if (waterOn) s.lastMotion = performance.now(); s.wake(); });
+        };
+        // нажатие на кнопку — не капля в воду
+        b.addEventListener('pointerdown', e => e.stopPropagation());
+        document.body.appendChild(b);
+        setInterval(() => b.classList.toggle('in-gallery', window.__inGallery === true), 400);
+    })();
     addEventListener('pointermove', e => scenes.forEach(s => s.move(e.clientX, e.clientY)), { passive: true });
     addEventListener('touchmove', e => { const t = e.touches[0]; if (t) scenes.forEach(s => s.move(t.clientX, t.clientY)); }, { passive: true });
     addEventListener('pointerdown', e => scenes.forEach(s => s.tap(e.clientX, e.clientY)), { passive: true });
