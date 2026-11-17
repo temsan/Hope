@@ -49,6 +49,12 @@
   gap:clamp(1rem,4vw,3.5rem);padding:clamp(1rem,3vw,2.5rem);background:radial-gradient(ellipse at 50% 45%,#16131a 0%,#050608 75%);
   color:#efe7d8;font-family:Manrope,sans-serif;opacity:0;transition:opacity .35s}
 .studio.open{opacity:1}
+.studio .modes{grid-column:1/-1;justify-self:center;display:flex;border:1px solid #efe7d84d;border-radius:999px;padding:3px;gap:2px}
+.studio .mode{display:flex;align-items:center;gap:.45em;padding:.5rem .95rem;border:0;border-radius:999px;background:none;color:#efe7d8b3;
+  font:inherit;font-size:.78rem;letter-spacing:.02em;cursor:pointer;transition:background .2s,color .2s}
+.studio .mode svg{width:1.05rem;height:1.05rem;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.studio .mode[aria-checked=true]{background:#efe7d8;color:#050608}
+@media (hover:hover){.studio .mode[aria-checked=false]:hover{color:#efe7d8}}
 .studio[hidden]{display:none}
 .studio .board-wrap{position:relative;display:grid;place-items:center;touch-action:none}
 .studio .board-wrap.zoomed{overflow:hidden;border-radius:4px}
@@ -99,7 +105,8 @@
 .studio .acts button:disabled{opacity:.35;cursor:default;background:transparent;color:inherit}
 .studio .close{position:absolute;top:1rem;right:1.2rem;background:none;border:0;color:#efe7d8b0;font-size:1.6rem;cursor:pointer;line-height:1}
 @media (max-width:760px){
-  .studio{grid-template-columns:1fr;grid-template-rows:auto auto;align-content:center;gap:1rem}
+  .studio{grid-template-columns:1fr;grid-template-rows:auto auto auto;align-content:center;gap:.8rem}
+  .studio .mode{padding:.45rem .75rem;font-size:.74rem}
   .studio .side{order:2;max-width:none;justify-items:center;text-align:center;gap:.65rem}
   .studio .mats{justify-items:center}
   .studio .mats-row,.studio .media-row{flex-wrap:nowrap}
@@ -121,6 +128,11 @@
     root.setAttribute('aria-label', 'Мастерская: своя картина раскруткой');
     root.innerHTML = `
 <button class="close" type="button" aria-label="Закрыть мастерскую">×</button>
+<div class="modes" role="radiogroup" aria-label="Как идёт раскрутка">
+  <button class="mode" type="button" role="radio" data-mode="spin" title="Вращение: холст крутится у вас на глазах"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M18 2.8v3.7h-3.7"/></svg>вращение</button>
+  <button class="mode" type="button" role="radio" data-mode="develop" title="Проявка: холст стоит, краска разбегается лучами"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="2.2"/><path d="M12 2.5v4M12 17.5v4M2.5 12h4M17.5 12h4M5.3 5.3l2.8 2.8M15.9 15.9l2.8 2.8M18.7 5.3l-2.8 2.8M8.1 15.9l-2.8 2.8"/></svg>проявка</button>
+  <button class="mode" type="button" role="radio" data-mode="instant" title="Сразу: без анимации, готовый результат мгновенно"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2.5 5.5 13.5h5.5l-1 8 7.5-11h-5.5z"/></svg>сразу</button>
+</div>
 <div class="board-wrap"><div class="view"><canvas aria-label="Холст: касание — капля краски, проведение — мазок; колесо или щипок — масштаб"></canvas><canvas class="stroke" aria-hidden="true"></canvas></div></div>
 <div class="side">
   <h2>Своя <em>раскрутка</em></h2>
@@ -142,7 +154,7 @@
   <div class="acts">
     <button class="play" type="button" aria-label="Раскрутить" title="Раскрутить"><svg viewBox="0 0 16 16"><path d="M4 2.5v11l9.5-5.5z"/></svg></button>
     <button class="stop" type="button" aria-label="Остановить" title="Остановить" disabled><svg viewBox="0 0 16 16"><rect x="3" y="3" width="10" height="10"/></svg></button>
-    <button class="instant" type="button" aria-pressed="true" aria-label="Раскрутка под кистью: пока кисть на холсте, он вращается" title="Раскрутка под кистью: вкл/выкл"><svg viewBox="0 0 24 24"><path d="M12 2.5a9.5 9.5 0 1 1-9.4 8.1M12 5.5a6.5 6.5 0 1 0 6.3 4.9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M13 6.5 8.5 13h3l-1 4.5 4.5-6.5h-3z"/></svg></button>
+    <button class="instant" type="button" aria-pressed="true" aria-label="Авто: раскрутка под кистью" title="Авто: крутить, пока кисть на холсте (вкл/выкл)"><svg viewBox="0 0 24 24"><path d="M12 2.5a9.5 9.5 0 1 1-9.4 8.1M12 5.5a6.5 6.5 0 1 0 6.3 4.9M12 8.5a3.5 3.5 0 1 1-3.3 2.4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
     <button class="clear" type="button">очистить</button>
     <button class="save" type="button">сохранить</button>
   </div>
@@ -194,7 +206,7 @@
     const rnd = (a, b) => a + (b - a) * Math.random();
     function layout() {
         const narrow = innerWidth <= 760;
-        const maxH = narrow ? innerHeight * .55 : innerHeight * .82, maxW = narrow ? innerWidth * .92 : innerWidth * .6;
+        const maxH = narrow ? innerHeight * .52 : innerHeight * .78, maxW = narrow ? innerWidth * .92 : innerWidth * .6;
         const h = Math.min(maxH, maxW * 4 / 3), w = h * 3 / 4;
         const nd = Math.min(2, devicePixelRatio || 1);
         if (Math.round(w) === W && Math.round(h) === H && nd === d) return;
@@ -537,11 +549,16 @@
     // Точка экрана → точка холста с учётом масштаба вида, поворота и того, что на ходу холст чуть отъезжает.
     function toBoard(e) {
         const [cx0, cy0] = wrapCenter(), cx = cx0 + panX, cy = cy0 + panY, k = zoom * spinK;
-        const dx = (e.clientX - cx) / k, dy = (e.clientY - cy) / k, c = Math.cos(-angle), s = Math.sin(-angle);
+        const dx = (e.clientX - cx) / k, dy = (e.clientY - cy) / k, a = shownAngle(), c = Math.cos(-a), s = Math.sin(-a);
         return [W / 2 + dx * c - dy * s, H / 2 + dx * s + dy * c];
     }
     let drawing = null, pinch = null;
     const touches = new Map();
+    // Вид раскрутки: «вращение» — холст крутится на экране; «проявка» — та же физика, но холст стоит, и краска
+    // разбегается лучами у вас на глазах; «сразу» — без анимации, расчёт целиком за один раз. Запоминается.
+    let mode = 'spin';
+    try { mode = ['spin', 'develop', 'instant'].includes(localStorage.getItem('hope-spin-mode')) ? localStorage.getItem('hope-spin-mode') : 'spin'; } catch (_) { /* хранилище недоступно */ }
+    const shownAngle = () => (mode === 'spin' ? angle : 0);
     const mid = () => { const v = [...touches.values()]; return [(v[0][0] + v[1][0]) / 2, (v[0][1] + v[1][1]) / 2, Math.hypot(v[0][0] - v[1][0], v[0][1] - v[1][1])]; };
     cv.addEventListener('pointerdown', e => {
         e.preventDefault();
@@ -608,7 +625,7 @@
     // Если холст уже крутится от ▶, кисть его не трогает.
     let brushSpin = false;
     function brushSpinStart() {
-        if (!instantOn || (raf && !braking && !brushSpin)) return;
+        if (!instantOn || mode === 'instant' || (raf && !braking && !brushSpin)) return;
         brushSpin = true;
         spin();
         omega = Math.max(omega, OMEGA);
@@ -625,6 +642,7 @@
         drawing = null;
         commitStroke();
         brushSpinEnd();
+        if (mode === 'instant' && instantOn) develop();  // «сразу» + авто: мазок раскручивается, как только кисть оторвали
     };
     cv.addEventListener('pointerup', stopDraw);
     cv.addEventListener('pointercancel', e => { touches.delete(e.pointerId); if (touches.size < 2) pinch = null; drawing = null; cancelStroke(); brushSpinEnd(); });
@@ -638,7 +656,16 @@
     const instantBtn = $('.instant');
     const buttons = spinning => { playBtn.disabled = spinning; stopBtn.disabled = !spinning; };
     let instantOn = true;   // раскрутка под кистью включена с самого начала
+    // «Сразу»: прогоняем раскрутку полным ходом без кадров, пока краска не перестанет течь (не дольше ~5 с хода).
+    function develop() {
+        if (raf) stop();
+        const was = omega;
+        omega = OMEGA;
+        for (let i = 0; i < 160; i++) if (!flow(1 / 30)) break;
+        omega = was;
+    }
     function spin() {
+        if (mode === 'instant') { develop(); return; }
         const now = performance.now();
         spinUntil = Infinity;
         braking = false;
@@ -670,10 +697,10 @@
             omega = (angle - was) / Math.max(dt, 1e-3);
             if (rest - angle < .003) { angle = rest; omega = 0; }
         }
-        // на ходу холст чуть отъезжает: повёрнутые углы помещаются в его место
-        const k = 1 - .3 * Math.min(1, omega / 4);
-        cv.style.transform = sv.style.transform = omega ? `rotate(${angle}rad) scale(${k.toFixed(3)})` : '';
-        spinK = omega ? k : 1;
+        // на ходу холст чуть отъезжает (в «проявке» он стоит на месте)
+        const k = 1 - .3 * Math.min(1, omega / 4), turning = omega && mode === 'spin';
+        cv.style.transform = sv.style.transform = turning ? `rotate(${angle}rad) scale(${k.toFixed(3)})` : '';
+        spinK = turning ? k : 1;
         flow(dt);
         if (drawing && brush && hand) brushTo(hand);
         if (omega > 0 || now < spinUntil) raf = requestAnimationFrame(tick);
@@ -681,7 +708,7 @@
     }
     function flow(dt) {
         const cx = W / 2, cy = H / 2, scale = Math.min(W, H) / 400, w2 = omega * omega, light = GROUNDS[material].light;
-        let cur = null;
+        let cur = null, moved = 0;
         const keep = [], spray = [];
         for (const p of particles) {
             const M = MEDIA[p.md], water = !!M.glaze;
@@ -711,6 +738,7 @@
             ctx.lineTo(nx, ny);
             ctx.stroke();
             p.x = nx; p.y = ny;
+            moved++;
             p.m -= len * M.lose;                     // краска остаётся на холсте
             if (p.m > .9 && Math.random() < len * M.spray) {  // брызги
                 const a = Math.atan2(p.vy, p.vx) + rnd(-.5, .5), v = Math.hypot(p.vx, p.vy) * rnd(.8, 1.4);
@@ -721,6 +749,7 @@
         }
         particles = keep.concat(spray);
         ctx.globalCompositeOperation = 'source-over';
+        return moved;  // сколько капель ещё течёт
     }
 
     // Выбор основы: образцы — кусочки той же фактуры; смена основы начинает работу заново.
@@ -771,6 +800,17 @@
     };
     $('.mixbar').onclick = () => { colors.reverse(); showLoad(); };
     showLoad();
+    function showMode() {
+        root.querySelectorAll('.mode').forEach(b => b.setAttribute('aria-checked', b.dataset.mode === mode));
+        playBtn.title = playBtn.ariaLabel = mode === 'instant' ? 'Раскрутить сразу' : 'Раскрутить';
+    }
+    root.querySelectorAll('.mode').forEach(b => b.onclick = () => {
+        mode = b.dataset.mode;
+        try { localStorage.setItem('hope-spin-mode', mode); } catch (_) { /* не запомним */ }
+        if (mode === 'instant' && raf) stop();
+        showMode();
+    });
+    showMode();
     playBtn.onclick = spin;
     stopBtn.onclick = stop;
     instantBtn.onclick = () => {

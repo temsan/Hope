@@ -1124,6 +1124,18 @@
             background: rgba(255, 248, 220, 0.16);
         }
 
+        /* На сенсорных экранах полосу прокрутки страницы прячем: прокрутка ведёт пролёт, и ползунок, бегущий вниз,
+           выглядел бы обычным листанием. Ход пролёта показывает своя линия (.progress). */
+        @media (pointer: coarse) {
+            html {
+                scrollbar-width: none
+            }
+
+            html::-webkit-scrollbar {
+                display: none
+            }
+        }
+
         /* Fluid art ink divider */
         .fluid-divider {
             position: relative;
@@ -1185,7 +1197,8 @@
             box-shadow: 0 0 10vh 2vh rgb(var(--room-glow, 8 6 5) / .45)
         }
 
-        /* Мольберт: лежит под картиной; тёплый отсвет свечей. При приближении картины уходит. */
+        /* Мольберт: лежит под картиной. Ночной: тёмный, графитовый, по правым граням — холодный отблеск луны
+           (она справа сверху). При приближении картины уходит. */
         .easel {
             position: absolute;
             inset: 0;
@@ -1193,7 +1206,7 @@
             height: 100%;
             overflow: visible;
             pointer-events: none;
-            filter: drop-shadow(0 0 18px rgb(255 170 90 / .12)) brightness(.9);
+            filter: drop-shadow(0 10px 18px rgb(0 0 0 / .55));
             transition: opacity .45s ease
         }
 
@@ -1673,6 +1686,29 @@
             color: var(--ink)
         }
 
+        /* Телефон: кнопки компактнее и в одну строку, луна опускается под них — иначе «раскрутить свою» ложится на луну */
+        @media (max-width: 600px) {
+            .flight .arrival {
+                top: 1.1rem;
+                left: 1.1rem
+            }
+
+            .arrival .actions {
+                flex-wrap: nowrap;
+                gap: .5rem
+            }
+
+            .arrival button {
+                padding: .55rem .8rem;
+                font-size: .8rem;
+                white-space: nowrap
+            }
+
+            .moon-glow {
+                top: 4.4rem
+            }
+        }
+
         /* ── Палитра художника: работы — мазки краски на стеклянной палитре ── */
         :root {
             --palette-w: min(440px, 88vw, 44vh)
@@ -1805,18 +1841,7 @@
         <!-- Мольберт за картиной: размеры — по картине (layoutEasel) -->
         <svg class="easel" id="easel" aria-hidden="true">
             <defs>
-                <linearGradient id="easelWood" x1="0" x2="1" y1="0" y2="0">
-                    <stop offset="0" stop-color="#2a1a0e" />
-                    <stop offset=".45" stop-color="#5e3f24" />
-                    <stop offset=".7" stop-color="#7a5532" />
-                    <stop offset="1" stop-color="#2f1d10" />
-                </linearGradient>
-                <linearGradient id="easelShelf" x1="0" x2="0" y1="0" y2="1">
-                    <stop offset="0" stop-color="#8a6238" />
-                    <stop offset=".35" stop-color="#5a3c22" />
-                    <stop offset="1" stop-color="#24160b" />
-                </linearGradient>
-                <!-- к полу ножки тонут в темноте комнаты -->
+                <!-- к полу мольберт тонет в темноте комнаты -->
                 <linearGradient id="easelFade" gradientUnits="userSpaceOnUse" x1="0" x2="0" y1="0" y2="1">
                     <stop offset="0" stop-color="#fff" />
                     <stop offset="1" stop-color="#fff" stop-opacity="0" />
@@ -1825,13 +1850,29 @@
                     <rect id="easelMaskTop" fill="#fff" />
                     <rect id="easelMaskRect" fill="url(#easelFade)" />
                 </mask>
+                <!-- шершавость крашеного дерева: едва заметное зерно вдоль брусков -->
+                <filter id="easelGrain" x="0" y="0" width="1" height="1">
+                    <feTurbulence type="fractalNoise" baseFrequency=".9 .04" numOctaves="2" seed="7" />
+                    <feColorMatrix values="0 0 0 0 .5  0 0 0 0 .5  0 0 0 0 .5  0 0 0 .09 0" />
+                    <feComposite in2="SourceGraphic" operator="in" />
+                    <feBlend in2="SourceGraphic" mode="overlay" />
+                </filter>
             </defs>
             <g mask="url(#easelMask)">
-                <path id="easelBack" fill="#1c1209" />
-                <path id="easelLegs" fill="url(#easelWood)" />
-                <path id="easelMast" fill="url(#easelWood)" />
-                <path id="easelShelfPath" fill="url(#easelShelf)" />
-                <path id="easelClamp" fill="url(#easelShelf)" />
+                <g filter="url(#easelGrain)">
+                    <path id="easelBack" fill="#0d0e11" />
+                    <path id="easelBrace" fill="#15161a" />
+                    <path id="easelLegs" fill="#17181c" />
+                    <path id="easelMast" fill="#1a1b20" />
+                    <path id="easelShelfPath" fill="#1c1d22" />
+                    <path id="easelShelfTop" fill="#3b3f48" />
+                    <path id="easelClamp" fill="#1c1d22" />
+                </g>
+                <!-- отблеск луны по правым граням и тень под полкой -->
+                <path id="easelRim" fill="#a9b6cc" opacity=".26" />
+                <path id="easelShelfShade" fill="#000" opacity=".45" />
+                <circle id="easelKnob" fill="#2a2c33" stroke="#7d889a" stroke-opacity=".45" />
+                <path id="easelKnobWing" fill="#23252b" />
             </g>
         </svg>
         <img class="modal-content" id="modalImg">
@@ -3066,16 +3107,41 @@
                 spread = Math.max(w * .62, (floor - mastTop) * .28);    // насколько ножки расходятся у пола
             const set = (id, d) => document.getElementById(id).setAttribute('d', d);
             const leg = (x0, y0, x1, y1, t0, t1) => `M${x0 - t0},${y0} L${x0 + t0},${y0} L${x1 + t1},${y1} L${x1 - t1},${y1} Z`;
+            // полоса вдоль правой грани бруска — туда падает свет луны
+            const rim = (x0, y0, x1, y1, t0, t1, k = .3) =>
+                `M${x0 + t0 * (1 - 2 * k)},${y0} L${x0 + t0},${y0} L${x1 + t1},${y1} L${x1 + t1 * (1 - 2 * k)},${y1} Z`;
+            const lx = cx - spread, rx = cx + spread;
             set('easelBack', leg(cx, mastTop + u, cx, floor, u * .45, u * .6));
-            set('easelLegs', leg(cx - u * .7, mastTop + u * 1.5, cx - spread, floor, u * .5, u * .65) + ' ' +
-                leg(cx + u * .7, mastTop + u * 1.5, cx + spread, floor, u * .5, u * .65));
+            set('easelLegs', leg(cx - u * .7, mastTop + u * 1.5, lx, floor, u * .5, u * .65) + ' ' +
+                leg(cx + u * .7, mastTop + u * 1.5, rx, floor, u * .5, u * .65));
+            // поперечина между передними ножками — пониже полки, уже в темноте
+            const by = bot + (floor - bot) * .38, at = y => (y - (mastTop + u * 1.5)) / (floor - mastTop - u * 1.5);
+            const bxl = cx - u * .7 + (lx - cx + u * .7) * at(by), bxr = cx + u * .7 + (rx - cx - u * .7) * at(by);
+            set('easelBrace', `M${bxl},${by - u * .35} L${bxr},${by - u * .35} L${bxr},${by + u * .35} L${bxl},${by + u * .35} Z`);
             set('easelMast', `M${cx - u * .55},${mastTop + u * .4} Q${cx},${mastTop - u * .5} ${cx + u * .55},${mastTop + u * .4} ` +
                 `L${cx + u * .55},${bot} L${cx - u * .55},${bot} Z`);
             const sw = w / 2 + u * 2.4, st = bot - u * .3, sh = u * 1.25;
             set('easelShelfPath', `M${cx - sw},${st} L${cx + sw},${st} L${cx + sw},${st + sh} L${cx + sw - u * .3},${st + sh + u * .35} ` +
                 `L${cx - sw + u * .3},${st + sh + u * .35} L${cx - sw},${st + sh} Z`);
+            // верхняя грань полки, на которую падает свет, и тень под её кромкой
+            set('easelShelfTop', `M${cx - sw},${st} L${cx + sw},${st} L${cx + sw - u * .15},${st + u * .32} L${cx - sw + u * .15},${st + u * .32} Z`);
+            set('easelShelfShade', `M${cx - sw + u * .3},${st + sh + u * .35} L${cx + sw - u * .3},${st + sh + u * .35} ` +
+                `L${cx + sw - u * .9},${st + sh + u * 1.6} L${cx - sw + u * .9},${st + sh + u * 1.6} Z`);
             const kw = Math.max(u * 3, w * .12);
             set('easelClamp', `M${cx - kw / 2},${top - u * 1.1} L${cx + kw / 2},${top - u * 1.1} L${cx + kw / 2},${top + u * .4} L${cx - kw / 2},${top + u * .4} Z`);
+            set('easelRim',
+                rim(cx - u * .7, mastTop + u * 1.5, lx, floor, u * .5, u * .65) + ' ' +
+                rim(cx + u * .7, mastTop + u * 1.5, rx, floor, u * .5, u * .65, .42) + ' ' +
+                rim(cx, mastTop + u * .4, cx, top - u * 1.1, u * .55, u * .55) + ' ' +
+                `M${cx + kw / 2 - u * .25},${top - u * 1.1} L${cx + kw / 2},${top - u * 1.1} L${cx + kw / 2},${top + u * .4} L${cx + kw / 2 - u * .25},${top + u * .4} Z ` +
+                `M${cx + sw - u * .35},${st} L${cx + sw},${st} L${cx + sw},${st + sh} L${cx + sw - u * .35},${st + sh} Z`);
+            // барашек — винт прижима на стойке над картиной
+            const ky = top - u * 1.1 - Math.max(u * 1.4, (top - u * 1.1 - mastTop) * .45), kr = u * .42;
+            const knob = document.getElementById('easelKnob');
+            knob.setAttribute('cx', cx); knob.setAttribute('cy', ky); knob.setAttribute('r', kr);
+            knob.setAttribute('stroke-width', Math.max(.6, u * .08));
+            set('easelKnobWing', `M${cx - kr * 2.4},${ky - kr * .35} Q${cx},${ky - kr * .9} ${cx + kr * 2.4},${ky - kr * .35} ` +
+                `L${cx + kr * 2.4},${ky + kr * .35} Q${cx},${ky + kr * .9} ${cx - kr * 2.4},${ky + kr * .35} Z`);
             // маска: до полки всё видно, от полки к полу — растворяется
             const mt = document.getElementById('easelMaskTop'), mr = document.getElementById('easelMaskRect');
             mt.setAttribute('x', -W); mt.setAttribute('y', -H); mt.setAttribute('width', W * 3); mt.setAttribute('height', H + bot + sh);
