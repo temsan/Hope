@@ -49,19 +49,33 @@
   gap:clamp(1rem,4vw,3.5rem);padding:clamp(1rem,3vw,2.5rem);background:radial-gradient(ellipse at 50% 45%,#16131a 0%,#050608 75%);
   color:#efe7d8;font-family:Manrope,sans-serif;opacity:0;transition:opacity .35s}
 .studio.open{opacity:1}
-.studio .modes{grid-column:1/-1;justify-self:center;display:flex;border:1px solid #efe7d84d;border-radius:999px;padding:3px;gap:2px}
-.studio .mode{display:flex;align-items:center;gap:.45em;padding:.5rem .95rem;border:0;border-radius:999px;background:none;color:#efe7d8b3;
+.studio .toolbar{grid-column:1/-1;justify-self:center;display:grid;justify-items:center;gap:.5rem}
+.studio .tools{display:flex;align-items:center;gap:.5rem}
+.studio .sep{width:1px;height:1.6rem;background:#efe7d833;flex:none}
+.studio .tool{height:2.5rem;min-width:2.5rem;padding:0 .75rem;border:1px solid #efe7d84d;border-radius:999px;background:none;color:#efe7d8;
+  font:inherit;font-size:.78rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:.4em;flex:none;
+  transition:background .2s,color .2s,border-color .2s}
+.studio .tool svg,.studio .mode svg{width:1.1rem;height:1.1rem;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.studio .tool.icon{width:2.5rem;padding:0}
+.studio .play{width:2.9rem;height:2.9rem;padding:0;background:#efe7d8;color:#050608;border-color:#efe7d8}
+.studio .play svg{fill:currentColor;stroke:none;width:1rem;height:1rem}
+.studio .instant[aria-pressed=true]{background:#d6b775;color:#050608;border-color:#d6b775}
+.studio .modes{display:flex;border:1px solid #efe7d84d;border-radius:999px;padding:3px;gap:2px}
+.studio .mode{display:flex;align-items:center;gap:.45em;height:2.1rem;padding:0 .85rem;border:0;border-radius:999px;background:none;color:#efe7d8b3;
   font:inherit;font-size:.78rem;letter-spacing:.02em;cursor:pointer;transition:background .2s,color .2s}
-.studio .mode svg{width:1.05rem;height:1.05rem;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
 .studio .mode[aria-checked=true]{background:#efe7d8;color:#050608}
-@media (hover:hover){.studio .mode[aria-checked=false]:hover{color:#efe7d8}}
+.studio .spin-hint{margin:0;font-size:.72rem;color:#efe7d8a6;letter-spacing:.02em;text-align:center;min-height:1.2em}
+@media (hover:hover){
+  .studio .mode[aria-checked=false]:hover{color:#efe7d8}
+  .studio .tool:hover{border-color:#efe7d8}
+  .studio .play:hover{background:#d6b775;border-color:#d6b775}
+}
 .studio[hidden]{display:none}
 .studio .board-wrap{position:relative;display:grid;place-items:center;touch-action:none}
 .studio .board-wrap.zoomed{overflow:hidden;border-radius:4px}
 .studio .view{display:grid;transform-origin:50% 50%}
 .studio .view>canvas{grid-area:1/1}
 .studio canvas.stroke{box-shadow:none;pointer-events:none}
-.studio .acts .instant[aria-pressed=true]{background:#d6b775;color:#050608;border-color:#d6b775}
 .studio canvas{display:block;border-radius:4px;box-shadow:0 30px 80px #000c,0 0 0 1px #efe7d814;touch-action:none;cursor:crosshair;
   will-change:transform}
 .studio .side{display:grid;gap:1.2rem;justify-items:start;max-width:16rem}
@@ -93,30 +107,27 @@
   width:2.3rem;height:2.3rem;padding:0}
 .studio .size span{display:block;border-radius:50%;background:#efe7d8}
 .studio .size[aria-pressed=true]{border-color:#efe7d8}
-.studio .acts{display:flex;flex-wrap:wrap;gap:.55rem}
-.studio .acts button{padding:.75rem 1rem;background:transparent;border:1px solid #efe7d8a6;color:inherit;font:inherit;font-size:.8rem;
-  cursor:pointer;transition:background .2s,color .2s}
-@media (hover:hover){.studio .acts button:hover{background:#efe7d8;color:#050608}}
-.studio .acts .play,.studio .acts .stop,.studio .acts .instant{width:3rem;min-height:2.75rem;padding:0;display:grid;place-items:center}
-.studio .acts .play svg,.studio .acts .stop svg,.studio .acts .instant svg{width:1rem;height:1rem;fill:currentColor}
-.studio .acts .play:not(:disabled){background:#efe7d8;color:#050608}
-@media (hover:hover){.studio .acts .play:not(:disabled):hover{background:#d6b775}}
-.studio .acts .instant svg{width:1.35rem;height:1.35rem}
-.studio .acts button:disabled{opacity:.35;cursor:default;background:transparent;color:inherit}
 .studio .close{position:absolute;top:1rem;right:1.2rem;background:none;border:0;color:#efe7d8b0;font-size:1.6rem;cursor:pointer;line-height:1}
 @media (max-width:760px){
   .studio{grid-template-columns:1fr;grid-template-rows:auto auto auto;align-content:center;gap:.8rem}
-  .studio .mode{padding:.45rem .75rem;font-size:.74rem}
+  .studio .tools{gap:.4rem}
+  .studio .mode{padding:0;width:2.35rem;justify-content:center}
+  .studio .mode .lbl,.studio .instant .lbl{display:none}
+  .studio .instant{width:2.5rem;padding:0}
   .studio .side{order:2;max-width:none;justify-items:center;text-align:center;gap:.65rem}
   .studio .mats{justify-items:center}
   .studio .mats-row,.studio .media-row{flex-wrap:nowrap}
   .studio .paints{grid-template-columns:repeat(9,1.9rem);gap:.4rem}
   .studio .paint{width:1.9rem;height:1.9rem}
   .studio .row2{flex-wrap:nowrap;justify-content:center}
-  .studio h2,.studio p{display:none}
-  .studio .acts{flex-wrap:nowrap;gap:.4rem;justify-content:center}
-  .studio .acts button{padding:.7rem .65rem;font-size:.76rem}
-  .studio .acts .play,.studio .acts .stop,.studio .acts .instant{width:2.6rem;flex:none}
+  .studio h2,.studio .side p{display:none}
+}
+@media (max-width:360px){
+  .studio .tools{gap:.25rem}
+  .studio .tool,.studio .tool.icon,.studio .instant{width:2.2rem;min-width:2.2rem;height:2.2rem}
+  .studio .play{width:2.5rem;height:2.5rem}
+  .studio .mode{width:2rem;height:1.9rem}
+  .studio .sep{display:none}
 }`;
     const style = document.createElement('style');
     style.textContent = css;
@@ -128,10 +139,19 @@
     root.setAttribute('aria-label', 'Мастерская: своя картина раскруткой');
     root.innerHTML = `
 <button class="close" type="button" aria-label="Закрыть мастерскую">×</button>
-<div class="modes" role="radiogroup" aria-label="Как идёт раскрутка">
-  <button class="mode" type="button" role="radio" data-mode="spin" title="Вращение: холст крутится у вас на глазах"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M18 2.8v3.7h-3.7"/></svg>вращение</button>
-  <button class="mode" type="button" role="radio" data-mode="develop" title="Проявка: холст стоит, краска разбегается лучами"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="2.2"/><path d="M12 2.5v4M12 17.5v4M2.5 12h4M17.5 12h4M5.3 5.3l2.8 2.8M15.9 15.9l2.8 2.8M18.7 5.3l-2.8 2.8M8.1 15.9l-2.8 2.8"/></svg>проявка</button>
-  <button class="mode" type="button" role="radio" data-mode="instant" title="Сразу: без анимации, готовый результат мгновенно"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2.5 5.5 13.5h5.5l-1 8 7.5-11h-5.5z"/></svg>сразу</button>
+<div class="toolbar">
+  <div class="tools">
+    <button class="tool play" type="button"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 2.5v11l9-5.5z"/></svg></button>
+    <div class="modes" role="radiogroup" aria-label="Как идёт раскрутка">
+      <button class="mode" type="button" role="radio" data-mode="spin" aria-label="Вращение" title="Вращение: холст крутится у вас на глазах"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M18 2.8v3.7h-3.7"/></svg><span class="lbl">вращение</span></button>
+      <button class="mode" type="button" role="radio" data-mode="instant" aria-label="Проявка" title="Проявка: без анимации — результат сразу"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="2.2"/><path d="M12 2.5v4M12 17.5v4M2.5 12h4M17.5 12h4M5.3 5.3l2.8 2.8M15.9 15.9l2.8 2.8M18.7 5.3l-2.8 2.8M8.1 15.9l-2.8 2.8"/></svg><span class="lbl">проявка</span></button>
+    </div>
+    <button class="tool instant" type="button" aria-pressed="true" aria-label="Авто: раскрутка под кистью" title="Авто: раскрутка сама, пока кисть на холсте"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5a9.5 9.5 0 1 1-9.4 8.1M12 5.5a6.5 6.5 0 1 0 6.3 4.9M12 8.5a3.5 3.5 0 1 1-3.3 2.4"/></svg><span class="lbl">авто</span></button>
+    <span class="sep" aria-hidden="true"></span>
+    <button class="tool icon clear" type="button" aria-label="Очистить холст" title="Очистить холст"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13M10.2 11v5.5M13.8 11v5.5"/></svg></button>
+    <button class="tool icon save" type="button" aria-label="Сохранить в PNG" title="Сохранить в PNG"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5v11M7.5 10l4.5 4.5 4.5-4.5M4.5 16.5v3h15v-3"/></svg></button>
+  </div>
+  <div class="spin-hint" aria-live="polite"></div>
 </div>
 <div class="board-wrap"><div class="view"><canvas aria-label="Холст: касание — капля краски, проведение — мазок; колесо или щипок — масштаб"></canvas><canvas class="stroke" aria-hidden="true"></canvas></div></div>
 <div class="side">
@@ -150,13 +170,6 @@
       <button class="mixbtn" type="button" aria-pressed="false" aria-label="Смешивать краски на кисти" title="Смешивать: набрать на кисть до трёх красок"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="12" r="5.5"/><circle cx="15" cy="12" r="5.5"/></svg></button>
       <button class="mixbar" type="button" aria-label="Краска на кисти; нажмите, чтобы развернуть переход" title="Краска на кисти: нажмите — переход наоборот"></button>
     </div>
-  </div>
-  <div class="acts">
-    <button class="play" type="button" aria-label="Раскрутить" title="Раскрутить"><svg viewBox="0 0 16 16"><path d="M4 2.5v11l9.5-5.5z"/></svg></button>
-    <button class="stop" type="button" aria-label="Остановить" title="Остановить" disabled><svg viewBox="0 0 16 16"><rect x="3" y="3" width="10" height="10"/></svg></button>
-    <button class="instant" type="button" aria-pressed="true" aria-label="Авто: раскрутка под кистью" title="Авто: крутить, пока кисть на холсте (вкл/выкл)"><svg viewBox="0 0 24 24"><path d="M12 2.5a9.5 9.5 0 1 1-9.4 8.1M12 5.5a6.5 6.5 0 1 0 6.3 4.9M12 8.5a3.5 3.5 0 1 1-3.3 2.4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
-    <button class="clear" type="button">очистить</button>
-    <button class="save" type="button">сохранить</button>
   </div>
 </div>`;
     document.body.appendChild(root);
@@ -206,7 +219,7 @@
     const rnd = (a, b) => a + (b - a) * Math.random();
     function layout() {
         const narrow = innerWidth <= 760;
-        const maxH = narrow ? innerHeight * .52 : innerHeight * .78, maxW = narrow ? innerWidth * .92 : innerWidth * .6;
+        const maxH = narrow ? innerHeight * (innerHeight < 700 ? .46 : .54) : innerHeight * .76, maxW = narrow ? innerWidth * .92 : innerWidth * .6;
         const h = Math.min(maxH, maxW * 4 / 3), w = h * 3 / 4;
         const nd = Math.min(2, devicePixelRatio || 1);
         if (Math.round(w) === W && Math.round(h) === H && nd === d) return;
@@ -491,7 +504,10 @@
         } else {
             const last = P[P.length - 1], dx = x - last.x, dy = y - last.y, l = Math.hypot(dx, dy) || 1;
             nx = -dy / l; ny = dx / l;
-            brush.load = Math.max(0, brush.load - l / (r * 60));  // краска на кисти кончается
+            // краска на кисти понемногу кончается, но только там, где кисть по холсту: за краем она ничего
+            // не кладёт и не тратит; совсем кисть не высыхает — тонкий след остаётся всегда
+            const onBoard = x >= 0 && x <= W && y >= 0 && y <= H;
+            if (onBoard) brush.load = Math.max(.3, brush.load - l / (r * 350));
             pt.load = brush.load;
         }
         P.push(pt);
@@ -554,10 +570,10 @@
     }
     let drawing = null, pinch = null;
     const touches = new Map();
-    // Вид раскрутки: «вращение» — холст крутится на экране; «проявка» — та же физика, но холст стоит, и краска
-    // разбегается лучами у вас на глазах; «сразу» — без анимации, расчёт целиком за один раз. Запоминается.
+    // Вид раскрутки: «вращение» — холст крутится у вас на глазах; «проявка» (instant) — без анимации: раскрутка
+    // считается целиком за раз, и результат проступает сразу. Запоминается.
     let mode = 'spin';
-    try { mode = ['spin', 'develop', 'instant'].includes(localStorage.getItem('hope-spin-mode')) ? localStorage.getItem('hope-spin-mode') : 'spin'; } catch (_) { /* хранилище недоступно */ }
+    try { mode = localStorage.getItem('hope-spin-mode') === 'spin' || !localStorage.getItem('hope-spin-mode') ? 'spin' : 'instant'; } catch (_) { /* хранилище недоступно */ }
     const shownAngle = () => (mode === 'spin' ? angle : 0);
     const mid = () => { const v = [...touches.values()]; return [(v[0][0] + v[1][0]) / 2, (v[0][1] + v[1][1]) / 2, Math.hypot(v[0][0] - v[1][0], v[0][1] - v[1][1])]; };
     cv.addEventListener('pointerdown', e => {
@@ -652,9 +668,26 @@
     // снова разгонял бы холст, тот проскакивал ровное положение, и вращение не кончалось.
     const OMEGA = 15;   // рад/с на полном ходу
     let spinUntil = 0, raf = 0, last = 0, braking = false, rest = null;
-    const playBtn = $('.play'), stopBtn = $('.stop');
-    const instantBtn = $('.instant');
-    const buttons = spinning => { playBtn.disabled = spinning; stopBtn.disabled = !spinning; };
+    const playBtn = $('.play'), instantBtn = $('.instant');
+    const PLAY_ICON = playBtn.innerHTML,
+        STOP_ICON = '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="3.5" width="9" height="9" rx="1"/></svg>';
+    let spinningNow = false;
+    // Одна кнопка, как у плеера: ▶ раскручивает, на ходу она же ■ — остановить.
+    const buttons = spinning => {
+        spinningNow = spinning;
+        playBtn.innerHTML = spinning ? STOP_ICON : PLAY_ICON;
+        playBtn.title = playBtn.ariaLabel = spinning ? 'Остановить' : mode === 'instant' ? 'Проявить' : 'Раскрутить';
+        showHint();
+    };
+    // Строка под панелью — что сейчас произойдёт; вместо подписей у значков на узком экране.
+    function showHint() {
+        const name = mode === 'spin' ? 'Вращение' : 'Проявка', what = 'холст крутится';
+        let t;
+        if (mode === 'instant') t = instantOn ? 'мазок проявится, как только отпустите кисть' : '▶ — проявить, без анимации';
+        else if (spinningNow && !brushSpin) t = `${what}; ■ — остановить`;
+        else t = instantOn ? `пока кисть на холсте, ${what}` : '▶ — раскрутить';
+        $('.spin-hint').textContent = `${name} · ${t}`;
+    }
     let instantOn = true;   // раскрутка под кистью включена с самого начала
     // «Сразу»: прогоняем раскрутку полным ходом без кадров, пока краска не перестанет течь (не дольше ~5 с хода).
     function develop() {
@@ -802,7 +835,7 @@
     showLoad();
     function showMode() {
         root.querySelectorAll('.mode').forEach(b => b.setAttribute('aria-checked', b.dataset.mode === mode));
-        playBtn.title = playBtn.ariaLabel = mode === 'instant' ? 'Раскрутить сразу' : 'Раскрутить';
+        buttons(spinningNow);
     }
     root.querySelectorAll('.mode').forEach(b => b.onclick = () => {
         mode = b.dataset.mode;
@@ -811,11 +844,11 @@
         showMode();
     });
     showMode();
-    playBtn.onclick = spin;
-    stopBtn.onclick = stop;
+    playBtn.onclick = () => (spinningNow ? stop() : spin());
     instantBtn.onclick = () => {
         instantOn = !instantOn;
         instantBtn.setAttribute('aria-pressed', instantOn);
+        showHint();
     };
     $('.clear').onclick = clearBoard;
     $('.save').onclick = () => {
