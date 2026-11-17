@@ -13,9 +13,12 @@
 // начинает работу заново. Краска — как она ложится и течёт: акрил, акварель, масло, гуашь, тушь; краски можно
 // менять по ходу и сочетать на одном холсте, каждая частица помнит свою.
 (function () {
+    // Краски: верхний ряд — насыщенные, нижний — пастельные (разбелённые, мягкие).
     const PAINTS = [
-        ['красный', '#d6322b'], ['охра', '#d8b13a'], ['розовый', '#f1c6bb'], ['белый', '#f3eee4'], ['кобальт', '#2552b8'],
-        ['бирюза', '#2ea596'], ['фиолетовый', '#5c2f8f'], ['золото', '#c8a04b'], ['чёрный', '#121212'],
+        ['красный', '#d6322b'], ['охра', '#d8b13a'], ['кобальт', '#2552b8'], ['бирюза', '#2ea596'],
+        ['фиолетовый', '#5c2f8f'], ['золото', '#c8a04b'], ['белый', '#f3eee4'], ['чёрный', '#121212'],
+        ['пудровый розовый', '#f1c6bb'], ['персиковый', '#f5c3a0'], ['лимонный', '#f1e3a0'], ['фисташковый', '#d3e4b4'],
+        ['мятный', '#b7e2cf'], ['небесный', '#b8d5ee'], ['лавандовый', '#cbbde6'], ['сиреневый', '#e6bdd8'],
     ];
     const SIZES = [['мелкая', 9], ['средняя', 16], ['крупная', 26]];
     // Основы: цвет, светлая ли (на светлой акварель кладётся прозрачными слоями) и фактура.
@@ -78,7 +81,7 @@
 .studio canvas.stroke{box-shadow:none;pointer-events:none}
 .studio canvas{display:block;border-radius:4px;box-shadow:0 30px 80px #000c,0 0 0 1px #efe7d814;touch-action:none;cursor:crosshair;
   will-change:transform}
-.studio .side{display:grid;gap:1.2rem;justify-items:start;max-width:16rem}
+.studio .side{display:grid;gap:1.2rem;justify-items:start;max-width:18.5rem}
 .studio h2{margin:0;font:400 clamp(1.8rem,3.4vw,2.8rem)/.9 Spectral,serif;letter-spacing:-.04em}
 .studio h2 em{color:#d6b775}
 .studio p{margin:0;color:#efe7d89e;font-size:.82rem;line-height:1.6}
@@ -91,8 +94,8 @@
 .studio .med svg{width:1.3rem;height:1.3rem;fill:none;stroke:currentColor;stroke-width:1.4;stroke-linejoin:round;stroke-linecap:round}
 .studio .med[aria-pressed=true]{background:#efe7d8;color:#050608}
 .studio .mat-name{font-size:.72rem;color:#efe7d8b3;letter-spacing:.04em}
-.studio .paints{display:grid;grid-template-columns:repeat(3,2.6rem);gap:.55rem}
-.studio .paint{width:2.6rem;height:2.6rem;border-radius:46% 54% 50% 50%/55% 45% 55% 45%;border:0;cursor:pointer;padding:0;
+.studio .paints{display:grid;grid-template-columns:repeat(8,1.85rem);gap:.45rem}
+.studio .paint{width:1.85rem;height:1.85rem;border-radius:46% 54% 50% 50%/55% 45% 55% 45%;border:0;cursor:pointer;padding:0;
   box-shadow:inset -4px -5px 8px #0006,inset 3px 3px 6px #fff4;transition:transform .15s}
 .studio .paint[aria-pressed=true]{transform:scale(1.18);outline:2px solid #efe7d8;outline-offset:3px}
 .studio .sizes{display:flex;gap:.5rem;align-items:center}
@@ -117,7 +120,7 @@
   .studio .side{order:2;max-width:none;justify-items:center;text-align:center;gap:.65rem}
   .studio .mats{justify-items:center}
   .studio .mats-row,.studio .media-row{flex-wrap:nowrap}
-  .studio .paints{grid-template-columns:repeat(9,1.9rem);gap:.4rem}
+  .studio .paints{grid-template-columns:repeat(8,1.9rem);gap:.4rem}
   .studio .paint{width:1.9rem;height:1.9rem}
   .studio .row2{flex-wrap:nowrap;justify-content:center}
   .studio h2,.studio .side p{display:none}
@@ -219,7 +222,7 @@
     const rnd = (a, b) => a + (b - a) * Math.random();
     function layout() {
         const narrow = innerWidth <= 760;
-        const maxH = narrow ? innerHeight * (innerHeight < 700 ? .46 : .54) : innerHeight * .76, maxW = narrow ? innerWidth * .92 : innerWidth * .6;
+        const maxH = narrow ? innerHeight * (innerHeight < 700 ? .41 : .52) : innerHeight * .76, maxW = narrow ? innerWidth * .92 : innerWidth * .6;
         const h = Math.min(maxH, maxW * 4 / 3), w = h * 3 / 4;
         const nd = Math.min(2, devicePixelRatio || 1);
         if (Math.round(w) === W && Math.round(h) === H && nd === d) return;
