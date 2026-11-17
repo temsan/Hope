@@ -595,6 +595,7 @@
         if (touches.size > 2) return;
         const [x, y] = toBoard(e);
         drawing = [x, y];
+        ctrl = [x, y];
         hand = { clientX: e.clientX, clientY: e.clientY };
         brush = newBrush(size * .7);
         sv.style.mixBlendMode = brush.op === 'darken' ? 'darken' : 'normal';
@@ -620,16 +621,22 @@
     // Кисть тянется к точке экрана: шаг за шагом кладёт краску. Холст крутится — под неподвижной кистью точка
     // холста всё время другая, поэтому tick() зовёт это каждый кадр, и стоящая кисть рисует круг.
     let hand = null;
-    function brushTo(pt) {
-        const [x, y] = toBoard(pt), step = Math.max(2, size * .3), dist = Math.hypot(x - drawing[0], y - drawing[1]);
-        let prev = drawing;
-        for (let t = step; t <= dist; t += step) {
-            const k = t / dist, q = [drawing[0] + (x - drawing[0]) * k, drawing[1] + (y - drawing[1]) * k];
-            dab(q[0], q[1], size * .7, false);
-            prev = q;
+    // Указатель приходит отдельными точками; если вести кисть от точки к точке прямыми, на быстром мазке
+    // выходит ломаная. Поэтому путь кисти — плавная кривая: от середины прошлого отрезка к середине нового,
+    // а сама точка указателя служит изгибом (квадратичная кривая Безье, как сглаживание в графических редакторах).
+    let ctrl = null;
+    function brushTo(pt, end) {
+        const [x, y] = toBoard(pt), step = Math.max(2, size * .3);
+        const to = end ? [x, y] : [(ctrl[0] + x) / 2, (ctrl[1] + y) / 2], c = end ? [(drawing[0] + x) / 2, (drawing[1] + y) / 2] : ctrl;
+        const len = Math.hypot(c[0] - drawing[0], c[1] - drawing[1]) + Math.hypot(to[0] - c[0], to[1] - c[1]);
+        if (len < step) { if (!end) ctrl = [x, y]; return; }
+        const n = Math.floor(len / step), a = drawing;
+        for (let i = 1; i <= n; i++) {
+            const t = i / n, u = 1 - t;
+            dab(u * u * a[0] + 2 * u * t * c[0] + t * t * to[0], u * u * a[1] + 2 * u * t * c[1] + t * t * to[1], size * .7, false);
         }
-        if (dist < step) return;
-        drawing = prev;
+        drawing = to;
+        ctrl = [x, y];
         // длинный мазок (на крутящемся холсте он набегает быстро) кладём на холст кусками: перерисовка остаётся лёгкой
         if (brush.pts.length > 150) {
             const b = brush;
@@ -658,6 +665,7 @@
         touches.delete(e.pointerId);
         if (touches.size < 2) pinch = null;
         if (!drawing) return;
+        if (brush && hand) brushTo(hand, true);  // дотянуть кисть до последней точки указателя
         drawing = null;
         commitStroke();
         brushSpinEnd();
