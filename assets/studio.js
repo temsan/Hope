@@ -21,6 +21,16 @@
         ['мятный', '#b7e2cf'], ['небесный', '#b8d5ee'], ['лавандовый', '#cbbde6'], ['сиреневый', '#e6bdd8'],
     ];
     const SIZES = [['мелкая', 9], ['средняя', 16], ['крупная', 26]];
+    // Форма холста: соотношение сторон (ширина к высоте) и круглая ли.
+    const SHAPES = {
+        portrait: { label: 'вертикальный', ar: 3 / 4, icon: '<rect x="6.5" y="3.5" width="11" height="17" rx="1"/>' },
+        square: { label: 'квадрат', ar: 1, icon: '<rect x="4.5" y="4.5" width="15" height="15" rx="1"/>' },
+        landscape: { label: 'горизонтальный', ar: 4 / 3, icon: '<rect x="3.5" y="6.5" width="17" height="11" rx="1"/>' },
+        circle: { label: 'круглый', ar: 1, round: true, icon: '<circle cx="12" cy="12" r="8"/>' },
+        oval: { label: 'овал', ar: 3 / 4, round: true, icon: '<ellipse cx="12" cy="12" rx="6" ry="8.5"/>' },
+    };
+    let shape = 'portrait';
+    try { const v = localStorage.getItem('hope-shape'); if (SHAPES[v]) shape = v; } catch (_) { /* хранилище недоступно */ }
     // Основы: цвет, светлая ли (на светлой акварель кладётся прозрачными слоями) и фактура.
     const GROUNDS = {
         dark: { label: 'тёмный холст', base: '#2a2a2d', light: false, tex: 'canvas' },
@@ -35,15 +45,15 @@
     // смешивается с мокрым, streak — насколько различаются по тону полоски от щетинок. Пиктограммы — 24×24, контуром.
     const MEDIA = {
         acrylic: { label: 'акрил', stick: 1, drag: 2.2, lose: .012, spray: .0015, width: 1, alpha: .92, mix: .07, streak: .1,
-            icon: '<path d="M8 3h8l-1 12H9z"/><path d="M8.2 5.5h7.6M10 15h4v2.5h-4zM11 17.5h2V21h-2z"/>' },
+            icon: '<path d="M7.5 3h9v2.2h-9z"/><path d="M8 5.2h8l-1.3 9.3H9.3z"/><path d="M10.4 14.5h3.2v2.2h-3.2z"/><path class="pf" d="M12 16.7c2.6 0 4.2 1.2 4.2 2.4S14.4 21.2 12 21.2 7.8 20.3 7.8 19.1s1.6-2.4 4.2-2.4z"/>' },
         water: { label: 'акварель', stick: .6, drag: 2.2, lose: .012, spray: .0015, width: 1.5, alpha: .4, mix: .1, streak: .06, glaze: true,
-            icon: '<path d="M12 3c3 4.4 6 7.6 6 11a6 6 0 0 1-12 0c0-3.4 3-6.6 6-11z"/><path d="M9 15.5c1.2 1.3 3 1.6 4.6.8"/>' },
+            icon: '<path d="M12 2.8c2.6 3.6 4.6 6.2 4.6 8.6a4.6 4.6 0 0 1-9.2 0c0-2.4 2-5 4.6-8.6z"/><path class="pf wash" d="M7.5 11.8a4.5 4.5 0 0 0 9 0c0-.4 0-.8-.1-1.2H7.6c-.1.4-.1.8-.1 1.2z"/><path class="pf wash" d="M3.5 19.7c2.6-1.5 5.6-1.9 8.5-1.9s5.9.4 8.5 1.9c-2.6 1.2-5.6 1.6-8.5 1.6s-5.9-.4-8.5-1.6z"/>' },
         oil: { label: 'масло', stick: 1.8, drag: 2.6, lose: .007, spray: .0006, width: 1.25, alpha: 1, mix: .13, streak: .16,
-            icon: '<path d="M4 20l5-5"/><path d="M9 15l8.5-10.5c1.6.8 2.4 2.3 1.6 3.8L11 17z"/><circle cx="5.2" cy="18.8" r=".6"/>' },
+            icon: '<path class="pf" d="M3.5 16.5c3.2-1.6 8.4-1.6 11.5 0v3.6c-3.1-1.6-8.3-1.6-11.5 0z"/><path d="M5.5 17.6c2.3-.7 5.2-.7 7.6 0M5.5 19.1c2.3-.7 5.2-.7 7.6 0" stroke-opacity=".45"/><path d="M20.5 3.5l-4.8 4.8"/><path d="M15.7 8.3l2 2-2.6 2.6-2-2z"/><path class="pf" d="M13.1 10.9l2 2-2.4 2.4c-.6.6-1.6.6-2.1 0-.5-.5-.5-1.5.1-2z"/>' },
         gouache: { label: 'гуашь', stick: 1.1, drag: 2.4, lose: .011, spray: .001, width: 1.1, alpha: .97, mix: .09, streak: .05, chalk: true,
-            icon: '<path d="M7 9h10v10a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2z"/><path d="M6 5.5h12V9H6zM7 14h10"/>' },
+            icon: '<path d="M6.5 4h11v3.2h-11z"/><path d="M7.5 7.2h9v11.3a2.5 2.5 0 0 1-2.5 2.5h-4a2.5 2.5 0 0 1-2.5-2.5z"/><path class="pf" d="M8.3 11.5h7.4v7a1.8 1.8 0 0 1-1.8 1.8h-3.8a1.8 1.8 0 0 1-1.8-1.8z"/>' },
         ink: { label: 'тушь', stick: .35, drag: 1.4, lose: .02, spray: .004, width: .55, alpha: .95, mix: .05, streak: 0,
-            icon: '<path d="M12 3l5 8-5 10-5-10z"/><path d="M12 13.5V21"/><circle cx="12" cy="11.5" r="1.2"/>' },
+            icon: '<path d="M12 2.5l4.6 7.2-4.6 7.6-4.6-7.6z"/><path d="M12 9.6v7.7"/><circle cx="12" cy="8.8" r="1.1"/><path class="pf" d="M12 18.4c1 1.1 1.5 1.9 1.5 2.5a1.5 1.5 0 0 1-3 0c0-.6.5-1.4 1.5-2.5z"/>' },
     };
     let material = 'dark', medium = 'acrylic';
 
@@ -86,12 +96,20 @@
 .studio h2 em{color:#d6b775}
 .studio p{margin:0;color:#efe7d89e;font-size:.82rem;line-height:1.6}
 .studio .mats{display:grid;gap:.5rem}
-.studio .mats-row,.studio .media-row{display:flex;gap:.4rem;flex-wrap:wrap}
+.studio .mats-row,.studio .media-row,.studio .shapes-row{display:flex;gap:.4rem;flex-wrap:wrap}
+.studio .shape{width:2.25rem;height:2.25rem;border:1px solid #efe7d84d;border-radius:3px;cursor:pointer;padding:0;background:none;
+  color:#efe7d8;display:grid;place-items:center}
+.studio .shape svg{width:1.3rem;height:1.3rem;fill:none;stroke:currentColor;stroke-width:1.4}
+.studio .shape[aria-pressed=true]{background:#efe7d8;color:#050608;outline:2px solid #efe7d8;outline-offset:2px}
+.studio[data-shape=circle] canvas,.studio[data-shape=oval] canvas{border-radius:50%}
 .studio .mat{width:2.25rem;height:2.25rem;border:1px solid #efe7d84d;border-radius:3px;cursor:pointer;padding:0;background-size:cover}
 .studio .mat[aria-pressed=true],.studio .med[aria-pressed=true]{outline:2px solid #efe7d8;outline-offset:2px}
-.studio .med{width:2.25rem;height:2.25rem;border:1px solid #efe7d84d;border-radius:50%;cursor:pointer;padding:0;background:none;
+.studio .med{width:2.5rem;height:2.5rem;border:1px solid #efe7d84d;border-radius:50%;cursor:pointer;padding:0;background:none;
   color:#efe7d8;display:grid;place-items:center}
-.studio .med svg{width:1.3rem;height:1.3rem;fill:none;stroke:currentColor;stroke-width:1.4;stroke-linejoin:round;stroke-linecap:round}
+.studio .med svg{width:1.55rem;height:1.55rem;fill:none;stroke:currentColor;stroke-width:1.3;stroke-linejoin:round;stroke-linecap:round}
+/* краска в пиктограммах — того цвета, что на кисти */
+.studio .med svg .pf{fill:var(--paint,#d6322b);stroke:none}
+.studio .med svg .wash{opacity:.45}
 .studio .med[aria-pressed=true]{background:#efe7d8;color:#050608}
 .studio .mat-name{font-size:.72rem;color:#efe7d8b3;letter-spacing:.04em}
 .studio .paints{display:grid;grid-template-columns:repeat(8,1.85rem);gap:.45rem}
@@ -119,7 +137,7 @@
   .studio .instant{width:2.5rem;padding:0}
   .studio .side{order:2;max-width:none;justify-items:center;text-align:center;gap:.65rem}
   .studio .mats{justify-items:center}
-  .studio .mats-row,.studio .media-row{flex-wrap:nowrap}
+  .studio .mats-row,.studio .media-row,.studio .shapes-row{flex-wrap:nowrap}
   .studio .paints{grid-template-columns:repeat(8,1.9rem);gap:.4rem}
   .studio .paint{width:1.9rem;height:1.9rem}
   .studio .row2{flex-wrap:nowrap;justify-content:center}
@@ -148,6 +166,7 @@
     <div class="modes" role="radiogroup" aria-label="Как идёт раскрутка">
       <button class="mode" type="button" role="radio" data-mode="spin" aria-label="Вращение" title="Вращение: холст крутится у вас на глазах"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M18 2.8v3.7h-3.7"/></svg><span class="lbl">вращение</span></button>
       <button class="mode" type="button" role="radio" data-mode="instant" aria-label="Проявка" title="Проявка: без анимации — результат сразу"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="2.2"/><path d="M12 2.5v4M12 17.5v4M2.5 12h4M17.5 12h4M5.3 5.3l2.8 2.8M15.9 15.9l2.8 2.8M18.7 5.3l-2.8 2.8M8.1 15.9l-2.8 2.8"/></svg><span class="lbl">проявка</span></button>
+      <button class="mode" type="button" role="radio" data-mode="fluid" aria-label="Флюид" title="Флюид: налить краску и наклонять холст — она течёт и раскрывается ячейками"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8.5c3-2.6 6 2.6 9 0s6 2.6 9 0M3 15.5c3-2.6 6 2.6 9 0s6 2.6 9 0"/><circle cx="8" cy="12" r="1.1"/><circle cx="16.5" cy="11.6" r=".8"/></svg><span class="lbl">флюид</span></button>
     </div>
     <button class="tool instant" type="button" aria-pressed="true" aria-label="Авто: раскрутка под кистью" title="Авто: раскрутка сама, пока кисть на холсте"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5a9.5 9.5 0 1 1-9.4 8.1M12 5.5a6.5 6.5 0 1 0 6.3 4.9M12 8.5a3.5 3.5 0 1 1-3.3 2.4"/></svg><span class="lbl">авто</span></button>
     <span class="sep" aria-hidden="true"></span>
@@ -162,6 +181,7 @@
   <p>Наберите краску, капните или проведите по холсту — и раскрутите. Мокрые краски смешиваются; можно добавить ещё
     и докрутить.</p>
   <div class="mats">
+    <div class="shapes-row" role="group" aria-label="Форма холста"></div>
     <div class="mats-row" role="group" aria-label="Основа"></div>
     <div class="media-row" role="group" aria-label="Краска"></div>
     <div class="mat-name" aria-live="polite"></div>
@@ -186,6 +206,7 @@
     function showLoad() {
         const bar = $('.mixbar');
         bar.style.background = colors.length > 1 ? `linear-gradient(90deg,${colors.join(',')})` : colors[0];
+        root.style.setProperty('--paint', colors[colors.length - 1]);
         root.querySelectorAll('.paint').forEach(x => x.setAttribute('aria-pressed', colors.includes(x.dataset.c)));
     }
     PAINTS.forEach(([name, c], i) => {
@@ -217,19 +238,32 @@
         $('.sizes').appendChild(b);
     });
 
-    // Холст 3:4: размеры в точках экрана (W×H), рисуем с плотностью d.
+    // Холст: размеры в точках экрана (W×H) по форме, рисуем с плотностью d.
     let W = 0, H = 0, d = 1, angle = 0, omega = 0, particles = [];
+    let shapeSrc = null, shapeMap = { k: 1, ox: 0, oy: 0 };   // рисунок до смены формы и как он вписан сейчас
+    // Чистая основа, как она лежит на холсте сейчас (в пикселях холста): по ней при смене основы видно,
+    // где краска, а где голая основа.
+    let groundCv = null;
+    const copyCv = src => { const c = document.createElement('canvas'); c.width = cv.width; c.height = cv.height; c.getContext('2d').drawImage(src, 0, 0); return c; };
     const rnd = (a, b) => a + (b - a) * Math.random();
     function layout() {
         const narrow = innerWidth <= 760;
-        const maxH = narrow ? innerHeight * (innerHeight < 700 ? .41 : .52) : innerHeight * .76, maxW = narrow ? innerWidth * .92 : innerWidth * .6;
-        const h = Math.min(maxH, maxW * 4 / 3), w = h * 3 / 4;
+        const maxH = narrow ? innerHeight * (innerHeight < 700 ? .36 : .5) : innerHeight * .76, maxW = narrow ? innerWidth * .92 : innerWidth * .6;
+        const ar = SHAPES[shape].ar, h = Math.min(maxH, maxW / ar), w = h * ar;
+        root.dataset.shape = shape;
         const nd = Math.min(2, devicePixelRatio || 1);
         if (Math.round(w) === W && Math.round(h) === H && nd === d) return;
-        // сохраняем нарисованное при смене размера
-        const old = W ? (() => { const c = document.createElement('canvas'); c.width = cv.width; c.height = cv.height; c.getContext('2d').drawImage(cv, 0, 0); return c; })() : null;
-        const sx = W ? Math.round(w) / W : 1;
+        // Нарисованное сохраняем при смене размера и формы: переносим целиком, без растяжения, по центру.
+        // Пока после смены формы ничего не дорисовали, источник — рисунок до первой смены (shapeSrc): иначе
+        // каждое переключение уменьшало бы уже уменьшенную копию.
+        const snap = () => ({ c: copyCv(cv), g: groundCv, w: W, h: H });
+        const src = shapeSrc || (W ? snap() : null);
+        const old = src && src.c, oW = src ? src.w : 0, oH = src ? src.h : 0;
         W = Math.round(w); H = Math.round(h); d = nd;
+        const k = oW ? Math.min(W / oW, H / oH) : 1, ox = oW ? (W - oW * k) / 2 : 0, oy = oH ? (H - oH * k) / 2 : 0;
+        // капли, что ещё не разлетелись, — из нынешних координат в новые через исходные
+        const cur = shapeSrc ? shapeMap : { k: 1, ox: 0, oy: 0 };
+        if (shapeSrc) shapeMap = { k, ox, oy };
         cv.width = W * d; cv.height = H * d;
         cv.style.width = W + 'px'; cv.style.height = H + 'px';
         ctx.setTransform(d, 0, 0, d, 0, 0);
@@ -237,10 +271,15 @@
         sv.style.width = W + 'px'; sv.style.height = H + 'px';
         sctx.setTransform(d, 0, 0, d, 0, 0);
         zoom = 1; panX = panY = 0; applyView();
-        ctx.fillStyle = GROUNDS[material].base;
-        ctx.fillRect(0, 0, W, H);
-        if (old) ctx.drawImage(old, 0, 0, W, H);
-        particles.forEach(p => { p.x *= sx; p.y *= sx; p.m *= sx; });
+        // поля, что не покрыл прежний рисунок, — та же основа; чистую основу собираем так же
+        texture(ctx, W, H, material);
+        const g = copyCv(cv);
+        if (src && src.g) g.getContext('2d').drawImage(src.g, ox, oy, oW * k, oH * k);
+        groundCv = g;
+        if (old) ctx.drawImage(old, ox, oy, oW * k, oH * k);
+        particles.forEach(p => {
+            p.x = ox + (p.x - cur.ox) / cur.k * k; p.y = oy + (p.y - cur.oy) / cur.k * k; p.m *= k / cur.k;
+        });
         makeGrid();
     }
 
@@ -336,12 +375,15 @@
         }
     }
     function clearBoard() {
+        shapeSrc = null;
         ctx.globalCompositeOperation = 'source-over';
         texture(ctx, W, H, material);
+        groundCv = copyCv(cv);
         makeGrid();
         particles = [];
         angle = 0;
         cv.style.transform = sv.style.transform = '';
+        if (typeof fluidReset === 'function') fluidReset();
         spinK = 1;
     }
 
@@ -573,10 +615,11 @@
     }
     let drawing = null, pinch = null;
     const touches = new Map();
-    // Вид раскрутки: «вращение» — холст крутится у вас на глазах; «проявка» (instant) — без анимации: раскрутка
-    // считается целиком за раз, и результат проступает сразу. Запоминается.
+    // Вид: «вращение» — холст крутится у вас на глазах; «проявка» (instant) — без анимации: раскрутка считается
+    // целиком за раз, и результат проступает сразу; «флюид» — заливка (fluid art): краску наливают, холст
+    // наклоняют, она течёт. Запоминается.
     let mode = 'spin';
-    try { mode = localStorage.getItem('hope-spin-mode') === 'spin' || !localStorage.getItem('hope-spin-mode') ? 'spin' : 'instant'; } catch (_) { /* хранилище недоступно */ }
+    try { const m = localStorage.getItem('hope-spin-mode'); mode = m === 'fluid' ? 'fluid' : m && m !== 'spin' ? 'instant' : 'spin'; } catch (_) { /* хранилище недоступно */ }
     const shownAngle = () => (mode === 'spin' ? angle : 0);
     const mid = () => { const v = [...touches.values()]; return [(v[0][0] + v[1][0]) / 2, (v[0][1] + v[1][1]) / 2, Math.hypot(v[0][0] - v[1][0], v[0][1] - v[1][1])]; };
     cv.addEventListener('pointerdown', e => {
@@ -593,10 +636,12 @@
             return;
         }
         if (touches.size > 2) return;
+        shapeSrc = null;   // дорисовали — дальше форма меняется от нынешнего рисунка
         const [x, y] = toBoard(e);
         drawing = [x, y];
         ctrl = [x, y];
         hand = { clientX: e.clientX, clientY: e.clientY };
+        if (mode === 'fluid') { pourLast = null; fluidPour(x, y, size * .8); return; }
         brush = newBrush(size * .7);
         sv.style.mixBlendMode = brush.op === 'darken' ? 'darken' : 'normal';
         dab(x, y, size * .8, true);
@@ -612,6 +657,14 @@
             panY = (y - cy) - (pinch.oy - pinch.py) * nz / pinch.z;
             zoom = nz;
             applyView();
+            return;
+        }
+        if (drawing && mode === 'fluid') {
+            // струя: наливаем по пути с шагом в треть кисти
+            const [x, y] = toBoard(e), st = Math.max(2, size * .35), dist = Math.hypot(x - drawing[0], y - drawing[1]);
+            if (dist < st) return;
+            for (let t = st; t <= dist; t += st) fluidPour(drawing[0] + (x - drawing[0]) * t / dist, drawing[1] + (y - drawing[1]) * t / dist, size * .7);
+            drawing = [x, y];
             return;
         }
         if (!drawing || !brush) return;
@@ -651,7 +704,7 @@
     // Если холст уже крутится от ▶, кисть его не трогает.
     let brushSpin = false;
     function brushSpinStart() {
-        if (!instantOn || mode === 'instant' || (raf && !braking && !brushSpin)) return;
+        if (!instantOn || mode !== 'spin' || (raf && !braking && !brushSpin)) return;
         brushSpin = true;
         spin();
         omega = Math.max(omega, OMEGA);
@@ -665,6 +718,13 @@
         touches.delete(e.pointerId);
         if (touches.size < 2) pinch = null;
         if (!drawing) return;
+        if (mode === 'fluid') {
+            // налили — с «авто» холст сам ненадолго наклоняется, краска течёт; без него лужа просто растекается
+            drawing = null;
+            pourLast = null;
+            if (instantOn) tiltStart(2.6); else fluidWake(1.6);
+            return;
+        }
         if (brush && hand) brushTo(hand, true);  // дотянуть кисть до последней точки указателя
         drawing = null;
         commitStroke();
@@ -687,14 +747,16 @@
     const buttons = spinning => {
         spinningNow = spinning;
         playBtn.innerHTML = spinning ? STOP_ICON : PLAY_ICON;
-        playBtn.title = playBtn.ariaLabel = spinning ? 'Остановить' : mode === 'instant' ? 'Проявить' : 'Раскрутить';
+        playBtn.title = playBtn.ariaLabel = spinning ? (mode === 'fluid' ? 'Выровнять холст' : 'Остановить') : mode === 'instant' ? 'Проявить' : mode === 'fluid' ? 'Наклонять холст' : 'Раскрутить';
         showHint();
     };
     // Строка под панелью — что сейчас произойдёт; вместо подписей у значков на узком экране.
     function showHint() {
-        const name = mode === 'spin' ? 'Вращение' : 'Проявка', what = 'холст крутится';
+        const name = { spin: 'Вращение', instant: 'Проявка', fluid: 'Флюид' }[mode], what = 'холст крутится';
         let t;
-        if (mode === 'instant') t = instantOn ? 'мазок проявится, как только отпустите кисть' : '▶ — проявить, без анимации';
+        if (mode === 'fluid') t = spinningNow ? 'холст наклоняется, краска течёт; ■ — выровнять'
+            : instantOn ? 'налейте краску — отпустите, и холст сам наклонится' : 'налейте краску, ▶ — наклонять холст';
+        else if (mode === 'instant') t = instantOn ? 'мазок проявится, как только отпустите кисть' : '▶ — проявить, без анимации';
         else if (spinningNow && !brushSpin) t = `${what}; ■ — остановить`;
         else t = instantOn ? `пока кисть на холсте, ${what}` : '▶ — раскрутить';
         $('.spin-hint').textContent = `${name} · ${t}`;
@@ -709,6 +771,8 @@
         omega = was;
     }
     function spin() {
+        shapeSrc = null;
+        if (mode === 'fluid') { tiltStart(); return; }
         if (mode === 'instant') { develop(); return; }
         const now = performance.now();
         spinUntil = Infinity;
@@ -718,6 +782,7 @@
         if (!raf) { last = now; raf = requestAnimationFrame(tick); }
     }
     function stop() {
+        if (mode === 'fluid') { if (tilting) tiltStop(); return; }
         if (!raf || braking) return;
         spinUntil = 0;
         braking = true;
@@ -796,7 +861,296 @@
         return moved;  // сколько капель ещё течёт
     }
 
-    // Выбор основы: образцы — кусочки той же фактуры; смена основы начинает работу заново.
+    // ── Флюид (fluid art, заливка) ──
+    // Краска — слой жидкости на сетке вдвое грубее холста: цвет, толщина h и «ячейки» c. Налитая краска лужей
+    // растекается (толстая быстро, тонкая плёнка стоит). Наклон холста гонит её под уклон — чем толще слой,
+    // тем быстрее, — по пути она закручивается и тянет за собой соседние краски, переплетая их. В свежей краске
+    // рассыпаны капельки (как силикон в заливке): течение вытягивает их в ячейки, сквозь которые проступает
+    // нижний тон, с тёмной каймой по краю. Слой ложится поверх того, что уже было на холсте.
+    const FS = 2;
+    let fw = 0, fh = 0, fR, fG, fB, fH, fC, tR, tG, tB, tH, tC, swX, swY, fVX, fVY, fA, fT1, fT2, fImg = null, fBase = null, pourLast = null;
+    const fCv = document.createElement('canvas'), fctx = fCv.getContext('2d');
+    let tilt = [0, 0], tilting = false, tiltT = 0, tiltA0 = 0, tiltUntil = 0, fRaf = 0, fLast = 0, settleUntil = 0;
+    function fluidEnsure() {
+        const w = Math.max(8, Math.round(W / FS)), h = Math.max(8, Math.round(H / FS));
+        if (w === fw && h === fh && fH) return;
+        fw = w; fh = h;
+        const n = w * h, A = () => new Float32Array(n);
+        fR = A(); fG = A(); fB = A(); fH = A(); fC = A(); tR = A(); tG = A(); tB = A(); tH = A(); tC = A(); swX = A(); swY = A();
+        fVX = A(); fVY = A(); fA = A(); fT1 = A(); fT2 = A();
+        // завихрения — ротор плавного шума: краска закручивается, а не съезжает ровным листом
+        const ph = [rnd(0, 9), rnd(0, 9), rnd(0, 9)];
+        const pot = (x, y) => Math.sin(x * .045 + ph[0]) * Math.cos(y * .05 + ph[1]) + .5 * Math.sin((x + y) * .09 + ph[2]) +
+            .35 * Math.cos(x * .13 - y * .11 + ph[1]);
+        for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+            const i = y * w + x;
+            swX[i] = (pot(x, y + 1) - pot(x, y - 1)) * 2;
+            swY[i] = -(pot(x + 1, y) - pot(x - 1, y)) * 2;
+        }
+        fCv.width = w; fCv.height = h;
+        fImg = fctx.createImageData(w, h);
+        fBase = null;
+    }
+    // снимок холста: на него ложится заливка
+    function fluidBase() {
+        fBase = document.createElement('canvas');
+        fBase.width = cv.width; fBase.height = cv.height;
+        fBase.getContext('2d').drawImage(cv, 0, 0);
+    }
+    function fluidReset() {
+        if (fH) { fH.fill(0); fC.fill(0); }
+        fBase = null;
+    }
+    const gradColor = (cs, f) => {
+        if (cs.length === 1) return cs[0];
+        const t = f * (cs.length - 1), k = Math.min(cs.length - 2, Math.floor(t)), u = t - k;
+        return [0, 1, 2].map(j => cs[k][j] + (cs[k + 1][j] - cs[k][j]) * u);
+    };
+    // налить: лужица с пологими краями; при смешивании краски ложатся градиентом поперёк струи
+    function fluidPour(x, y, r) {
+        fluidEnsure();
+        if (!fBase) fluidBase();
+        const gx = x / FS, gy = y / FS, gr = Math.max(2, r * 1.3 / FS), cs = colors.map(hex);
+        let nx = 0, ny = 1;
+        if (pourLast) {
+            const dx = x - pourLast[0], dy = y - pourLast[1], l = Math.hypot(dx, dy);
+            if (l > .1) { nx = -dy / l; ny = dx / l; }
+        }
+        pourLast = [x, y];
+        for (let yy = Math.max(0, Math.floor(gy - gr)); yy <= Math.min(fh - 1, Math.ceil(gy + gr)); yy++) {
+            for (let xx = Math.max(0, Math.floor(gx - gr)); xx <= Math.min(fw - 1, Math.ceil(gx + gr)); xx++) {
+                const dx = xx - gx, dy = yy - gy, q = (dx * dx + dy * dy) / (gr * gr);
+                if (q > 1) continue;
+                const i = yy * fw + xx, add = .6 * (1 - q) ** 1.5, h0 = fH[i], tot = h0 + add;
+                const c = gradColor(cs, Math.min(1, Math.max(0, .5 + (dx * nx + dy * ny) / (2 * gr))));
+                fR[i] = (fR[i] * h0 + c[0] / 255 * add) / tot;
+                fG[i] = (fG[i] * h0 + c[1] / 255 * add) / tot;
+                fB[i] = (fB[i] * h0 + c[2] / 255 * add) / tot;
+                fC[i] *= h0 / tot;
+                fH[i] = Math.min(4, tot);
+                // капелька «силикона» — пятнышко в пару клеток
+                if (Math.random() < .03 * (1 - q) && xx < fw - 1 && yy < fh - 1) fC[i] = fC[i + 1] = fC[i + fw] = fC[i + fw + 1] = 1;
+            }
+        }
+        fluidRender();
+        fluidWake(1.6);
+    }
+    // Перенос поля F по скорости (fVX, fVY в клетках за шаг): значение берём там, откуда течёт (назад по скорости).
+    // sign = -1 — перенос обратно. lim — поле, по соседям которого ограничиваем результат (без выбросов).
+    function fluidAdvect(F, out, sign, lim) {
+        const w = fw, h = fh;
+        for (let y = 0, i = 0; y < h; y++) {
+            for (let x = 0; x < w; x++, i++) {
+                const vx = fVX[i], vy = fVY[i];
+                if (vx === 0 && vy === 0) { out[i] = F[i]; continue; }
+                const sx = x - sign * vx, sy = y - sign * vy, x0 = Math.floor(sx), y0 = Math.floor(sy), fx = sx - x0, fy = sy - y0;
+                const in0 = x0 >= 0 && x0 < w, in1 = x0 + 1 >= 0 && x0 + 1 < w, r0 = y0 >= 0 && y0 < h, r1 = y0 + 1 >= 0 && y0 + 1 < h;
+                const j = y0 * w + x0;   // за краем холста краски нет — стекла
+                const a00 = in0 && r0 ? F[j] : 0, a10 = in1 && r0 ? F[j + 1] : 0, a01 = in0 && r1 ? F[j + w] : 0, a11 = in1 && r1 ? F[j + w + 1] : 0;
+                let v = (a00 * (1 - fx) + a10 * fx) * (1 - fy) + (a01 * (1 - fx) + a11 * fx) * fy;
+                if (lim) {
+                    const b00 = in0 && r0 ? lim[j] : 0, b10 = in1 && r0 ? lim[j + 1] : 0, b01 = in0 && r1 ? lim[j + w] : 0, b11 = in1 && r1 ? lim[j + w + 1] : 0;
+                    const lo = Math.min(b00, b10, b01, b11), hi = Math.max(b00, b10, b01, b11);
+                    v = v < lo ? lo : v > hi ? hi : v;
+                }
+                out[i] = v;
+            }
+        }
+    }
+    // Шаг течения. Переносим не цвет, а количество краски (цвет × толщина) и толщину — так край лужи не тянет
+    // чёрное из пустых клеток. Перенос с поправкой ошибки (BFECC: вперёд, назад, поправка, снова вперёд) почти не
+    // размывает: слои цвета и ячейки остаются чёткими. Потом растекание: толстое отдаёт соседям, тонкое стоит.
+    function fluidStep(dt) {
+        const w = fw, h = fh, n = w * h, gxv = tilt[0], gyv = tilt[1], spd = 60 * dt, sw = 6 * dt;
+        const ox = Math.round(gxv * 2), oy = Math.round(gyv * 2);
+        for (let y = 0, i = 0; y < h; y++) {
+            for (let x = 0; x < w; x++, i++) {
+                // скорость по толщине здесь или чуть выше по склону — так фронт краски наползает на пустое
+                const ux = x - ox, uy = y - oy, hu = ux >= 0 && ux < w && uy >= 0 && uy < h ? fH[uy * w + ux] : 0;
+                // скорость растёт с квадратом толщины: толстое бежит, тонкая плёнка почти стоит — краска тянется
+                const t = Math.max(fH[i], hu), m = Math.min(2.2, t * t * 1.3);
+                if (m < .002) { fVX[i] = fVY[i] = 0; continue; }
+                fVX[i] = (gxv * spd + swX[i] * sw) * m;
+                fVY[i] = (gyv * spd + swY[i] * sw) * m;
+            }
+        }
+        const H0 = tH;   // толщина до шага — по ней цвет обратно из количества
+        H0.set(fH);
+        const fields = [fR, fG, fB, fC];
+        // количество краски каждого канала и толщина: BFECC
+        const bf = (F, out) => {
+            fluidAdvect(F, fT1, 1, null);
+            fluidAdvect(fT1, fT2, -1, null);
+            for (let i = 0; i < n; i++) fT1[i] = F[i] + (F[i] - fT2[i]) * .5;
+            fluidAdvect(fT1, out, 1, F);
+        };
+        const outs = [tR, tG, tB, tC];
+        for (let c = 0; c < 4; c++) {
+            const F = fields[c];
+            for (let i = 0; i < n; i++) fA[i] = F[i] * H0[i];
+            bf(fA, outs[c]);
+        }
+        bf(H0, fH);
+        for (let i = 0; i < n; i++) {
+            const hh = fH[i], film = Math.min(H0[i], .13);
+            // краска, утёкшая дальше, оставляет за собой тонкую плёнку своего цвета
+            if (hh < film) fH[i] = film;
+            else if (hh > 1e-4) { fR[i] = tR[i] / hh; fG[i] = tG[i] / hh; fB[i] = tB[i] / hh; fC[i] = Math.min(1, tC[i] / hh); }
+            else { fH[i] = 0; fC[i] = 0; }
+            // на ходу в толстой краске раскрываются новые ячейки, течение их вытягивает
+            const sp = Math.abs(fVX[i]) + Math.abs(fVY[i]);
+            if (sp > .25 && hh > .35 && Math.random() < .0009 * sp) {
+                const x = i % w, y = (i / w) | 0;
+                if (x < w - 1 && y < h - 1) fC[i] = fC[i + 1] = fC[i + w] = fC[i + w + 1] = 1;
+            }
+        }
+        const D = 1.4 * dt;
+        const move = (i, j) => {
+            const a = fH[i], b = fH[j];
+            let F = D * (a * a - b * b);
+            if (Math.abs(F) < 1e-5) return;
+            let s0 = i, d0 = j;
+            if (F < 0) { F = -F; s0 = j; d0 = i; }
+            const hs = fH[s0], hd = fH[d0];
+            F = Math.min(F, hs * .25);
+            const tot = hd + F;
+            fR[d0] = (fR[d0] * hd + fR[s0] * F) / tot; fG[d0] = (fG[d0] * hd + fG[s0] * F) / tot;
+            fB[d0] = (fB[d0] * hd + fB[s0] * F) / tot; fC[d0] = (fC[d0] * hd + fC[s0] * F) / tot;
+            fH[d0] = tot; fH[s0] = hs - F;
+        };
+        for (let y = 0; y < h; y++) for (let x = 0; x < w - 1; x++) move(y * w + x, y * w + x + 1);
+        for (let y = 0; y < h - 1; y++) for (let x = 0; x < w; x++) move(y * w + x, (y + 1) * w + x);
+    }
+    // отрисовка: слой поверх снимка холста; ячейки — нижний тон с тёмной каймой; лёгкий объём по толщине
+    function fluidRender() {
+        if (!fImg) return;
+        const D8 = fImg.data, w = fw, n = fw * fh;
+        for (let i = 0, k = 0; i < n; i++, k += 4) {
+            const hh = fH[i];
+            if (hh < .03) { D8[k + 3] = 0; continue; }
+            let r = fR[i], g = fG[i], b = fB[i];
+            const c = fC[i];
+            if (c > .28) {
+                const lum = .3 * r + .59 * g + .11 * b, t0 = Math.min(1, Math.max(0, (c - .4) / .14)), t = t0 * t0 * (3 - 2 * t0);
+                // в светлой краске ячейка темнее (проступает нижний слой), в тёмной — светлее
+                const cr = lum > .55 ? r * .55 + .05 : r * .45 + .45, cg = lum > .55 ? g * .55 + .05 : g * .45 + .45,
+                    cb = lum > .55 ? b * .55 + .08 : b * .45 + .45;
+                r += (cr - r) * t; g += (cg - g) * t; b += (cb - b) * t;
+                const rim = Math.max(0, 1 - Math.abs(c - .4) / .08) * .5;
+                r *= 1 - rim; g *= 1 - rim; b *= 1 - rim;
+            }
+            const up = i > w ? fH[i - w - 1] : hh, lit = 1 + Math.max(-.1, Math.min(.1, (up - hh) * .35));
+            D8[k] = Math.min(255, r * 255 * lit); D8[k + 1] = Math.min(255, g * 255 * lit); D8[k + 2] = Math.min(255, b * 255 * lit);
+            // край краски — чёткий, как у настоящей лужи: толщина выше порога — краска целиком
+            const e = Math.min(1, Math.max(0, (hh - .03) / .09));
+            D8[k + 3] = e * e * (3 - 2 * e) * 255;
+        }
+        fctx.putImageData(fImg, 0, 0);
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.globalCompositeOperation = 'source-over';
+        if (fBase) ctx.drawImage(fBase, 0, 0);
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(fCv, 0, 0, cv.width, cv.height);
+        ctx.restore();
+    }
+    function fluidWake(sec) {
+        settleUntil = Math.max(settleUntil, performance.now() + sec * 1000);
+        if (!fRaf) { fLast = performance.now(); fRaf = requestAnimationFrame(fluidTick); }
+    }
+    function fluidTick(now) {
+        const dt = Math.min(.033, (now - fLast) / 1000);
+        fLast = now;
+        // ▶ — холст покачивают по кругу, как при заливке; авто — недолго; ■ — выравнивают
+        let goal = [0, 0];
+        if (tilting || now < tiltUntil) {
+            tiltT += dt;
+            const a = tiltA0 + tiltT * .6, m = .78 + .22 * Math.sin(tiltT * 1.3);
+            goal = [Math.cos(a) * m, Math.sin(a) * m];
+        }
+        tilt[0] += (goal[0] - tilt[0]) * Math.min(1, dt * 3);
+        tilt[1] += (goal[1] - tilt[1]) * Math.min(1, dt * 3);
+        if (fH) { fluidStep(dt); fluidRender(); }
+        const tl = Math.hypot(tilt[0], tilt[1]);
+        // наклон видно: холст поворачивается в перспективе, краска течёт к опущенному краю
+        cv.style.transform = sv.style.transform = tl > .01 ?
+            `perspective(1400px) rotateX(${(-tilt[1] * 9).toFixed(2)}deg) rotateY(${(tilt[0] * 9).toFixed(2)}deg)` : '';
+        if (mode === 'fluid' && (tilting || now < tiltUntil || now < settleUntil || tl > .01)) fRaf = requestAnimationFrame(fluidTick);
+        else {
+            fRaf = 0;
+            cv.style.transform = sv.style.transform = '';
+            if (!tilting && spinningNow && mode === 'fluid') buttons(false);
+        }
+    }
+    function tiltStart(sec) {
+        fluidEnsure();
+        if (!fBase) fluidBase();
+        tiltA0 = rnd(0, Math.PI * 2);
+        tiltT = 0;
+        if (sec) tiltUntil = performance.now() + sec * 1000;
+        else { tilting = true; buttons(true); }
+        fluidWake(.5);
+    }
+    function tiltStop() {
+        tilting = false;
+        tiltUntil = 0;
+        fluidWake(1.4);   // краска ещё стекает, пока холст выравнивается
+        buttons(false);
+    }
+
+    // Выбор формы холста: пиктограммы; рисунок при смене формы сохраняется.
+    Object.keys(SHAPES).forEach(key => {
+        const b = document.createElement('button');
+        b.className = 'shape';
+        b.type = 'button';
+        b.title = SHAPES[key].label;
+        b.setAttribute('aria-label', 'Холст: ' + SHAPES[key].label);
+        b.setAttribute('aria-pressed', key === shape);
+        b.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${SHAPES[key].icon}</svg>`;
+        b.onclick = () => {
+            if (key === shape) return;
+            if (raf) stop();
+            shape = key;
+            try { localStorage.setItem('hope-shape', shape); } catch (_) { /* не запомним */ }
+            root.querySelectorAll('.shape').forEach(x => x.setAttribute('aria-pressed', x === b));
+            $('.mat-name').textContent = matName();
+            if (!shapeSrc) {
+                const c = document.createElement('canvas');
+                c.width = cv.width; c.height = cv.height;
+                c.getContext('2d').drawImage(cv, 0, 0);
+                shapeSrc = { c, g: groundCv, w: W, h: H };
+                shapeMap = { k: 1, ox: 0, oy: 0 };
+            }
+            layout();   // рисунок переносится на холст новой формы
+        };
+        $('.shapes-row').appendChild(b);
+    });
+
+    // Смена основы без очистки: где на холсте голая основа — она меняется на новую; где краска — краска остаётся
+    // (полупрозрачная краска берёт новую основу в той мере, в какой сквозь неё видно старую).
+    function swapGround(key) {
+        if (!groundCv || groundCv.width !== cv.width || groundCv.height !== cv.height) { clearBoard(); return; }
+        const ng = document.createElement('canvas');
+        ng.width = cv.width; ng.height = cv.height;
+        const gg = ng.getContext('2d');
+        gg.setTransform(d, 0, 0, d, 0, 0);
+        texture(gg, W, H, key);
+        const w = cv.width, h = cv.height, A = ctx.getImageData(0, 0, w, h), a = A.data,
+            o = groundCv.getContext('2d').getImageData(0, 0, w, h).data, nn = gg.getImageData(0, 0, w, h).data;
+        for (let i = 0; i < a.length; i += 4) {
+            const dist = Math.abs(a[i] - o[i]) + Math.abs(a[i + 1] - o[i + 1]) + Math.abs(a[i + 2] - o[i + 2]);
+            const t = Math.min(1, Math.max(0, (dist - 10) / 70)), f = 1 - t * t * (3 - 2 * t);   // доля голой основы
+            if (f <= 0) continue;
+            a[i] += (nn[i] - o[i]) * f; a[i + 1] += (nn[i + 1] - o[i + 1]) * f; a[i + 2] += (nn[i + 2] - o[i + 2]) * f;
+        }
+        ctx.putImageData(A, 0, 0);
+        groundCv = ng;
+        shapeSrc = null;
+        if (typeof fluidReset === 'function') fluidReset();   // заливка ляжет уже на новую основу
+    }
+
+    // Выбор основы: образцы — кусочки той же фактуры; при смене рисунок остаётся.
     Object.keys(GROUNDS).forEach(key => {
         const b = document.createElement('button'), sw = document.createElement('canvas');
         b.className = 'mat';
@@ -813,7 +1167,7 @@
             material = key;
             root.querySelectorAll('.mat').forEach(x => x.setAttribute('aria-pressed', x === b));
             $('.mat-name').textContent = matName();
-            clearBoard();
+            swapGround(key);
         };
         $('.mats-row').appendChild(b);
     });
@@ -834,7 +1188,7 @@
         };
         $('.media-row').appendChild(b);
     });
-    const matName = () => GROUNDS[material].label + ' · ' + MEDIA[medium].label;
+    const matName = () => SHAPES[shape].label + ' · ' + GROUNDS[material].label + ' · ' + MEDIA[medium].label;
     $('.mat-name').textContent = matName();
     $('.mixbtn').onclick = () => {
         mixing = !mixing;
@@ -849,9 +1203,18 @@
         buttons(spinningNow);
     }
     root.querySelectorAll('.mode').forEach(b => b.onclick = () => {
-        mode = b.dataset.mode;
+        const next = b.dataset.mode;
+        if (next === mode) return;
+        if (raf && next !== 'spin') stop();          // раскрутка останавливается до смены вида
+        if (mode === 'fluid') {                      // из заливки: всё налитое уже на холсте, слой сбрасываем
+            tilting = false; tiltUntil = 0; tilt = [0, 0];
+            fluidReset();
+            cv.style.transform = sv.style.transform = '';
+            spinningNow = false;
+        }
+        if (next === 'fluid') fluidReset();          // заливка ляжет поверх того, что сейчас на холсте
+        mode = next;
         try { localStorage.setItem('hope-spin-mode', mode); } catch (_) { /* не запомним */ }
-        if (mode === 'instant' && raf) stop();
         showMode();
     });
     showMode();
@@ -863,8 +1226,18 @@
     };
     $('.clear').onclick = clearBoard;
     $('.save').onclick = () => {
-        // сохраняем как есть, без поворота: холст в своей ориентации
-        cv.toBlob(b => {
+        // сохраняем как есть, без поворота: холст в своей ориентации; круглый и овальный — без углов
+        let out = cv;
+        if (SHAPES[shape].round) {
+            out = document.createElement('canvas');
+            out.width = cv.width; out.height = cv.height;
+            const o = out.getContext('2d');
+            o.beginPath();
+            o.ellipse(cv.width / 2, cv.height / 2, cv.width / 2, cv.height / 2, 0, 0, Math.PI * 2);
+            o.clip();
+            o.drawImage(cv, 0, 0);
+        }
+        out.toBlob(b => {
             if (!b) return;
             const a = document.createElement('a');
             a.href = URL.createObjectURL(b);
