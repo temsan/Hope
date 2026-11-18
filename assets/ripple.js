@@ -56,12 +56,12 @@ void main() {
     glint = mix(glint, glint * rainbow * 1.6, SPECTRAL * smoothstep(.02, .25, tilt));
     // каустика: выпуклая волна работает линзой и собирает свет на дне в тёплые прожилки (по кривизне поверхности)
     // кривизна — по соседям через клетку: мелкая рябь сетки не дробит каустику на бусины
-    // каустика тоже спектральная: вода преломляет красный слабее, синий сильнее, и они сходятся на дне чуть
-    // в разных местах — у светлой прожилки с одной стороны тёплая кайма, с другой холодная
-    #define LAP(p) (texture(sim, (p) + vec2(2. * dt.x, 0.)).r + texture(sim, (p) - vec2(2. * dt.x, 0.)).r + texture(sim, (p) + vec2(0., 2. * dt.y)).r + texture(sim, (p) - vec2(0., 2. * dt.y)).r - 4. * texture(sim, p).r)
-    vec2 split = n / max(tilt, 1e-3) * min(1., tilt * 10.) * dt * 1.8 * SPECTRAL;
-    vec3 lap = vec3(LAP(uv - split), LAP(uv), LAP(uv + split));
-    vec3 caustic = smoothstep(0., 1., max(vec3(0.), -lap) * CAUSTIC) * str;
+    // каустика тоже спектральная: прожилка окрашена по наклону склона, как радуга бликов — с одной стороны
+    // тёплая кайма, с другой холодная. Кривизна считается один раз: три прохода стоили бы втрое дороже.
+    float lap = texture(sim, uv + vec2(2. * dt.x, 0.)).r + texture(sim, uv - vec2(2. * dt.x, 0.)).r +
+                texture(sim, uv + vec2(0., 2. * dt.y)).r + texture(sim, uv - vec2(0., 2. * dt.y)).r - 4. * h;
+    vec3 caustic = smoothstep(0., 1., max(0., -lap) * CAUSTIC) * str *
+                   mix(vec3(1.), rainbow * 1.5, SPECTRAL * .55 * smoothstep(.02, .25, tilt));
     vec3 warm = vec3(1., .92, .74);`;
     // первый экран: картина «cover» на весь экран, умноженная на маску букв (как слой #title с multiply),
     // увеличенную от центра экрана, — с поправкой на наклон воды
@@ -230,7 +230,12 @@ void main() {${SLOPE}
             // холст — в пикселях экрана (не больше двух на точку, на телефоне — полутора: там вдвое меньше точек
             // на кадр, а вода и так мягкая), волны — 256 по высоте
             resize(w, h) {
-                const d = Math.min(matchMedia('(max-width: 600px)').matches ? 1.5 : 2, devicePixelRatio || 1);
+                // не больше ~2,4 млн точек на кадр (на телефоне — полторы на точку): мягкая вода на глаз та же,
+                // а на ноутбуке с плотным экраном видеокарте втрое легче
+                const d = Math.max(.75, Math.min(matchMedia('(max-width: 600px)').matches ? 1.5 : 2, devicePixelRatio || 1,
+                    // прозрачный слой галереи лежит поверх всей сцены, и каждый его кадр заставляет сводить её заново:
+                    // ему — вдвое меньше точек (блики и каустика мягкие, разницы не видно)
+                    Math.sqrt((alpha ? 1.1e6 : 2.4e6) / Math.max(1, w * h))));
                 cv.width = Math.max(1, Math.round(w * d));
                 cv.height = Math.max(1, Math.round(h * d));
                 aspect = w / Math.max(1, h);

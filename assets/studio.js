@@ -62,6 +62,8 @@
   gap:clamp(1rem,4vw,3.5rem);padding:clamp(1rem,3vw,2.5rem);background:radial-gradient(ellipse at 50% 45%,#16131a 0%,#050608 75%);
   color:#efe7d8;font-family:Manrope,sans-serif;opacity:0;transition:opacity .35s}
 .studio.open{opacity:1}
+/* мастерская закрывает весь экран: страницу под ней не рисуем вовсе */
+html.studio-on body>*:not(.studio){visibility:hidden}
 .studio .toolbar{grid-column:1/-1;justify-self:center;display:grid;justify-items:center;gap:.5rem}
 .studio .tools{display:flex;align-items:center;gap:.5rem}
 .studio .sep{width:1px;height:1.6rem;background:#efe7d833;flex:none}
@@ -1258,12 +1260,18 @@
         }, 'image/png');
     };
 
-    let opener = null;
+    let opener = null, sceneWas = false;
     function open() {
         opener = document.activeElement;
         root.hidden = false;
         document.documentElement.style.overflow = 'hidden';
         window.__studioOpen = true;
+        // сцена галереи за мастерской не видна: её анимации и рисование стоят, пока мастерская открыта
+        sceneWas = window.__sceneryPaused;
+        window.__sceneryPaused = true;
+        document.documentElement.classList.add('scenery-still');
+        // страницу под мастерской прячем, когда та уже проявилась (иначе при открытии мелькнула бы пустота)
+        setTimeout(() => { if (window.__studioOpen) document.documentElement.classList.add('studio-on'); }, 380);
         layout();
         if (!particles.length && !root.dataset.used) { clearBoard(); root.dataset.used = 1; }
         requestAnimationFrame(() => root.classList.add('open'));
@@ -1273,6 +1281,9 @@
         root.classList.remove('open');
         stop();  // холст крутится, пока не остановят, и закрытая мастерская тоже его останавливает
         window.__studioOpen = false;
+        window.__sceneryPaused = sceneWas;
+        document.documentElement.classList.toggle('scenery-still', !!sceneWas);
+        document.documentElement.classList.remove('studio-on');
         document.documentElement.style.overflow = '';
         setTimeout(() => { root.hidden = true; }, 350);
         if (opener) opener.focus();

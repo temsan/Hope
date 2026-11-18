@@ -2469,6 +2469,7 @@
           // p=±1: новолуние/полнолуние — trx=R, переключение скрыто в полной тьме/свете.
           // Переключение знака p при f=0 (новолуние, вся тёмная) и f=0.5 (полнолуние, вся светлая).
 
+          let off = null, shadow = '';
           function draw(f) {
             const S = cv.offsetWidth * (window.devicePixelRatio || 1);
             if (cv.width !== S) { cv.width = S; cv.height = S; }
@@ -2488,10 +2489,12 @@
             const soft = Math.max(4, R * 0.08);
             const Rover = R + Math.ceil(soft) + 2; // запас за край под blur
 
-            // offscreen: строим размытую тень
-            const off = document.createElement('canvas');
-            off.width = S; off.height = S;
+            // offscreen: строим размытую тень — на одном и том же холсте, а не на новом каждый кадр
+            if (!off || off.width !== S) { off = document.createElement('canvas'); off.width = S; off.height = S; }
             const oc = off.getContext('2d');
+            oc.setTransform(1, 0, 0, 1, 0, 0);
+            oc.globalCompositeOperation = 'source-over';
+            oc.clearRect(0, 0, S, S);
             oc.filter = `blur(${soft}px)`;
             oc.fillStyle = 'rgba(4,8,20,0.94)';
             oc.beginPath();
@@ -2533,10 +2536,11 @@
             const r0 = Math.round(20 + illum * 35);
             const r1 = Math.round(50 + illum * 80);
             const r2 = Math.round(100 + illum * 160);
-            cv.parentElement.parentElement.style.boxShadow =
-              `${ox}px ${oy}px ${r0}px rgba(210,225,255,${a0}), ` +
+            // три широкие тени перерисовывают большой кусок неба — меняем их, только когда они заметно сдвинулись
+            const sh = `${ox}px ${oy}px ${r0}px rgba(210,225,255,${a0}), ` +
               `${ox}px ${oy}px ${r1}px rgba(190,210,255,${a1}), ` +
               `${ox}px ${oy}px ${r2}px rgba(160,190,235,${a2})`;
+            if (sh !== shadow) { shadow = sh; cv.parentElement.parentElement.style.boxShadow = sh; }
           }
 
           let start = null, drawn = -1e9;
@@ -2544,8 +2548,8 @@
             if (window.__sceneryPaused) { requestAnimationFrame(tick); return; }  // под пролётом не видна
             if (!start) start = ts;
             // старт с полнолуния: f=0.5 → p=-1 → trx=R, но тень=0 (полнолуние)
-            // фаза за кадр почти не меняется: тень с размытием и свечение перерисовываем 15 раз в секунду
-            if (ts - drawn >= 66) { drawn = ts; draw((0.5 + ((ts - start) % PERIOD) / PERIOD) % 1); }
+            // фаза за кадр почти не меняется (полный круг — 30 с): тень с размытием перерисовываем 6 раз в секунду
+            if (ts - drawn >= 160) { drawn = ts; draw((0.5 + ((ts - start) % PERIOD) / PERIOD) % 1); }
             requestAnimationFrame(tick);
           }
           requestAnimationFrame(tick);
