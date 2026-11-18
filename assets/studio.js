@@ -887,8 +887,8 @@
             swX[i] = (pot(x, y + 1) - pot(x, y - 1)) * 2;
             swY[i] = -(pot(x + 1, y) - pot(x - 1, y)) * 2;
         }
-        fCv.width = w; fCv.height = h;
-        fImg = fctx.createImageData(w, h);
+        fCv.width = W; fCv.height = H;      // рисуем в точках холста, а не по грубой сетке: край без ступенек
+        fImg = fctx.createImageData(W, H);
         fBase = null;
     }
     // снимок холста: на него ложится заливка
@@ -923,13 +923,15 @@
                 if (q > 1) continue;
                 const i = yy * fw + xx, add = .6 * (1 - q) ** 1.5, h0 = fH[i], tot = h0 + add;
                 const c = gradColor(cs, Math.min(1, Math.max(0, .5 + (dx * nx + dy * ny) / (2 * gr))));
-                fR[i] = (fR[i] * h0 + c[0] / 255 * add) / tot;
-                fG[i] = (fG[i] * h0 + c[1] / 255 * add) / tot;
-                fB[i] = (fB[i] * h0 + c[2] / 255 * add) / tot;
+                // доливка ложится слоем сверху: новый цвет почти целиком закрывает прежний, как в заливке
+                const q2 = Math.min(1, add / (h0 * .25 + add));
+                fR[i] += (c[0] / 255 - fR[i]) * q2;
+                fG[i] += (c[1] / 255 - fG[i]) * q2;
+                fB[i] += (c[2] / 255 - fB[i]) * q2;
                 fC[i] *= h0 / tot;
                 fH[i] = Math.min(4, tot);
                 // капелька «силикона» — пятнышко в пару клеток
-                if (Math.random() < .03 * (1 - q) && xx < fw - 1 && yy < fh - 1) fC[i] = fC[i + 1] = fC[i + fw] = fC[i + fw + 1] = 1;
+                if (Math.random() < .022 * (1 - q) && xx < fw - 1 && yy < fh - 1) fC[i] = fC[i + 1] = fC[i + fw] = fC[i + fw + 1] = 1;
             }
         }
         fluidRender();
@@ -999,7 +1001,7 @@
             else { fH[i] = 0; fC[i] = 0; }
             // на ходу в толстой краске раскрываются новые ячейки, течение их вытягивает
             const sp = Math.abs(fVX[i]) + Math.abs(fVY[i]);
-            if (sp > .25 && hh > .35 && Math.random() < .0009 * sp) {
+            if (sp > .25 && hh > .35 && Math.random() < .0007 * sp) {
                 const x = i % w, y = (i / w) | 0;
                 if (x < w - 1 && y < h - 1) fC[i] = fC[i + 1] = fC[i + w] = fC[i + w + 1] = 1;
             }
@@ -1013,37 +1015,46 @@
             if (F < 0) { F = -F; s0 = j; d0 = i; }
             const hs = fH[s0], hd = fH[d0];
             F = Math.min(F, hs * .25);
-            const tot = hd + F;
-            fR[d0] = (fR[d0] * hd + fR[s0] * F) / tot; fG[d0] = (fG[d0] * hd + fG[s0] * F) / tot;
-            fB[d0] = (fB[d0] * hd + fB[s0] * F) / tot; fC[d0] = (fC[d0] * hd + fC[s0] * F) / tot;
+            const tot = hd + F, q = hd < .15 ? 1 : .2, wc = F * q / (hd + F * q);
+            fR[d0] += (fR[s0] - fR[d0]) * wc; fG[d0] += (fG[s0] - fG[d0]) * wc;
+            fB[d0] += (fB[s0] - fB[d0]) * wc; fC[d0] += (fC[s0] - fC[d0]) * wc;
             fH[d0] = tot; fH[s0] = hs - F;
         };
         for (let y = 0; y < h; y++) for (let x = 0; x < w - 1; x++) move(y * w + x, y * w + x + 1);
         for (let y = 0; y < h - 1; y++) for (let x = 0; x < w; x++) move(y * w + x, (y + 1) * w + x);
     }
-    // отрисовка: слой поверх снимка холста; ячейки — нижний тон с тёмной каймой; лёгкий объём по толщине
+    // Отрисовка: слой поверх снимка холста, в точках холста — значения берутся с сетки плавно, поэтому край лужи
+    // ровный. Ячейка — тот же цвет, только светлее (сквозь неё просвечивает разбелённый нижний слой), с тонкой
+    // каймой того же тона, потемнее: без серого и чёрного, чтобы краска не грязнела. Лёгкий объём по толщине.
     function fluidRender() {
         if (!fImg) return;
-        const D8 = fImg.data, w = fw, n = fw * fh;
-        for (let i = 0, k = 0; i < n; i++, k += 4) {
-            const hh = fH[i];
-            if (hh < .03) { D8[k + 3] = 0; continue; }
-            let r = fR[i], g = fG[i], b = fB[i];
-            const c = fC[i];
-            if (c > .28) {
-                const lum = .3 * r + .59 * g + .11 * b, t0 = Math.min(1, Math.max(0, (c - .4) / .14)), t = t0 * t0 * (3 - 2 * t0);
-                // в светлой краске ячейка темнее (проступает нижний слой), в тёмной — светлее
-                const cr = lum > .55 ? r * .55 + .05 : r * .45 + .45, cg = lum > .55 ? g * .55 + .05 : g * .45 + .45,
-                    cb = lum > .55 ? b * .55 + .08 : b * .45 + .45;
-                r += (cr - r) * t; g += (cg - g) * t; b += (cb - b) * t;
-                const rim = Math.max(0, 1 - Math.abs(c - .4) / .08) * .5;
-                r *= 1 - rim; g *= 1 - rim; b *= 1 - rim;
+        const D8 = fImg.data, w = fw, h = fh, OW = W, OH = H, inv = 1 / FS;
+        for (let y = 0, k = 0; y < OH; y++) {
+            const gy = Math.min(h - 1.001, Math.max(0, (y + .5) * inv - .5)), y0 = gy | 0, fy = gy - y0;
+            for (let x = 0; x < OW; x++, k += 4) {
+                const gx = Math.min(w - 1.001, Math.max(0, (x + .5) * inv - .5)), x0 = gx | 0, fx = gx - x0;
+                const i = y0 * w + x0, w00 = (1 - fx) * (1 - fy), w10 = fx * (1 - fy), w01 = (1 - fx) * fy, w11 = fx * fy;
+                const h00 = fH[i], h10 = fH[i + 1], h01 = fH[i + w], h11 = fH[i + w + 1];
+                const hh = h00 * w00 + h10 * w10 + h01 * w01 + h11 * w11;
+                if (hh < .03) { D8[k + 3] = 0; continue; }
+                // цвет — с весом толщины, чтобы у края не подмешивалась пустота
+                const a00 = w00 * h00, a10 = w10 * h10, a01 = w01 * h01, a11 = w11 * h11, sa = a00 + a10 + a01 + a11 || 1;
+                let r = (fR[i] * a00 + fR[i + 1] * a10 + fR[i + w] * a01 + fR[i + w + 1] * a11) / sa;
+                let g = (fG[i] * a00 + fG[i + 1] * a10 + fG[i + w] * a01 + fG[i + w + 1] * a11) / sa;
+                let b = (fB[i] * a00 + fB[i + 1] * a10 + fB[i + w] * a01 + fB[i + w + 1] * a11) / sa;
+                const c = (fC[i] * a00 + fC[i + 1] * a10 + fC[i + w] * a01 + fC[i + w + 1] * a11) / sa;
+                if (c > .3) {
+                    const t0 = Math.min(1, Math.max(0, (c - .42) / .12)), t = t0 * t0 * (3 - 2 * t0);
+                    r += (1 - r) * .45 * t; g += (1 - g) * .45 * t; b += (1 - b) * .45 * t;
+                    const rim = Math.max(0, 1 - Math.abs(c - .42) / .07) * .3;
+                    r *= 1 - rim; g *= 1 - rim; b *= 1 - rim;
+                }
+                const lit = 1 + Math.max(-.06, Math.min(.06, (h00 - h11) * .3));
+                D8[k] = Math.min(255, r * 255 * lit); D8[k + 1] = Math.min(255, g * 255 * lit); D8[k + 2] = Math.min(255, b * 255 * lit);
+                // край краски — чёткий, как у настоящей лужи
+                const e = Math.min(1, Math.max(0, (hh - .03) / .07));
+                D8[k + 3] = e * e * (3 - 2 * e) * 255;
             }
-            const up = i > w ? fH[i - w - 1] : hh, lit = 1 + Math.max(-.1, Math.min(.1, (up - hh) * .35));
-            D8[k] = Math.min(255, r * 255 * lit); D8[k + 1] = Math.min(255, g * 255 * lit); D8[k + 2] = Math.min(255, b * 255 * lit);
-            // край краски — чёткий, как у настоящей лужи: толщина выше порога — краска целиком
-            const e = Math.min(1, Math.max(0, (hh - .03) / .09));
-            D8[k + 3] = e * e * (3 - 2 * e) * 255;
         }
         fctx.putImageData(fImg, 0, 0);
         ctx.save();
