@@ -23,6 +23,7 @@
     <meta property="og:locale" content="ru_RU">
     <meta name="twitter:card" content="summary_large_image">
     <link rel="preload" as="image" href="assets/stills/s/img_05.jpg" media="(max-width: 600px)">
+    <script>window.__viewH = () => { const v = window.visualViewport; return v ? Math.round(v.height * v.scale) : innerHeight; };</script>
     <link rel="preload" as="image" href="assets/stills/img_05.jpg" media="(min-width: 601px)">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2228,7 +2229,10 @@
 
             clips.forEach(v => v.addEventListener('seeked', () => schedule()));
 
-            const range = () => Math.max(1, journey.offsetHeight - innerHeight);
+            // Высота окна — без щипкового увеличения: при нём Chrome на Android отдаёт в innerHeight высоту увеличенной
+            // части, длина пролёта росла, и докрученная страница считалась недокрученной — галерея пропадала
+            // (возвращалась последняя картина) и переставала отвечать на касания.
+            const range = () => Math.max(1, journey.offsetHeight - window.__viewH() - 2);  // 2 px запаса: высота округлена
             const progress = () => Math.min(1, Math.max(0, (scrollY - journey.offsetTop) / range()));
             const goTo = raw => scrollTo({ top: journey.offsetTop + raw * range(), behavior });
             // Середина «покоя» картины i: она уже на экране, следующая ещё не проявилась.
@@ -2965,7 +2969,7 @@
         // приближает её); у первой и последней картины отпускает страницу.
         const journeyEnd = () => {
             const j = document.querySelector('.journey');
-            return j.offsetTop + j.offsetHeight - innerHeight;
+            return j.offsetTop + j.offsetHeight - window.__viewH();
         };
         // Галерея на экране — когда влёт доигран (window.__inGallery ставит пролёт), а не когда страница
         // докручена: клип влёта ещё играет, а лишние щелчки колеса листали бы картины под ним.
