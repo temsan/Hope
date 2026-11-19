@@ -2252,14 +2252,35 @@
             // __clipsDone — сигнал галерее: клипы скачаны или пролёт дошёл до последней картины, можно грузить её.
             let clipsDone;
             window.__clipsDone = new Promise(r => { clipsDone = r; });
+            // Safari на iPhone почти не качает видео, пока его не запустили: перемотка просит кадры по сети по одному,
+            // пролёт упирается в загрузку и уходит в растворение. Там клип берём целиком файлом (они по 0,1–0,8 МБ),
+            // а видео один раз запускаем и сразу ставим на паузу — после этого кадры перемотки рисуются.
+            const IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+            function prime(v) {
+                if (v.dataset.primed || !v.src) return;
+                v.dataset.primed = 1;
+                const p = v.play();
+                if (p) p.then(() => v.pause(), () => { delete v.dataset.primed; });
+            }
+            function attach(v) {
+                if (v.dataset.on) return;
+                v.dataset.on = 1;
+                if (!IOS) { v.src = v.dataset.src; return; }
+                fetch(v.dataset.src).then(r => { if (!r.ok) throw r.status; return r.blob(); })
+                    .then(b => { v.src = URL.createObjectURL(b); v.dataset.done = 1; prime(v); schedule(); warm(Math.max(0, shown)); },
+                        () => { v.src = v.dataset.src; v.dataset.done = 1; prime(v); warm(Math.max(0, shown)); });
+            }
+            // в режиме энергосбережения запуск без касания запрещён — пробуем снова на первом касании
+            if (IOS) addEventListener('touchend', () => clips.forEach(prime), { passive: true });
             const loaded = v => v.dataset.done || (v.buffered.length && v.buffered.end(v.buffered.length - 1) >= v.duration - .1);
             function warm(index) {
                 arts.forEach((img, i) => { if (i >= index && i <= index + 2 && !img.src) img.src = img.dataset.src; });
                 const again = () => warm(Math.max(0, shown));
-                const next = clips.map((_, k) => clips[(index + k) % clips.length]).find(v => !v.src || !loaded(v));
+                const next = clips.map((_, k) => clips[(index + k) % clips.length]).find(v => !v.dataset.on || !loaded(v));
                 if (!next) return clipsDone();
-                if (!next.src) {
-                    next.src = next.dataset.src;
+                if (!next.dataset.on) {
+                    attach(next);
+                    if (IOS) return;  // очередь продолжит конец загрузки файла
                     // браузер дальше не качает или не может открыть клип — очередь идёт дальше
                     const skip = () => { next.dataset.done = 1; again(); };
                     next.addEventListener('suspend', skip, { once: true });
@@ -2300,7 +2321,7 @@
                     if (goal - i <= CLIP_FROM - .05) break;
                     // Дошли до перехода раньше, чем его клип встал в очередь загрузки, — качаем его сейчас же,
                     // не дожидаясь предыдущих: иначе на медленной сети вместо клипа было бы растворение.
-                    if (!c.src) c.src = c.dataset.src;
+                    attach(c);
                     if (goal - i <= CLIP_FROM || dissolve === i || c.error || loaded(c)) continue;
                     if (c !== stallClip) { stallClip = c; lastHave = -1; }
                     const have = c.buffered.length ? c.buffered.end(c.buffered.length - 1) : 0;
