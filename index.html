@@ -2557,12 +2557,14 @@
             const shiftMag = sinF * 18;
             const ox = Math.round(shiftMag * Math.cos(TILT));
             const oy = Math.round(-shiftMag * Math.sin(TILT));
-            const a0 = (0.06 + illum * 0.22).toFixed(2);
-            const a1 = (0.03 + illum * 0.14).toFixed(2);
-            const a2 = (0.01 + illum * 0.08).toFixed(2);
-            const r0 = Math.round(20 + illum * 35);
-            const r1 = Math.round(50 + illum * 80);
-            const r2 = Math.round(100 + illum * 160);
+            // свечение меняется ступенями по 1/25 освещённости: три широкие тени дороги, а глазу шаг не виден
+            const il = Math.round(illum * 25) / 25;
+            const a0 = (0.06 + il * 0.22).toFixed(3);
+            const a1 = (0.03 + il * 0.14).toFixed(3);
+            const a2 = (0.01 + il * 0.08).toFixed(3);
+            const r0 = Math.round(20 + il * 35);
+            const r1 = Math.round(50 + il * 80);
+            const r2 = Math.round(100 + il * 160);
             // три широкие тени перерисовывают большой кусок неба — меняем их, только когда они заметно сдвинулись
             const sh = `${ox}px ${oy}px ${r0}px rgba(210,225,255,${a0}), ` +
               `${ox}px ${oy}px ${r1}px rgba(190,210,255,${a1}), ` +
@@ -2575,8 +2577,8 @@
             if (window.__sceneryPaused) { requestAnimationFrame(tick); return; }  // под пролётом не видна
             if (!start) start = ts;
             // старт с полнолуния: f=0.5 → p=-1 → trx=R, но тень=0 (полнолуние)
-            // фаза за кадр почти не меняется (полный круг — 30 с): тень с размытием перерисовываем 6 раз в секунду
-            if (ts - drawn >= 160) { drawn = ts; draw((0.5 + ((ts - start) % PERIOD) / PERIOD) % 1); }
+            // тень с размытием — 30 раз в секунду: реже граница тени ползёт скачками и луна «мелькает»
+            if (ts - drawn >= 32) { drawn = ts; draw((0.5 + ((ts - start) % PERIOD) / PERIOD) % 1); }
             requestAnimationFrame(tick);
           }
           requestAnimationFrame(tick);
