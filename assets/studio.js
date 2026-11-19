@@ -386,7 +386,6 @@ html.studio-on body>*:not(.studio){visibility:hidden}
         angle = 0;
         cv.style.transform = sv.style.transform = '';
         if (typeof fluidReset === 'function') fluidReset();
-        spinK = 1;
     }
 
     // Кисть. Касание — мягкий отпечаток: плотная середина, растушёванный край и след щетины. Мазок — пучок
@@ -582,7 +581,7 @@ html.studio-on body>*:not(.studio){visibility:hidden}
     }
 
     // Масштаб: колесо мыши — к курсору, щипок двумя пальцами — к середине между ними (и сдвиг вслед за пальцами).
-    let zoom = 1, panX = 0, panY = 0, spinK = 1;
+    let zoom = 1, panX = 0, panY = 0;
     function applyView() {
         zoom = Math.min(5, Math.max(1, zoom));
         const mx = W * (zoom - 1) / 2, my = H * (zoom - 1) / 2;
@@ -611,7 +610,7 @@ html.studio-on body>*:not(.studio){visibility:hidden}
 
     // Точка экрана → точка холста с учётом масштаба вида, поворота и того, что на ходу холст чуть отъезжает.
     function toBoard(e) {
-        const [cx0, cy0] = wrapCenter(), cx = cx0 + panX, cy = cy0 + panY, k = zoom * spinK;
+        const [cx0, cy0] = wrapCenter(), cx = cx0 + panX, cy = cy0 + panY, k = zoom;
         const dx = (e.clientX - cx) / k, dy = (e.clientY - cy) / k, a = shownAngle(), c = Math.cos(-a), s = Math.sin(-a);
         return [W / 2 + dx * c - dy * s, H / 2 + dx * s + dy * c];
     }
@@ -808,10 +807,9 @@ html.studio-on body>*:not(.studio){visibility:hidden}
             omega = (angle - was) / Math.max(dt, 1e-3);
             if (rest - angle < .003) { angle = rest; omega = 0; }
         }
-        // на ходу холст чуть отъезжает (в «проявке» он стоит на месте)
-        const k = 1 - .3 * Math.min(1, omega / 4), turning = omega && mode === 'spin';
-        cv.style.transform = sv.style.transform = turning ? `rotate(${angle}rad) scale(${k.toFixed(3)})` : '';
-        spinK = turning ? k : 1;
+        // на ходу холст только вращается, масштаб тот же (в «проявке» он стоит на месте)
+        const turning = omega && mode === 'spin';
+        cv.style.transform = sv.style.transform = turning ? `rotate(${angle}rad)` : '';
         flow(dt);
         if (drawing && brush && hand) brushTo(hand);
         if (omega > 0 || now < spinUntil) raf = requestAnimationFrame(tick);
