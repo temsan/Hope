@@ -132,7 +132,14 @@ html.studio-on body>*:not(.studio){visibility:hidden}
 .studio .size[aria-pressed=true]{border-color:#efe7d8}
 .studio .close{position:absolute;top:1rem;right:1.2rem;background:none;border:0;color:#efe7d8b0;font-size:1.6rem;cursor:pointer;line-height:1}
 @media (max-width:760px){
-  .studio{grid-template-columns:1fr;grid-template-rows:auto auto auto;align-content:center;gap:.8rem}
+  .studio{grid-template-columns:1fr;grid-template-rows:auto auto auto;align-content:start;gap:.8rem;
+    padding:max(.8rem,env(safe-area-inset-top)) 0 max(1.2rem,env(safe-area-inset-bottom));overflow-y:auto;overscroll-behavior:contain}
+  .studio .board-wrap{width:100vw}
+  .studio .side{padding-inline:.6rem}
+  /* вращающиеся углы холста уходят под панели, а не поверх них; справа от кнопок — место крестику */
+  .studio .side,.studio .toolbar{position:relative;z-index:1}
+  .studio .toolbar{padding-right:2rem}
+  .studio .close{top:max(.9rem,env(safe-area-inset-top));right:.25rem;width:2rem;padding:0;text-align:center;z-index:2}
   .studio .tools{gap:.4rem}
   .studio .mode{padding:0;width:2.35rem;justify-content:center}
   .studio .mode .lbl,.studio .instant .lbl{display:none}
@@ -250,7 +257,8 @@ html.studio-on body>*:not(.studio){visibility:hidden}
     const rnd = (a, b) => a + (b - a) * Math.random();
     function layout() {
         const narrow = innerWidth <= 760;
-        const maxH = narrow ? innerHeight * (innerHeight < 700 ? .36 : .5) : innerHeight * .76, maxW = narrow ? innerWidth * .92 : innerWidth * .6;
+        // на телефоне холст во всю ширину экрана; панели под ним листаются
+        const maxH = narrow ? innerHeight * .78 : innerHeight * .76, maxW = narrow ? innerWidth : innerWidth * .6;
         const ar = SHAPES[shape].ar, h = Math.min(maxH, maxW / ar), w = h * ar;
         root.dataset.shape = shape;
         const nd = Math.min(2, devicePixelRatio || 1);
@@ -1273,7 +1281,7 @@ html.studio-on body>*:not(.studio){visibility:hidden}
         layout();
         if (!particles.length && !root.dataset.used) { clearBoard(); root.dataset.used = 1; }
         requestAnimationFrame(() => root.classList.add('open'));
-        $('.paint').focus();
+        $('.paint').focus({ preventScroll: true }); root.scrollTop = 0;  // панель листается: открываемся сверху, с кнопками и холстом
     }
     function close() {
         root.classList.remove('open');

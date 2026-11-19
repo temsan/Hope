@@ -2492,7 +2492,9 @@
 
           let off = null, shadow = '';
           function draw(f) {
-            const S = cv.offsetWidth * (window.devicePixelRatio || 1);
+            // размер холста — целое число точек: у Pixel плотность 2,625, и дробный размер пересоздавал холст
+            // (пустой на миг) при каждой перерисовке — луна мигала
+            const S = Math.max(1, Math.round(cv.offsetWidth * (window.devicePixelRatio || 1)));
             if (cv.width !== S) { cv.width = S; cv.height = S; }
             const ctx = cv.getContext('2d');
             const R = S / 2, cx = R, cy = R;
